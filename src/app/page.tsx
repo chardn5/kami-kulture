@@ -5,18 +5,28 @@ const LAUNCH_UTC = "2025-09-15T04:00:00Z"; // set your target UTC launch
 
 function useCountdown(targetIso: string) {
   const target = useMemo(() => new Date(targetIso).getTime(), [targetIso]);
-  const [now, setNow] = useState(Date.now());
-  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []);
+
+  // Start with null so SSR renders a stable placeholder
+  const [now, setNow] = useState<number | null>(null);
+  const [year, setYear] = useState<number | null>(null);
+  useEffect(() => setYear(new Date().getFullYear()), []);
+
+  if (now === null) {
+    // render zeros until mounted to avoid SSR/CSR mismatch
+    return { ready: false, d: 0, h: 0, m: 0, s: 0 };
+  }
+
   const diff = Math.max(0, target - now);
   const d = Math.floor(diff / 86400000);
   const h = Math.floor((diff / 3600000) % 24);
   const m = Math.floor((diff / 60000) % 60);
   const s = Math.floor((diff / 1000) % 60);
-  return { d, h, m, s };
+  return { ready: true, d, h, m, s };
 }
 
+
 export default function Home() {
-  const { d, h, m, s } = useCountdown(LAUNCH_UTC);
+  const { ready, d, h, m, s } = useCountdown(LAUNCH_UTC);
 
   return (
     <main className="min-h-screen bg-black text-white bg-grid relative overflow-hidden">
@@ -34,14 +44,17 @@ export default function Home() {
 
         {/* Countdown */}
         <div className="mt-8 grid grid-cols-4 gap-3">
-          {[
-            ["Days", d], ["Hours", h], ["Minutes", m], ["Seconds", s],
-          ].map(([label, val]) => (
-            <div key={label as string} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-              <div className="text-3xl font-extrabold">{String(val).padStart(2, "0")}</div>
-              <div className="mt-1 text-xs tracking-wide text-white/60">{label}</div>
-            </div>
-          ))}
+        {[
+  ["Days", d], ["Hours", h], ["Minutes", m], ["Seconds", s],
+].map(([label, val]) => (
+  <div key={label as string} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+    {/* suppressHydrationWarning avoids a warning if a tick slips in during hydration */}
+    <div className="text-3xl font-extrabold" suppressHydrationWarning>
+      {String(val as number).padStart(2, "0")}
+    </div>
+    <div className="mt-1 text-xs tracking-wide text-white/60">{label}</div>
+  </div>
+))}
         </div>
 
         {/* Email capture (Formspree) */}
