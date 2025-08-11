@@ -8,9 +8,7 @@ export default function Privacy() {
         We collect your email only to notify you about launch updates and new drops.
         We never sell your data. You can unsubscribe at any time via the link in our emails.
       </p>
-      <p className="mt-4 text-white/60 text-sm">
-        For questions, contact us at hello@kamikulture.com
-      </p>
+      <p className="mt-4 text-white/60 text-sm">Contact: hello@kamikulture.com</p>
     </main>
   );
 }
