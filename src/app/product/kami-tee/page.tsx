@@ -1,10 +1,10 @@
 'use client';
 
 import { PayPalScriptProvider, PayPalButtons } from '@paypal/react-paypal-js';
-import type { PayPalScriptOptions } from '@paypal/react-paypal-js';
+import type { ReactPayPalScriptOptions } from '@paypal/react-paypal-js';
 
-const options: PayPalScriptOptions = {
-  clientId: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID ?? '', // must be a string
+const options: ReactPayPalScriptOptions = {
+  clientId: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID ?? '',
   currency: 'USD',
   intent: 'capture',
 };
@@ -12,7 +12,7 @@ const options: PayPalScriptOptions = {
 export default function KamiTeePage() {
   return (
     <main className="mx-auto max-w-3xl px-4 py-12">
-      {/* ...product UI... */}
+      <h1 className="text-3xl font-bold">Kami Tee</h1>
       <div className="mt-4">
         <PayPalScriptProvider options={options}>
           <PayPalButtons
