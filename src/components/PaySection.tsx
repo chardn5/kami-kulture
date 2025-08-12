@@ -14,13 +14,13 @@ export default function PaySection() {
       <p className="text-sm text-neutral-600">US-only, PayPal checkout</p>
 
       <div className="mt-4">
-        <PayPalScriptProvider
-          options={{
-            'client-id': process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID!,
-            currency: 'USD',
-            intent: 'capture',
-          }}
-        >
+      <PayPalScriptProvider
+  options={{
+    clientId: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID ?? '',
+    currency: 'USD',
+    intent: 'capture',
+  }}
+>
           <PayPalButtons
             style={{ layout: 'vertical' }}
             createOrder={async () => {

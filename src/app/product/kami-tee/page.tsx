@@ -4,7 +4,7 @@ import { PayPalScriptProvider, PayPalButtons } from '@paypal/react-paypal-js';
 import type { ReactPayPalScriptOptions } from '@paypal/react-paypal-js';
 
 const options: ReactPayPalScriptOptions = {
-  clientId: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID ?? 'AQZOPq6P2KwuDeAAWN2FDTytXuE7VkH8_MCfuvP8CyOTnS4UZSaC1pbk1y2I_8GCFa6qX-bVSktszrET',
+  clientId: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID ?? '',
   currency: 'USD',
   intent: 'capture',
 };
