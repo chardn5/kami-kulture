@@ -8,11 +8,20 @@ type PaypalCapture = {
   payer?: { email_address?: string };
   payment_source?: { paypal?: { email_address?: string } };
   status?: string;
-  [k: string]: any;
-};
+} & Record<string, unknown>; // <- not `any`
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null;
+}
+
+function getPayerEmail(capture: unknown): string | null {
+  if (!isRecord(capture)) return null;
+  const c = capture as PaypalCapture;
+  return (
+    c.payer?.email_address ??
+    c.payment_source?.paypal?.email_address ??
+    null
+  );
 }
 
 export async function POST(req: NextRequest) {
@@ -22,22 +31,19 @@ export async function POST(req: NextRequest) {
     const emailOverride = isRecord(raw) && typeof raw.emailOverride === 'string' ? raw.emailOverride : null;
     if (!orderID) return NextResponse.json({ error: 'INVALID_ORDER_ID' }, { status: 400 });
 
-    const capture = (await captureOrder(orderID)) as PaypalCapture;
+    const capture = (await captureOrder(orderID)) as unknown; // keep as unknown
     console.log('PAYPAL_CAPTURE', JSON.stringify(capture));
 
-    // Pull a real address (override for sandbox), then fall back to env
     const toEmail =
       emailOverride ||
-      capture.payer?.email_address ||
-      capture.payment_source?.paypal?.email_address ||
-      process.env.ORDER_TO_EMAIL || // <-- matches your email.ts
+      getPayerEmail(capture) ||
+      process.env.ORDER_TO_EMAIL ||
       'orders@kamikulture.com';
 
-    // IMPORTANT: await the email send
     await emailOrderJSON(`Kami Kulture Order ${orderID}`, capture, { to: toEmail });
 
-    return NextResponse.json({ ok: true, orderID, capture }, { status: 200 });
-  } catch (err: unknown) {
+    return NextResponse.json({ ok: true, orderID }, { status: 200 });
+  } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error('/api/paypal/capture-order', message);
     return NextResponse.json({ error: 'CAPTURE_FAILED' }, { status: 500 });
