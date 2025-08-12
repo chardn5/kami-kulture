@@ -4,33 +4,49 @@ import { emailOrderJSON } from '@/lib/email';
 
 export const runtime = 'nodejs';
 
-// Return 404 unless EMAIL_DEBUG=1. Optionally require a header key too.
 function guard(req: NextRequest): NextResponse | null {
   if (process.env.EMAIL_DEBUG !== '1') {
-    // Hide the route entirely when debug is off
     return new NextResponse('Not found', { status: 404 });
   }
-  const requiredKey = process.env.TEST_EMAIL_KEY; // optional extra lock
+  const requiredKey = process.env.TEST_EMAIL_KEY;
   if (requiredKey && req.headers.get('x-test-key') !== requiredKey) {
     return new NextResponse('Forbidden', { status: 403 });
   }
   return null;
 }
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
+
 export async function POST(req: NextRequest) {
   const blocked = guard(req);
   if (blocked) return blocked;
 
-  const body = await req.json().catch(() => ({} as any));
-  const to = body?.to || process.env.ORDER_TO_EMAIL || 'you@example.com';
-  const subject = body?.subject || 'Kami Kulture test';
-  const html = body?.html as string | undefined;
+  let body: unknown = {};
+  try {
+    body = await req.json();
+  } catch {
+    // ignore
+  }
+
+  const to =
+    isRecord(body) && typeof body.to === 'string'
+      ? body.to
+      : process.env.ORDER_TO_EMAIL || 'you@example.com';
+
+  const subject =
+    isRecord(body) && typeof body.subject === 'string'
+      ? body.subject
+      : 'Kami Kulture test';
+
+  const html =
+    isRecord(body) && typeof body.html === 'string' ? (body.html as string) : undefined;
 
   const res = await emailOrderJSON(subject, { ping: 'ok', ts: Date.now() }, { to, html });
   return NextResponse.json({ ok: true, res });
 }
 
-// Handy GET so you can hit it from a browser:
 export async function GET(req: NextRequest) {
   const blocked = guard(req);
   if (blocked) return blocked;
