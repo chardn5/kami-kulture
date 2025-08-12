@@ -1,4 +1,3 @@
-// components/PaySection.tsx
 'use client';
 
 import { useState } from 'react';
@@ -42,10 +41,7 @@ export default function PaySection() {
                 const r = await fetch('/api/paypal/capture-order', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    orderID: data.orderID,
-                    // no emailOverride → server uses ORDER_TO_EMAIL
-                  }),
+                  body: JSON.stringify({ orderID: data.orderID }),
                 });
                 const out = await r.json();
                 if (!r.ok || !out.ok) throw new Error(out.error || 'Capture failed');
@@ -56,10 +52,7 @@ export default function PaySection() {
                 setStatus('Payment error. Please try again.');
               }
             }}
-            onError={(err) => {
-              console.error(err);
-              setStatus('Payment error. Please try again.');
-            }}
+            onError={() => setStatus('Payment error. Please try again.')}
           />
         </PayPalScriptProvider>
       </div>
