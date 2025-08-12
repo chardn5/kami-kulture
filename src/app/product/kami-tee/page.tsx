@@ -1,58 +1,41 @@
 'use client';
 
 import { PayPalScriptProvider, PayPalButtons } from '@paypal/react-paypal-js';
-import { useState } from 'react';
+import type { PayPalScriptOptions } from '@paypal/react-paypal-js';
 
-export default function PaySection() {
-  const [status, setStatus] = useState('');
+const options: PayPalScriptOptions = {
+  clientId: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID ?? '', // must be a string
+  currency: 'USD',
+  intent: 'capture',
+};
 
+export default function KamiTeePage() {
   return (
-    <section className="mt-10 rounded-lg border p-6">
-      <h2 className="text-xl font-semibold">Kami Tee — $29</h2>
-      <p className="text-sm text-neutral-600">US-only, PayPal checkout</p>
-
+    <main className="mx-auto max-w-3xl px-4 py-12">
+      {/* ...product UI... */}
       <div className="mt-4">
-        <PayPalScriptProvider
-          options={{
-            'client-id': process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID!,
-            currency: 'USD',
-            intent: 'capture',
-          }}
-        >
+        <PayPalScriptProvider options={options}>
           <PayPalButtons
             style={{ layout: 'vertical' }}
             createOrder={async () => {
-              setStatus('Creating order…');
-              const res = await fetch('/api/paypal/create-order', {
+              const r = await fetch('/api/paypal/create-order', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ product: 'kami-tee', qty: 1 }),
               });
-              if (!res.ok) throw new Error('Create failed');
-              const data = (await res.json()) as { id: string };
-              setStatus('Opening PayPal…');
-              return data.id;
+              const { id } = await r.json();
+              return id;
             }}
             onApprove={async (data) => {
-              setStatus('Capturing payment…');
-              const res = await fetch('/api/paypal/capture-order', {
+              await fetch('/api/paypal/capture-order', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ orderID: data.orderID }),
               });
-              const out = await res.json();
-              if (!res.ok || !out.ok) throw new Error('Capture failed');
-              setStatus('Payment captured ✅ Check your email & logs.');
-            }}
-            onError={(err) => {
-              console.error(err);
-              setStatus('Payment error. Please try again.');
             }}
           />
         </PayPalScriptProvider>
       </div>
-
-      {status && <p className="mt-3 text-sm text-neutral-700">{status}</p>}
-    </section>
+    </main>
   );
 }
