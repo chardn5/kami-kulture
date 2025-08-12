@@ -1,8 +1,9 @@
+// components/PaySection.tsx
 'use client';
 
-import { PayPalScriptProvider, PayPalButtons } from '@paypal/react-paypal-js';
-import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { PayPalScriptProvider, PayPalButtons } from '@paypal/react-paypal-js';
 
 export default function PaySection() {
   const [status, setStatus] = useState('');
@@ -14,13 +15,13 @@ export default function PaySection() {
       <p className="text-sm text-neutral-600">US-only, PayPal checkout</p>
 
       <div className="mt-4">
-      <PayPalScriptProvider
-  options={{
-    clientId: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID ?? '',
-    currency: 'USD',
-    intent: 'capture',
-  }}
->
+        <PayPalScriptProvider
+          options={{
+            clientId: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || '',
+            currency: 'USD',
+            intent: 'capture',
+          }}
+        >
           <PayPalButtons
             style={{ layout: 'vertical' }}
             createOrder={async () => {
@@ -33,25 +34,28 @@ export default function PaySection() {
               if (!r.ok) throw new Error('Create failed');
               const { id } = await r.json();
               setStatus('Opening PayPal…');
-              return id;
+              return id as string;
             }}
-            // onApprove in PaySection
-            onApprove={async (data) => {
-              setStatus('Capturing payment…');
-              const r = await fetch('/api/paypal/capture-order', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  orderID: data.orderID,
-                  emailOverride: 'kamikulture99@gmail.com', // real inbox for sandbox tests
-                }),
-              });
-              const out = await r.json();
-              if (!r.ok || !out.ok) throw new Error(out.error || 'Capture failed');
-              router.push(`/thank-you?orderID=${encodeURIComponent(data.orderID)}`);
+            onApprove={async (data: { orderID: string }) => {
+              try {
+                setStatus('Capturing payment…');
+                const r = await fetch('/api/paypal/capture-order', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    orderID: data.orderID,
+                    // no emailOverride → server uses ORDER_TO_EMAIL
+                  }),
+                });
+                const out = await r.json();
+                if (!r.ok || !out.ok) throw new Error(out.error || 'Capture failed');
+                setStatus(out.emailSent ? 'Payment captured ✅' : 'Payment captured (email pending) ✅');
+                router.push(`/thank-you?orderID=${encodeURIComponent(data.orderID)}`);
+              } catch (e) {
+                console.error(e);
+                setStatus('Payment error. Please try again.');
+              }
             }}
-            
-
             onError={(err) => {
               console.error(err);
               setStatus('Payment error. Please try again.');
