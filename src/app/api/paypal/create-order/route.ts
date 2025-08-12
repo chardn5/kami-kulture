@@ -1,16 +1,23 @@
-// src/app/api/paypal/create-order/route.ts
-import { NextResponse } from "next/server";
-import { createPaypalOrderServer } from "@/lib/paypal";
+// app/api/paypal/create-order/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+import { createOrder } from '@/lib/paypal';
 
-const PRODUCT_PRICE_USD = "24.99";
+export const runtime = 'nodejs';
 
-export async function POST() {
+export async function POST(req: NextRequest) {
   try {
-    const order = await createPaypalOrderServer(PRODUCT_PRICE_USD);
-    // order.id exists in PayPal response
-    return NextResponse.json({ id: (order as { id: string }).id });
-  } catch (e) {
-    const message = e instanceof Error ? e.message : "error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const body = (await req.json()) as unknown;
+    const { product, qty } = ((): { product: 'kami-tee'; qty: number } => {
+      if (typeof body === 'object' && body !== null && (body as any).product === 'kami-tee') {
+        const q = Number((body as any).qty ?? 1);
+        return { product: 'kami-tee', qty: Number.isFinite(q) && q > 0 ? q : 1 };
+      }
+      return { product: 'kami-tee', qty: 1 };
+    })();
+    const order = await createOrder(product, qty);
+    return NextResponse.json({ id: order.id, status: order.status }, { status: 200 });
+  } catch (err) {
+    console.error('/api/paypal/create-order', err);
+    return NextResponse.json({ error: 'CREATE_FAILED' }, { status: 500 });
   }
 }

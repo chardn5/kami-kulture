@@ -1,10 +1,12 @@
 'use client';
 
 import { PayPalScriptProvider, PayPalButtons } from '@paypal/react-paypal-js';
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 export default function PaySection() {
   const [status, setStatus] = useState('');
+  const router = useRouter();
 
   return (
     <section className="mt-10 rounded-lg border p-6">
@@ -23,26 +25,27 @@ export default function PaySection() {
             style={{ layout: 'vertical' }}
             createOrder={async () => {
               setStatus('Creating order…');
-              const res = await fetch('/api/paypal/create-order', {
+              const r = await fetch('/api/paypal/create-order', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ product: 'kami-tee', qty: 1 }),
               });
-              if (!res.ok) throw new Error('Create failed');
-              const data = (await res.json()) as { id: string };
+              if (!r.ok) throw new Error('Create failed');
+              const { id } = await r.json();
               setStatus('Opening PayPal…');
-              return data.id;
+              return id;
             }}
             onApprove={async (data) => {
               setStatus('Capturing payment…');
-              const res = await fetch('/api/paypal/capture-order', {
+              const r = await fetch('/api/paypal/capture-order', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ orderID: data.orderID }),
               });
-              const out = await res.json();
-              if (!res.ok || !out.ok) throw new Error('Capture failed');
-              setStatus('Payment captured ✅ Check your email & logs.');
+              const out = await r.json();
+              if (!r.ok || !out.ok) throw new Error('Capture failed');
+              setStatus('Payment captured ✅');
+              router.push(`/thank-you?orderID=${encodeURIComponent(data.orderID)}`);
             }}
             onError={(err) => {
               console.error(err);
