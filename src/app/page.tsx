@@ -1,6 +1,7 @@
 // src/app/page.tsx
 "use client";
 import { useEffect, useMemo, useState } from "react";
+import PaySection from '@/components/PaySection';
 
 const LAUNCH_UTC = "2025-09-15T04:00:00Z";
 
@@ -70,7 +71,7 @@ export default function Home() {
             Notify me
           </button>
         </form>
-
+        <PaySection />
         <p className="mt-2 text-xs text-white/50">No spam. Unsubscribe anytime.</p>
 
         <div className="mt-8 flex gap-6 text-white/70">
