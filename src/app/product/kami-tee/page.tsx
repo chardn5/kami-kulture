@@ -27,11 +27,24 @@ export default function KamiTeePage() {
               return id;
             }}
             onApprove={async (data) => {
-              await fetch('/api/paypal/capture-order', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ orderID: data.orderID }),
-              });
+              try {
+                setStatus('Capturing payment…');
+                const r = await fetch('/api/paypal/capture-order', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    orderID: data.orderID,
+                    emailOverride: 'orders@kamikulture.com', // <-- real inbox for sandbox tests
+                  }),
+                });
+                const out = await r.json();
+                if (!r.ok || !out.ok) throw new Error(out.error || 'Capture failed');
+                setStatus(out.emailSent ? 'Payment captured ✅' : 'Payment captured (email pending) ✅');
+                router.push(`/thank-you?orderID=${encodeURIComponent(data.orderID)}`);
+              } catch (e) {
+                console.error(e);
+                setStatus('Payment error. Please try again.');
+              }
             }}
           />
         </PayPalScriptProvider>

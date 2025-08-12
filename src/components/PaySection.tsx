@@ -36,22 +36,21 @@ export default function PaySection() {
               return id;
             }}
             // onApprove in PaySection
-onApprove={async (data, actions) => {
-  setStatus('Capturing payment…');
-  await actions.order!.capture();
-  const r = await fetch('/api/paypal/capture-order', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      orderID: data.orderID,
-      emailOverride: 'orders@kamikulture.com', // real inbox for sandbox tests
-    }),
-  });
-  const out = await r.json();
-  if (!r.ok || !out.ok) throw new Error('Capture failed');
-  setStatus('Payment captured ✅');
-  router.push(`/thank-you?orderID=${encodeURIComponent(data.orderID)}`);
-}}
+            onApprove={async (data) => {
+              setStatus('Capturing payment…');
+              const r = await fetch('/api/paypal/capture-order', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  orderID: data.orderID,
+                  emailOverride: 'kamikulture99@gmail.com', // real inbox for sandbox tests
+                }),
+              });
+              const out = await r.json();
+              if (!r.ok || !out.ok) throw new Error(out.error || 'Capture failed');
+              router.push(`/thank-you?orderID=${encodeURIComponent(data.orderID)}`);
+            }}
+            
 
             onError={(err) => {
               console.error(err);

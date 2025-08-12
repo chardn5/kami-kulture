@@ -88,3 +88,20 @@ export async function captureOrder(orderID: string) {
   if (!res.ok) throw new Error(`PayPal capture error: ${res.status} ${await res.text()}`);
   return (await res.json()) as CaptureOrderResponse;
 }
+
+export async function showOrder(orderId: string) {
+  const base = process.env.PAYPAL_ENV === 'sandbox'
+    ? 'https://api.sandbox.paypal.com'
+    : 'https://api-m.paypal.com';
+
+  // reuse your existing getAccessToken() logic
+  const token = await getAccessToken();
+
+  const res = await fetch(`${base}/v2/checkout/orders/${orderId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: 'no-store',
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(`Show order failed: ${res.status} ${JSON.stringify(json)}`);
+  return json;
+}
