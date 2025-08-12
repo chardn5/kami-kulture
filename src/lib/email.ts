@@ -1,3 +1,4 @@
+// lib/email.ts
 import 'server-only';
 import { Resend } from 'resend';
 
@@ -11,14 +12,19 @@ export async function emailOrderJSON(
   const to = opts?.to || process.env.ORDER_TO_EMAIL!;
   const from = process.env.EMAIL_FROM!;
 
-  const res = await resend.emails.send({
+  const { data, error } = await resend.emails.send({
     from,
     to,
     subject,
     text: JSON.stringify(json, null, 2),
-    html: opts?.html || `<pre>${JSON.stringify(json, null, 2)}</pre>`
+    html: opts?.html || `<pre>${JSON.stringify(json, null, 2)}</pre>`,
   });
 
-  console.log("EMAIL_SEND_OK", res?.id || res);
-  return res;
+  if (error) {
+    console.error('EMAIL_SEND_FAIL', error);
+    throw new Error(error.message || 'Resend send failed');
+  }
+
+  console.log('EMAIL_SEND_OK', data?.id);
+  return { id: data?.id };
 }
