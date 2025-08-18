@@ -1,34 +1,32 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { PayPalScriptProvider, PayPalButtons } from '@paypal/react-paypal-js';
-import type { ReactPayPalScriptOptions } from '@paypal/react-paypal-js';
-import { formatPrice } from '@/lib/format';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 
 type Props = {
-  itemTitle?: string;
-  amount?: number;   // in USD
-  sku?: string;      // product slug / SKU
+  itemTitle: string;
+  amount: number;     // USD
+  sku: string;        // product slug
 };
 
-const scriptOptions: ReactPayPalScriptOptions = {
-  clientId: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || '',
-  currency: 'USD',
-  intent: 'capture',
-};
-
-export default function PaySection({ itemTitle = 'Kami Tee', amount = 29, sku = 'kami-tee' }: Props) {
+export default function PaySection({ itemTitle, amount, sku }: Props) {
   const [status, setStatus] = useState('');
   const router = useRouter();
 
   return (
-    <section className="mt-10 rounded-lg border p-6">
-      <h2 className="text-xl font-semibold">{itemTitle} — {formatPrice(amount)}</h2>
-      <p className="text-sm text-neutral-600">US-only, PayPal checkout</p>
+    <section className="mt-8 rounded-lg border border-white/10 p-4">
+      <h2 className="text-sm font-semibold text-white">{itemTitle} — ${amount.toFixed(2)}</h2>
+      <p className="text-xs text-slate-400">US-only, PayPal checkout</p>
 
-      <div className="mt-4">
-        <PayPalScriptProvider options={scriptOptions}>
+      <div className="mt-3">
+        <PayPalScriptProvider
+          options={{
+            clientId: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID ?? '',
+            currency: 'USD',
+            intent: 'capture',
+          }}
+        >
           <PayPalButtons
             style={{ layout: 'vertical' }}
             createOrder={async () => {
@@ -40,16 +38,16 @@ export default function PaySection({ itemTitle = 'Kami Tee', amount = 29, sku = 
                   product: sku,
                   title: itemTitle,
                   amount,
+                  qty: 1,
                   currency: 'USD',
-                  qty: 1
                 }),
               });
               if (!r.ok) throw new Error('Create failed');
               const { id } = await r.json();
               setStatus('Opening PayPal…');
-              return id as string;
+              return id;
             }}
-            onApprove={async (data: { orderID: string }) => {
+            onApprove={async (data) => {
               try {
                 setStatus('Capturing payment…');
                 const r = await fetch('/api/paypal/capture-order', {
@@ -59,19 +57,22 @@ export default function PaySection({ itemTitle = 'Kami Tee', amount = 29, sku = 
                 });
                 const out = await r.json();
                 if (!r.ok || !out.ok) throw new Error(out.error || 'Capture failed');
-                setStatus(out.emailSent ? 'Payment captured ✅' : 'Payment captured (email pending) ✅');
+                setStatus('Payment captured ✅');
                 router.push(`/thank-you?orderID=${encodeURIComponent(data.orderID)}`);
-              } catch (e) {
-                console.error(e);
+              } catch (err) {
+                console.error(err);
                 setStatus('Payment error. Please try again.');
               }
             }}
-            onError={() => setStatus('Payment error. Please try again.')}
+            onError={(err) => {
+              console.error(err);
+              setStatus('Payment error. Please try again.');
+            }}
           />
         </PayPalScriptProvider>
       </div>
 
-      {status && <p className="mt-3 text-sm text-neutral-700">{status}</p>}
+      {status && <p className="mt-2 text-xs text-slate-300">{status}</p>}
     </section>
   );
 }

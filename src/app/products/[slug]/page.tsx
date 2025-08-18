@@ -3,7 +3,9 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { products } from '@/data/products';
 import { formatPrice } from '@/lib/format';
-// import PaySection from '@/components/PaySection'; // if you use it on the page
+
+// ✅ import the client component directly (it already has `use client`)
+import PaySection from '@/components/PaySection';
 
 export function generateStaticParams() {
   return products.map(p => ({ slug: p.slug }));
@@ -76,11 +78,11 @@ export default async function ProductPage({
             </div>
           ) : null}
 
-          {/* If you want PayPal here:
+          {
           <div className="mt-8">
             <PaySection itemTitle={product.title} amount={product.price} sku={product.slug} />
           </div>
-          */}
+          }
         </div>
       </div>
 
