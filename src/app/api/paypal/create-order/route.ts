@@ -1,42 +1,61 @@
+// /app/api/paypal/create-order/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { createOrder } from '@/lib/paypal';
+import { getAccessToken } from '@/lib/paypal'; // or however you obtain tokens
 
-export const runtime = 'nodejs';
-
-type CreateBody = { product: 'kami-tee'; qty?: number };
-
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null;
-}
-
-async function parseCreateBody(req: NextRequest): Promise<CreateBody> {
-  let raw: unknown;
-  try {
-    raw = await req.json();
-  } catch {
-    return { product: 'kami-tee', qty: 1 };
-  }
-  if (!isRecord(raw)) return { product: 'kami-tee', qty: 1 };
-
-  const product = raw['product'] === 'kami-tee' ? 'kami-tee' : 'kami-tee';
-  const qtyNum =
-    typeof raw['qty'] === 'number'
-      ? raw['qty']
-      : typeof raw['qty'] === 'string'
-      ? Number(raw['qty'])
-      : 1;
-
-  return { product, qty: Number.isFinite(qtyNum) && qtyNum > 0 ? qtyNum : 1 };
-}
+const PP_BASE = process.env.PAYPAL_ENV === 'sandbox'
+  ? 'https://api.sandbox.paypal.com'
+  : 'https://api-m.paypal.com';
 
 export async function POST(req: NextRequest) {
   try {
-    const { product, qty } = await parseCreateBody(req);
-    const order = await createOrder(product, qty ?? 1);
-    return NextResponse.json({ id: order.id, status: order.status }, { status: 200 });
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error('/api/paypal/create-order', message);
-    return NextResponse.json({ error: 'CREATE_FAILED' }, { status: 500 });
+    const body = await req.json();
+    const title = (body?.title as string) || 'Kami Tee';
+    const amountNum = Number(body?.amount) || 29;
+    const currency = (body?.currency as string) || 'USD';
+    const qty = Number(body?.qty) || 1;
+    const sku = (body?.product as string) || 'kami-tee';
+
+    const token = await getAccessToken();
+
+    const createRes = await fetch(`${PP_BASE}/v2/checkout/orders`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        intent: 'CAPTURE',
+        purchase_units: [
+          {
+            items: [
+              {
+                name: title,
+                sku,
+                unit_amount: { currency_code: currency, value: amountNum.toFixed(2) },
+                quantity: String(qty),
+              },
+            ],
+            amount: {
+              currency_code: currency,
+              value: (amountNum * qty).toFixed(2),
+              breakdown: {
+                item_total: { currency_code: currency, value: (amountNum * qty).toFixed(2) },
+              },
+            },
+          },
+        ],
+      }),
+    });
+
+    const json = await createRes.json();
+    if (!createRes.ok) {
+      console.error('PAYPAL_CREATE_FAIL', json);
+      return NextResponse.json({ ok: false, error: 'CREATE_FAILED' }, { status: 400 });
+    }
+
+    return NextResponse.json({ ok: true, id: json.id });
+  } catch (e) {
+    console.error('/api/paypal/create-order', e);
+    return NextResponse.json({ ok: false, error: 'CREATE_FAILED' }, { status: 500 });
   }
 }

@@ -3,24 +3,32 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { PayPalScriptProvider, PayPalButtons } from '@paypal/react-paypal-js';
+import type { ReactPayPalScriptOptions } from '@paypal/react-paypal-js';
+import { formatPrice } from '@/lib/format';
 
-export default function PaySection() {
+type Props = {
+  itemTitle?: string;
+  amount?: number;   // in USD
+  sku?: string;      // product slug / SKU
+};
+
+const scriptOptions: ReactPayPalScriptOptions = {
+  clientId: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || '',
+  currency: 'USD',
+  intent: 'capture',
+};
+
+export default function PaySection({ itemTitle = 'Kami Tee', amount = 29, sku = 'kami-tee' }: Props) {
   const [status, setStatus] = useState('');
   const router = useRouter();
 
   return (
     <section className="mt-10 rounded-lg border p-6">
-      <h2 className="text-xl font-semibold">Kami Tee — $29</h2>
+      <h2 className="text-xl font-semibold">{itemTitle} — {formatPrice(amount)}</h2>
       <p className="text-sm text-neutral-600">US-only, PayPal checkout</p>
 
       <div className="mt-4">
-        <PayPalScriptProvider
-          options={{
-            clientId: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || '',
-            currency: 'USD',
-            intent: 'capture',
-          }}
-        >
+        <PayPalScriptProvider options={scriptOptions}>
           <PayPalButtons
             style={{ layout: 'vertical' }}
             createOrder={async () => {
@@ -28,7 +36,13 @@ export default function PaySection() {
               const r = await fetch('/api/paypal/create-order', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ product: 'kami-tee', qty: 1 }),
+                body: JSON.stringify({
+                  product: sku,
+                  title: itemTitle,
+                  amount,
+                  currency: 'USD',
+                  qty: 1
+                }),
               });
               if (!r.ok) throw new Error('Create failed');
               const { id } = await r.json();
