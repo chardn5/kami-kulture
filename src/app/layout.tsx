@@ -1,22 +1,22 @@
-import type { Metadata } from 'next';
-import './globals.css';
-import Navbar from '@/components/Navbar';
-import { Inter, Bebas_Neue } from 'next/font/google';
-
-const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
-const bebas = Bebas_Neue({ weight: '400', subsets: ['latin'], variable: '--font-brand' });
+import type { Metadata } from "next";
+import "./globals.css";
+import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
+import SandboxBanner from "@/components/SandboxBanner";
 
 export const metadata: Metadata = {
-  title: { default: 'Kami Kulture', template: '%s • Kami Kulture' },
-  description: 'Anime-inspired memes & quotes on premium tees— printed on demand.',
+  title: "Kami Kulture",
+  description: "Anime-inspired memes & quotes on premium tees — printed on demand.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${inter.variable} ${bebas.variable}`}>
-      <body className="kk-grid min-h-dvh font-sans text-slate-200">
+    <html lang="en">
+      <body className="min-h-screen bg-[#0B0F19] text-white antialiased">
+        <SandboxBanner />
         <Navbar />
-        {children}
+        <main className="mx-auto max-w-6xl px-4">{children}</main>
+        <Footer />
       </body>
     </html>
   );
