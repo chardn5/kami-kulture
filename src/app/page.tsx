@@ -6,7 +6,7 @@ import { products } from "@/data/products";
 export const dynamic = "force-static";
 
 export default function HomePage() {
-  const featured = products.filter((p) => p.featured).slice(0, 8);
+  const featured = products.slice(0, 8);
 
   return (
     <div className="pb-20">
