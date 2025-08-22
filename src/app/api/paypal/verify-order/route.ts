@@ -68,29 +68,37 @@ export async function POST(req: NextRequest) {
 
     // Optional email via Resend (if configured)
     try {
-      const inbox = process.env.ORDERS_INBOX || "orders@kamikulture.com";
-      if (process.env.RESEND_API_KEY) {
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const { Resend } = require("resend");
-        const resend = new Resend(process.env.RESEND_API_KEY);
-        await resend.emails.send({
-          from: "orders@kamikulture.com",
-          to: [inbox, order.payer?.email_address].filter(Boolean),
-          subject: `Kami Kulture Order ${order.id}`,
-          text: [
-            `Order: ${order.id}`,
-            `Status: ${status}`,
-            `Amount: ${amt?.toFixed(2)} ${currency}`,
-            `Custom ID: ${pu?.custom_id ?? "-"}`,
-            `Payer: ${(order.payer?.name?.given_name ?? "") + " " + (order.payer?.name?.surname ?? "")}`.trim(),
-            `Email: ${order.payer?.email_address ?? "-"}`,
-            `Captures: ${pu?.payments?.captures?.map(c => c.id).join(", ") || "-"}`,
-          ].join("\n"),
-        });
-      }
-    } catch (e) {
-      console.error("Email send failed", e);
-    }
+  const inbox = process.env.ORDERS_INBOX || "orders@kamikulture.com";
+  const to: string[] = [inbox];
+
+  if (order.payer?.email_address) to.push(order.payer.email_address);
+
+  const body = [
+    `Order: ${order.id}`,
+    `Status: ${status}`,
+    `Amount: ${amt?.toFixed(2)} ${currency}`,
+    `Custom ID: ${pu?.custom_id ?? "-"}`,
+    `Payer: ${(order.payer?.name?.given_name ?? "") + " " + (order.payer?.name?.surname ?? "")}`.trim(),
+    `Email: ${order.payer?.email_address ?? "-"}`,
+    `Captures: ${pu?.payments?.captures?.map(c => c.id).join(", ") || "-"}`,
+  ].join("\n");
+
+  if (process.env.RESEND_API_KEY) {
+    // ✅ dynamic ESM import (lint-safe)
+    const { Resend } = await import("resend");
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    await resend.emails.send({
+      from: "orders@kamikulture.com",
+      to,
+      subject: `Kami Kulture Order ${order.id}`,
+      text: body,
+    });
+  } else {
+    console.log("[verify-order] Email skipped; RESEND_API_KEY not set\n" + body);
+  }
+} catch (e) {
+  console.error("Email send failed", e);
+}
 
     return NextResponse.json({
       ok: true,
