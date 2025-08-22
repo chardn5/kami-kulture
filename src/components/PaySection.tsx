@@ -11,6 +11,29 @@ type PaySectionProps = {
   sku?: string;
 };
 
+/* --------- Minimal PayPal SDK types (enough for our usage) --------- */
+type PayPalOrderActions = {
+  create: (input: unknown) => Promise<string>;
+  capture: () => Promise<unknown>;
+};
+
+type PayPalButtonsOptions = {
+  style?: Record<string, unknown>;
+  createOrder: (data: unknown, actions: { order: PayPalOrderActions }) => Promise<string> | string;
+  onApprove: (data: unknown, actions: { order: PayPalOrderActions }) => Promise<void> | void;
+  onError?: (err: unknown) => void;
+};
+
+type PayPalButtonsInstance = {
+  render: (container: HTMLElement) => void;
+  close?: () => void;
+};
+
+type PayPalSDK = {
+  Buttons: (opts: PayPalButtonsOptions) => PayPalButtonsInstance;
+};
+/* ------------------------------------------------------------------- */
+
 export default function PaySection({
   amount,
   productTitle,
@@ -21,7 +44,7 @@ export default function PaySection({
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const w = typeof window !== 'undefined' ? (window as any) : undefined;
+    const w = typeof window !== 'undefined' ? (window as unknown as { paypal?: PayPalSDK }) : undefined;
     const paypal = w?.paypal;
     const container = containerRef.current;
     if (!paypal || !container) return;
@@ -36,7 +59,7 @@ export default function PaySection({
 
     const buttons = paypal.Buttons({
       style: { shape: 'pill', label: 'paypal', layout: 'horizontal' },
-      createOrder: (_data: any, actions: any) =>
+      createOrder: (_data, actions) =>
         actions.order.create({
           intent: 'CAPTURE',
           purchase_units: [
@@ -57,17 +80,20 @@ export default function PaySection({
             },
           ],
         }),
-      onApprove: async (_data: any, actions: any) => {
+      onApprove: async (_data, actions) => {
         try {
           const details = await actions.order.capture();
+          // eslint-disable-next-line no-console
           console.log('Approved:', details);
           alert('Payment captured in sandbox. (Check console for details)');
         } catch (e) {
+          // eslint-disable-next-line no-console
           console.error(e);
           alert('Capture failed in sandbox.');
         }
       },
-      onError: (err: any) => {
+      onError: (err) => {
+        // eslint-disable-next-line no-console
         console.error('PayPal error', err);
         alert('PayPal error in sandbox.');
       },
@@ -79,7 +105,7 @@ export default function PaySection({
       try {
         buttons.close?.();
       } catch {
-        /* noop */
+        /* no-op */
       }
     };
   }, [amount, productTitle, selectedSize, productSlug, sku]);
