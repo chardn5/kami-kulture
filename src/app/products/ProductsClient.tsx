@@ -11,8 +11,10 @@ type Product = {
   price: number;
   description?: string;
   images?: string[];
-  tags?: string[];                 // <-- add this
+  tags?: string[];
   createdAt?: string | number | Date;
+  rating?: number;       // 0–5 (optional)
+  ratingCount?: number;  // optional
 };
 
 type Props = {
@@ -20,7 +22,14 @@ type Props = {
   categories: string[];
 };
 
-type SortKey = 'price-asc' | 'price-desc' | 'newest';
+type SortKey =
+  | 'newest'
+  | 'price-asc'
+  | 'price-desc'
+  | 'alpha-asc'
+  | 'alpha-desc'
+  | 'rating-desc'
+  | 'rating-asc';
 
 export default function ProductsClient({ initialProducts, categories }: Props) {
   const [query, setQuery] = useState('');
@@ -38,12 +47,35 @@ export default function ProductsClient({ initialProducts, categories }: Props) {
     });
 
     list = [...list].sort((a, b) => {
-      if (sort === 'price-asc') return a.price - b.price;
-      if (sort === 'price-desc') return b.price - a.price;
-      const da = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-      const db = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-      if (db !== da) return db - da;
-      return a.title.localeCompare(b.title);
+      switch (sort) {
+        case 'price-asc':
+          return a.price - b.price;
+        case 'price-desc':
+          return b.price - a.price;
+        case 'alpha-asc':
+          return a.title.localeCompare(b.title);
+        case 'alpha-desc':
+          return b.title.localeCompare(a.title);
+        case 'rating-desc': {
+          const ra = typeof a.rating === 'number' ? a.rating : -1;
+          const rb = typeof b.rating === 'number' ? b.rating : -1;
+          if (rb !== ra) return rb - ra; // high → low
+          return a.title.localeCompare(b.title);
+        }
+        case 'rating-asc': {
+          const ra = typeof a.rating === 'number' ? a.rating : Number.POSITIVE_INFINITY;
+          const rb = typeof b.rating === 'number' ? b.rating : Number.POSITIVE_INFINITY;
+          if (ra !== rb) return ra - rb; // low → high
+          return a.title.localeCompare(b.title);
+        }
+        default: {
+          // newest first (fallback stable)
+          const da = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const db = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          if (db !== da) return db - da;
+          return a.title.localeCompare(b.title);
+        }
+      }
     });
 
     return list;
@@ -92,8 +124,12 @@ export default function ProductsClient({ initialProducts, categories }: Props) {
             className="rounded-xl bg-neutral-950 px-3 py-2 text-sm ring-1 ring-white/10 focus:outline-none focus:ring-2 focus:ring-emerald-400"
           >
             <option value="newest">Newest</option>
+            <option value="alpha-asc">Alphabetical: A → Z</option>
+            <option value="alpha-desc">Alphabetical: Z → A</option>
             <option value="price-asc">Price: Low → High</option>
             <option value="price-desc">Price: High → Low</option>
+            <option value="rating-desc">Rating: High → Low</option>
+            <option value="rating-asc">Rating: Low → High</option>
           </select>
         </div>
       </div>
@@ -118,7 +154,10 @@ export default function ProductsClient({ initialProducts, categories }: Props) {
         <ul className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
           {filtered.map((p) => (
             <li key={p.slug} className="group rounded-2xl bg-neutral-900/70 p-3 ring-1 ring-white/10">
-              <Link href={`/products/${p.slug}`} className="block focus:outline-none focus:ring-2 focus:ring-emerald-400 rounded-xl">
+              <Link
+                href={`/products/${p.slug}`}
+                className="block focus:outline-none focus:ring-2 focus:ring-emerald-400 rounded-xl"
+              >
                 <div className="relative mb-2 aspect-square w-full overflow-hidden rounded-lg">
                   <Image
                     src={p.images?.[0] ?? '/placeholder.jpg'}
@@ -130,6 +169,13 @@ export default function ProductsClient({ initialProducts, categories }: Props) {
                 </div>
                 <p className="truncate text-sm text-white">{p.title}</p>
                 <p className="text-xs text-neutral-400">{formatPrice(p.price)}</p>
+
+                {typeof p.rating === 'number' && (
+                  <div className="mt-1 flex items-center gap-1" aria-label={`Rated ${p.rating} out of 5`}>
+                    <Stars rating={p.rating} />
+                    <span className="text-[11px] text-neutral-500">({p.ratingCount ?? 0})</span>
+                  </div>
+                )}
               </Link>
             </li>
           ))}
@@ -145,5 +191,50 @@ function EmptyState() {
       <p className="text-sm">No products match your filters.</p>
       <p className="text-xs">Try clearing the search or choosing a different tag.</p>
     </div>
+  );
+}
+
+/** Accessible 5-star display with half-star support */
+function Stars({ rating }: { rating: number }) {
+  const full = Math.floor(rating);
+  const half = rating - full >= 0.5;
+  const empty = 5 - full - (half ? 1 : 0);
+
+  return (
+    <span className="inline-flex items-center">
+      {Array.from({ length: full }).map((_, i) => (
+        <Star key={`f${i}`} type="full" />
+      ))}
+      {half && <Star type="half" />}
+      {Array.from({ length: empty }).map((_, i) => (
+        <Star key={`e${i}`} type="empty" />
+      ))}
+    </span>
+  );
+}
+
+function Star({ type }: { type: 'full' | 'half' | 'empty' }) {
+  // simple inline SVG; no color classes for consistency with dark theme
+  if (type === 'half') {
+    return (
+      <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" className="shrink-0">
+        <defs>
+          <linearGradient id="half">
+            <stop offset="50%" stopColor="currentColor" />
+            <stop offset="50%" stopColor="transparent" />
+          </linearGradient>
+        </defs>
+        <path fill="url(#half)" stroke="currentColor" d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>
+      </svg>
+    );
+  }
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" className="shrink-0">
+      <path
+        fill={type === 'full' ? 'currentColor' : 'none'}
+        stroke="currentColor"
+        d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"
+      />
+    </svg>
   );
 }

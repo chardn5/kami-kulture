@@ -12,7 +12,9 @@ export const products = [
     designId: "over9000",
     tags: ["tee","cotton","unisex"],
     sizes: ["S","M","L","XL","2XL"],
-    colors: ["Black", "Navy Blue", "White"]
+    colors: ["Black", "Navy Blue", "White"],
+    rating: 5.0,
+    ratingCount: 10,
   },
   {
     slug: "sorryimlate",
@@ -23,6 +25,8 @@ export const products = [
     designId: "sorryimlate",
     tags: ["tee","cotton","unisex"],
     sizes: ["S","M","L","XL","2XL"],
-    colors: ["White", "Pink", "Red"]
+    colors: ["White", "Pink", "Red"],
+    rating: 4.5,
+    ratingCount: 10,
   }
 ];
