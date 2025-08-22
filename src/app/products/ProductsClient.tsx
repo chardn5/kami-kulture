@@ -11,8 +11,8 @@ type Product = {
   price: number;
   description?: string;
   images?: string[];
-  category?: string;
-  createdAt?: string | number | Date; // optional; used for "Newest" sort if present
+  tags?: string[];                 // <-- add this
+  createdAt?: string | number | Date;
 };
 
 type Props = {
@@ -31,7 +31,7 @@ export default function ProductsClient({ initialProducts, categories }: Props) {
     const q = query.trim().toLowerCase();
 
     let list = initialProducts.filter(p => {
-      const inCat = category === 'all' || p.category === category;
+      const inCat = category === 'all' || (p.tags?.includes(category) ?? false);
       if (!q) return inCat;
       const hay = `${p.title} ${p.description ?? ''}`.toLowerCase();
       return inCat && hay.includes(q);
@@ -40,8 +40,6 @@ export default function ProductsClient({ initialProducts, categories }: Props) {
     list = [...list].sort((a, b) => {
       if (sort === 'price-asc') return a.price - b.price;
       if (sort === 'price-desc') return b.price - a.price;
-
-      // newest first (fallback to title to keep deterministic order)
       const da = a.createdAt ? new Date(a.createdAt).getTime() : 0;
       const db = b.createdAt ? new Date(b.createdAt).getTime() : 0;
       if (db !== da) return db - da;
@@ -76,7 +74,7 @@ export default function ProductsClient({ initialProducts, categories }: Props) {
                 onChange={(e) => setCategory(e.target.value)}
                 className="rounded-xl bg-neutral-950 px-3 py-2 text-sm ring-1 ring-white/10 focus:outline-none focus:ring-2 focus:ring-emerald-400"
               >
-                <option value="all">All categories</option>
+                <option value="all">All</option>
                 {categories.map((c) => (
                   <option key={c} value={c}>{c}</option>
                 ))}
@@ -102,16 +100,10 @@ export default function ProductsClient({ initialProducts, categories }: Props) {
 
       {/* Results header */}
       <div className="flex items-center justify-between text-sm text-neutral-400">
-        <span>
-          {filtered.length} result{filtered.length === 1 ? '' : 's'}
-        </span>
+        <span>{filtered.length} result{filtered.length === 1 ? '' : 's'}</span>
         {(query || category !== 'all' || sort !== 'newest') && (
           <button
-            onClick={() => {
-              setQuery('');
-              setCategory('all');
-              setSort('newest');
-            }}
+            onClick={() => { setQuery(''); setCategory('all'); setSort('newest'); }}
             className="rounded-lg px-2 py-1 text-neutral-300 underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-emerald-400"
           >
             Reset
@@ -126,10 +118,7 @@ export default function ProductsClient({ initialProducts, categories }: Props) {
         <ul className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
           {filtered.map((p) => (
             <li key={p.slug} className="group rounded-2xl bg-neutral-900/70 p-3 ring-1 ring-white/10">
-              <Link
-                href={`/products/${p.slug}`}
-                className="block focus:outline-none focus:ring-2 focus:ring-emerald-400 rounded-xl"
-              >
+              <Link href={`/products/${p.slug}`} className="block focus:outline-none focus:ring-2 focus:ring-emerald-400 rounded-xl">
                 <div className="relative mb-2 aspect-square w-full overflow-hidden rounded-lg">
                   <Image
                     src={p.images?.[0] ?? '/placeholder.jpg'}
@@ -154,7 +143,7 @@ function EmptyState() {
   return (
     <div className="rounded-2xl border border-dashed border-white/10 p-10 text-center text-neutral-400">
       <p className="text-sm">No products match your filters.</p>
-      <p className="text-xs">Try clearing the search or choosing a different category.</p>
+      <p className="text-xs">Try clearing the search or choosing a different tag.</p>
     </div>
   );
 }
