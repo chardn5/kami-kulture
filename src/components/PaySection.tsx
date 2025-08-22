@@ -1,78 +1,117 @@
+// /src/components/PaySection.tsx
 'use client';
 
-import { PayPalScriptProvider, PayPalButtons } from '@paypal/react-paypal-js';
-import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useRef } from 'react';
 
-type Props = {
-  itemTitle: string;
-  amount: number;     // USD
-  sku: string;        // product slug
+// If you're using @paypal/paypal-js:
+// import { loadScript } from "@paypal/paypal-js";
+
+type PaySectionProps = {
+  amount: number; // in your store currency
+  productTitle: string;
+  selectedSize?: string;
+  productSlug?: string;
+  sku?: string;
 };
 
-export default function PaySection({ itemTitle, amount, sku }: Props) {
-  const [status, setStatus] = useState('');
-  const router = useRouter();
+declare global {
+  interface Window {
+    paypal: any;
+  }
+}
+
+export default function PaySection({
+  amount,
+  productTitle,
+  selectedSize,
+  productSlug,
+  sku,
+}: PaySectionProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // Re-render buttons when size changes so description/custom_id stays in sync
+    if (!window.paypal || !containerRef.current) return;
+
+    containerRef.current.innerHTML = '';
+
+    const description = `${productTitle}${selectedSize ? ` - Size: ${selectedSize}` : ''}`;
+    const customId = [
+      'KK',
+      productSlug ?? '',
+      selectedSize ?? '',
+      sku ?? '',
+      // random suffix to avoid duplication in sandbox
+      Math.random().toString(36).slice(2, 8),
+    ]
+      .filter(Boolean)
+      .join(':');
+
+    window.paypal
+      .Buttons({
+        style: {
+          shape: 'pill',
+          label: 'paypal',
+          layout: 'horizontal',
+        },
+        createOrder: (_data: any, actions: any) => {
+          return actions.order.create({
+            intent: 'CAPTURE',
+            purchase_units: [
+              {
+                custom_id: customId, // helpful for backoffice
+                description,
+                amount: {
+                  currency_code: 'USD',
+                  value: amount.toFixed(2),
+                },
+                items: [
+                  {
+                    name: productTitle,
+                    description,
+                    sku: sku ?? selectedSize ?? 'NA',
+                    unit_amount: {
+                      currency_code: 'USD',
+                      value: amount.toFixed(2),
+                    },
+                    quantity: '1',
+                    category: 'PHYSICAL_GOODS',
+                  },
+                ],
+              },
+            ],
+          });
+        },
+        onApprove: async (_data: any, actions: any) => {
+          try {
+            const details = await actions.order.capture();
+            // Optional: fire your own API call / webhook here
+            // fetch('/api/order', { method: 'POST', body: JSON.stringify(details) })
+            // For now, just log:
+            console.log('Approved:', details);
+            alert('Payment captured in sandbox. (Check console for details)');
+          } catch (e) {
+            console.error(e);
+            alert('Capture failed in sandbox.');
+          }
+        },
+        onError: (err: any) => {
+          console.error('PayPal error', err);
+          alert('PayPal error in sandbox.');
+        },
+      })
+      .render(containerRef.current);
+  }, [amount, productTitle, selectedSize, productSlug, sku]);
 
   return (
-    <section className="mt-8 rounded-lg border border-white/10 p-4">
-      <h2 className="text-sm font-semibold text-white">{itemTitle} — ${amount.toFixed(2)}</h2>
-      <p className="text-xs text-slate-400">US-only, PayPal checkout</p>
-
-      <div className="mt-3">
-        <PayPalScriptProvider
-          options={{
-            clientId: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID ?? '',
-            currency: 'USD',
-            intent: 'capture',
-          }}
-        >
-          <PayPalButtons
-            style={{ layout: 'vertical' }}
-            createOrder={async () => {
-              setStatus('Creating order…');
-              const r = await fetch('/api/paypal/create-order', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  product: sku,
-                  title: itemTitle,
-                  amount,
-                  qty: 1,
-                  currency: 'USD',
-                }),
-              });
-              if (!r.ok) throw new Error('Create failed');
-              const { id } = await r.json();
-              setStatus('Opening PayPal…');
-              return id;
-            }}
-            onApprove={async (data) => {
-              try {
-                setStatus('Capturing payment…');
-                const r = await fetch('/api/paypal/capture-order', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ orderID: data.orderID }),
-                });
-                const out = await r.json();
-                if (!r.ok || !out.ok) throw new Error(out.error || 'Capture failed');
-                setStatus('Payment captured ✅');
-                router.push(`/thank-you?orderID=${encodeURIComponent(data.orderID)}`);
-              } catch (err) {
-                console.error(err);
-                setStatus('Payment error. Please try again.');
-              }
-            }}
-            onError={(err) => {
-              console.error(err);
-              setStatus('Payment error. Please try again.');
-            }}
-          />
-        </PayPalScriptProvider>
-      </div>
-
-      {status && <p className="mt-2 text-xs text-slate-300">{status}</p>}
-    </section>
+    <div className="space-y-2">
+      {selectedSize && (
+        <p className="text-sm text-neutral-300">
+          Selected size: <span className="font-medium text-white">{selectedSize}</span>
+        </p>
+      )}
+      <div ref={containerRef} />
+      <p className="text-xs text-neutral-500">PayPal Sandbox active.</p>
+    </div>
   );
 }
