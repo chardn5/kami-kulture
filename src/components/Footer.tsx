@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function Footer() {
   const year = new Date().getFullYear();
   return (
@@ -7,6 +9,15 @@ export default function Footer() {
         <div className="flex items-center gap-4">
           <a href="mailto:orders@kamikulture.com" className="underline">orders@kamikulture.com</a>
           <span aria-hidden>•</span>
+          <Link href="/privacy" className="hover:text-white focus:outline-none focus:ring-2 focus:ring-emerald-400 rounded">
+            Privacy
+          </Link>
+          <Link href="/terms" className="hover:text-white focus:outline-none focus:ring-2 focus:ring-emerald-400 rounded">
+            Terms
+          </Link>
+          <Link href="/shipping-returns" className="hover:text-white focus:outline-none focus:ring-2 focus:ring-emerald-400 rounded">
+            Shipping & Returns
+          </Link>
           <a href="https://facebook.com" target="_blank" rel="noreferrer" className="hover:text-white">Facebook</a>
           <a href="https://instagram.com" target="_blank" rel="noreferrer" className="hover:text-white">Instagram</a>
           <a href="https://x.com" target="_blank" rel="noreferrer" className="hover:text-white">X</a>
