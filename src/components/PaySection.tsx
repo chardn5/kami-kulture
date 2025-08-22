@@ -103,26 +103,18 @@ export default function PaySection({
         buttons = paypal.Buttons({
           style: { shape: 'pill', label: 'paypal', layout: 'horizontal' },
           createOrder: (_data, actions) =>
-            actions.order.create({
-              intent: 'CAPTURE',
-              purchase_units: [
-                {
-                  custom_id: customId,
-                  description,
-                  amount: { currency_code: 'USD', value: amount.toFixed(2) },
-                  items: [
-                    {
-                      name: productTitle,
-                      description,
-                      sku: sku ?? selectedSize ?? 'NA',
-                      unit_amount: { currency_code: 'USD', value: amount.toFixed(2) },
-                      quantity: '1',
-                      category: 'PHYSICAL_GOODS',
-                    },
-                  ],
-                },
-              ],
-            }),
+  actions.order.create({
+    intent: 'CAPTURE',
+    purchase_units: [
+      {
+        custom_id: customId,
+        description,
+        amount: { currency_code: 'USD', value: amount.toFixed(2) },
+        // keep it minimal; remove items to avoid schema mismatches
+      },
+    ],
+  }),
+
           onApprove: async (_data, actions) => {
             try {
               const details = await actions.order.capture();
@@ -148,10 +140,13 @@ export default function PaySection({
             }
           },
           onError: (err) => {
-            // eslint-disable-next-line no-console
-            console.error('PayPal error', err);
-            alert('PayPal error in sandbox.');
-          },
+  // eslint-disable-next-line no-console
+  console.error('PayPal onError', err);
+  const msg =
+    (typeof err === 'object' && err && 'message' in err && (err as any).message) ||
+    (typeof err === 'string' ? err : '');
+  alert(`PayPal error in sandbox.${msg ? `\n\n${msg}` : ''}`);
+},
         });
 
         buttons.render(container);
