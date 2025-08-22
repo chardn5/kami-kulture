@@ -32,8 +32,8 @@ type PayPalButtonsInstance = {
 type PayPalSDK = {
   Buttons: (opts: PayPalButtonsOptions) => PayPalButtonsInstance;
 };
+/* ------------------------------------------------------------------- */
 
-/* === Add helper here === */
 // helper to safely extract an order id from PayPal capture details
 function extractOrderID(details: unknown): string {
   const d = details as {
@@ -41,14 +41,35 @@ function extractOrderID(details: unknown): string {
     purchase_units?: { payments?: { captures?: { id: string }[] } }[];
   } | undefined;
 
-  return (
-    d?.id ||
-    d?.purchase_units?.[0]?.payments?.captures?.[0]?.id ||
-    ''
-  );
+  return d?.id || d?.purchase_units?.[0]?.payments?.captures?.[0]?.id || '';
 }
-/* === End helper === */
-/* ------------------------------------------------------------------- */
+
+/** Load the PayPal SDK once and resolve when ready */
+async function loadPayPalSDK(): Promise<PayPalSDK> {
+  const w = window as unknown as { paypal?: PayPalSDK };
+  if (w.paypal) return w.paypal;
+
+  const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID;
+  if (!clientId) {
+    throw new Error('NEXT_PUBLIC_PAYPAL_CLIENT_ID is not set');
+  }
+
+  const src = `https://www.paypal.com/sdk/js?components=buttons&client-id=${encodeURIComponent(
+    clientId
+  )}&currency=USD&intent=capture`;
+
+  await new Promise<void>((resolve, reject) => {
+    const el = document.createElement('script');
+    el.src = src;
+    el.async = true;
+    el.onload = () => resolve();
+    el.onerror = () => reject(new Error('Failed to load PayPal SDK'));
+    document.head.appendChild(el);
+  });
+
+  if (!w.paypal) throw new Error('PayPal SDK loaded but window.paypal is undefined');
+  return w.paypal;
+}
 
 export default function PaySection({
   amount,
@@ -60,74 +81,92 @@ export default function PaySection({
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const w = typeof window !== 'undefined' ? (window as unknown as { paypal?: PayPalSDK }) : undefined;
-    const paypal = w?.paypal;
-    const container = containerRef.current;
-    if (!paypal || !container) return;
+    let cancelled = false;
+    let buttons: PayPalButtonsInstance | null = null;
 
-    // Re-render buttons when size changes
-    container.innerHTML = '';
+    const render = async () => {
+      const container = containerRef.current;
+      if (!container) return;
 
-    const description = `${productTitle}${selectedSize ? ` - Size: ${selectedSize}` : ''}`;
-    const customId = ['KK', productSlug ?? '', selectedSize ?? '', sku ?? '', Math.random().toString(36).slice(2, 8)]
-      .filter(Boolean)
-      .join(':');
+      try {
+        const paypal = await loadPayPalSDK();
+        if (cancelled) return;
 
-    const buttons = paypal.Buttons({
-      style: { shape: 'pill', label: 'paypal', layout: 'horizontal' },
-      createOrder: (_data, actions) =>
-        actions.order.create({
-          intent: 'CAPTURE',
-          purchase_units: [
-            {
-              custom_id: customId,
-              description,
-              amount: { currency_code: 'USD', value: amount.toFixed(2) },
-              items: [
+        // Clear existing buttons before re-render
+        container.innerHTML = '';
+
+        const description = `${productTitle}${selectedSize ? ` - Size: ${selectedSize}` : ''}`;
+        const customId = ['KK', productSlug ?? '', selectedSize ?? '', sku ?? '', Math.random().toString(36).slice(2, 8)]
+          .filter(Boolean)
+          .join(':');
+
+        buttons = paypal.Buttons({
+          style: { shape: 'pill', label: 'paypal', layout: 'horizontal' },
+          createOrder: (_data, actions) =>
+            actions.order.create({
+              intent: 'CAPTURE',
+              purchase_units: [
                 {
-                  name: productTitle,
+                  custom_id: customId,
                   description,
-                  sku: sku ?? selectedSize ?? 'NA',
-                  unit_amount: { currency_code: 'USD', value: amount.toFixed(2) },
-                  quantity: '1',
-                  category: 'PHYSICAL_GOODS',
+                  amount: { currency_code: 'USD', value: amount.toFixed(2) },
+                  items: [
+                    {
+                      name: productTitle,
+                      description,
+                      sku: sku ?? selectedSize ?? 'NA',
+                      unit_amount: { currency_code: 'USD', value: amount.toFixed(2) },
+                      quantity: '1',
+                      category: 'PHYSICAL_GOODS',
+                    },
+                  ],
                 },
               ],
-            },
-          ],
-        }),
-      // inside paypal.Buttons({...})
-onApprove: async (_data, actions) => {
-  try {
-    const details = await actions.order.capture();
-    const orderID = extractOrderID(details);
+            }),
+          onApprove: async (_data, actions) => {
+            try {
+              const details = await actions.order.capture();
+              const orderID = extractOrderID(details);
 
-    // server-side verify (non-blocking for UX)
-    try {
-      await fetch("/api/paypal/verify-order", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId: orderID, expectedAmount: amount }),
-      });
-    } catch (e) {
-      console.error("Verify failed", e);
-    }
+              // Verify on the server (non-blocking UX)
+              try {
+                await fetch('/api/paypal/verify-order', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ orderId: orderID, expectedAmount: amount }),
+                });
+              } catch (e) {
+                // eslint-disable-next-line no-console
+                console.error('Verify failed', e);
+              }
 
-    // Redirect to your existing thank-you page expecting `orderID`
-    window.location.href = `/thank-you?orderID=${encodeURIComponent(orderID)}`;
-  } catch (e) {
-    console.error(e);
-    alert("Capture failed in sandbox.");
-  }
-},
+              window.location.href = `/thank-you?orderID=${encodeURIComponent(orderID)}`;
+            } catch (e) {
+              // eslint-disable-next-line no-console
+              console.error(e);
+              alert('Capture failed in sandbox.');
+            }
+          },
+          onError: (err) => {
+            // eslint-disable-next-line no-console
+            console.error('PayPal error', err);
+            alert('PayPal error in sandbox.');
+          },
+        });
 
-    });
+        buttons.render(container);
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error(err);
+      }
+    };
 
-    buttons.render(container);
+    render();
 
     return () => {
+      cancelled = true;
       try {
-        buttons.close?.();
+        buttons?.close?.();
       } catch {
         /* no-op */
       }
