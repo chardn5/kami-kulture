@@ -1,21 +1,17 @@
-import type { MetadataRoute } from "next";
-import { products } from "@/data/products";
+import type { MetadataRoute } from 'next';
+import { products } from '@/data/products';
+
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://kamikulture.com';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const base = "https://kamikulture.com"; // or your staging URL
-  const now = new Date();
-
-  const staticPages: MetadataRoute.Sitemap = [
-    { url: `${base}/`, lastModified: now },
-    { url: `${base}/products`, lastModified: now },
-    { url: `${base}/privacy`, lastModified: now },
-    { url: `${base}/thank-you`, lastModified: now },
-  ];
-
-  const productPages = products.map((p) => ({
-    url: `${base}/products/${p.slug}`,
-    lastModified: now,
+  const items = products.map((p) => ({
+    url: `${SITE_URL}/products/${p.slug}`,
+    changeFrequency: 'weekly' as const,
+    priority: 0.8,
   }));
-
-  return [...staticPages, ...productPages];
+  return [
+    { url: SITE_URL, changeFrequency: 'weekly', priority: 1 },
+    { url: `${SITE_URL}/products`, changeFrequency: 'weekly', priority: 0.9 },
+    ...items,
+  ];
 }

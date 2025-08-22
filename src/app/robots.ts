@@ -1,13 +1,10 @@
-import type { MetadataRoute } from "next";
+import type { MetadataRoute } from 'next';
+
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://kamikulture.com';
 
 export default function robots(): MetadataRoute.Robots {
-  const host = "https://kamikulture.com"; // change to staging if needed
   return {
-    rules: {
-      userAgent: "*",
-      allow: "/",
-      disallow: ["/api/", "/checkout/"],
-    },
-    sitemap: `${host}/sitemap.xml`,
+    rules: [{ userAgent: '*', allow: '/' }],
+    sitemap: `${SITE_URL}/sitemap.xml`,
   };
 }
