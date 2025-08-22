@@ -32,6 +32,22 @@ type PayPalButtonsInstance = {
 type PayPalSDK = {
   Buttons: (opts: PayPalButtonsOptions) => PayPalButtonsInstance;
 };
+
+/* === Add helper here === */
+// helper to safely extract an order id from PayPal capture details
+function extractOrderID(details: unknown): string {
+  const d = details as {
+    id?: string;
+    purchase_units?: { payments?: { captures?: { id: string }[] } }[];
+  } | undefined;
+
+  return (
+    d?.id ||
+    d?.purchase_units?.[0]?.payments?.captures?.[0]?.id ||
+    ''
+  );
+}
+/* === End helper === */
 /* ------------------------------------------------------------------- */
 
 export default function PaySection({
@@ -80,23 +96,31 @@ export default function PaySection({
             },
           ],
         }),
-      onApprove: async (_data, actions) => {
-        try {
-          const details = await actions.order.capture();
-          // eslint-disable-next-line no-console
-          console.log('Approved:', details);
-          alert('Payment captured in sandbox. (Check console for details)');
-        } catch (e) {
-          // eslint-disable-next-line no-console
-          console.error(e);
-          alert('Capture failed in sandbox.');
-        }
-      },
-      onError: (err) => {
-        // eslint-disable-next-line no-console
-        console.error('PayPal error', err);
-        alert('PayPal error in sandbox.');
-      },
+      // inside paypal.Buttons({...})
+onApprove: async (_data, actions) => {
+  try {
+    const details = await actions.order.capture();
+    const orderID = extractOrderID(details);
+
+    // server-side verify (non-blocking for UX)
+    try {
+      await fetch("/api/paypal/verify-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: orderID, expectedAmount: amount }),
+      });
+    } catch (e) {
+      console.error("Verify failed", e);
+    }
+
+    // Redirect to your existing thank-you page expecting `orderID`
+    window.location.href = `/thank-you?orderID=${encodeURIComponent(orderID)}`;
+  } catch (e) {
+    console.error(e);
+    alert("Capture failed in sandbox.");
+  }
+},
+
     });
 
     buttons.render(container);

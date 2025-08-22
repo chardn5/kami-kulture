@@ -28,19 +28,30 @@ function ThankYouInner() {
       <h1 className="text-3xl font-bold">Thank you! 🎉</h1>
       <p className="mt-2 text-neutral-600">
         Your payment was received
-        {orderID ? <> — Order ID: <span className="font-mono">{orderID}</span></> : null}.
+        {orderID ? (
+  <>
+    {' — '}Order ID: <span className="font-mono">{orderID}</span>
+    <button
+      onClick={() => navigator.clipboard.writeText(orderID)}
+      className="ml-2 inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-neutral-50"
+      aria-label="Copy order ID"
+    >
+      Copy
+    </button>
+  </>
+) : null}.
       </p>
 
       <div className="mt-8">
-        <p className="text-sm text-neutral-700">
-          Returning to home in <span className="font-semibold">{seconds}</span> seconds…
-        </p>
+        <p className="text-sm text-neutral-700" aria-live="polite">
+  Returning to home in <span className="font-semibold">{seconds}</span> seconds…
+</p>
         <div className="mt-3 h-2 w-full rounded bg-neutral-200">
           <div
-            className="h-full rounded bg-black transition-[width] duration-1000 ease-linear"
-            style={{ width: `${pct}%` }}
-            aria-hidden
-          />
+  className="h-full rounded bg-black transition-[width] duration-1000 ease-linear motion-reduce:transition-none"
+  style={{ width: `${pct}%` }}
+  aria-hidden
+/>
         </div>
 
         <div className="mt-6 flex items-center justify-center gap-3">
