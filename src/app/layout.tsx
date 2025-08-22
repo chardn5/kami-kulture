@@ -1,24 +1,33 @@
+// /src/app/layout.tsx
 import type { Metadata } from "next";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://kamikulture.com";
+const DEFAULT_DESC = "Anime-inspired streetwear — premium prints, fast shipping.";
+
 export const metadata: Metadata = {
-  title: "Kami Kulture",
-  description: "Anime-inspired streetwear — premium prints, fast shipping.",
-  icons: {
-    icon: "/favicon.ico",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: "Kami Kulture",
+    template: "%s | Kami Kulture",
   },
+  description: DEFAULT_DESC,
+  icons: { icon: "/favicon.ico" },
   openGraph: {
     title: "Kami Kulture",
-    description: "Anime-inspired streetwear — premium prints, fast shipping.",
+    description: DEFAULT_DESC,
     type: "website",
     siteName: "Kami Kulture",
+    url: "/",
+    images: [{ url: "/og.png", width: 1200, height: 630, alt: "Kami Kulture" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "Kami Kulture",
-    description: "Anime-inspired streetwear — premium prints, fast shipping.",
+    description: DEFAULT_DESC,
+    images: ["/og.png"],
   },
   themeColor: "#0B0F19",
 };
