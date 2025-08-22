@@ -34,6 +34,16 @@ type PayPalSDK = {
 };
 /* ------------------------------------------------------------------- */
 
+function getErrorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (typeof err === 'string') return err;
+  try {
+    return JSON.stringify(err);
+  } catch {
+    return '';
+  }
+}
+
 // helper to safely extract an order id from PayPal capture details
 function extractOrderID(details: unknown): string {
   const d = details as {
@@ -57,6 +67,17 @@ async function loadPayPalSDK(): Promise<PayPalSDK> {
   const src = `https://www.paypal.com/sdk/js?components=buttons&client-id=${encodeURIComponent(
     clientId
   )}&currency=USD&intent=capture`;
+
+  // guard against duplicate script injection
+  const existing = Array.from(document.getElementsByTagName('script')).find((s) => s.src === src);
+  if (existing) {
+    await new Promise<void>((res) => {
+      if (w.paypal) res();
+      else existing.addEventListener('load', () => res(), { once: true });
+    });
+    if (!w.paypal) throw new Error('PayPal SDK not ready after existing script load');
+    return w.paypal;
+  }
 
   await new Promise<void>((resolve, reject) => {
     const el = document.createElement('script');
@@ -103,18 +124,16 @@ export default function PaySection({
         buttons = paypal.Buttons({
           style: { shape: 'pill', label: 'paypal', layout: 'horizontal' },
           createOrder: (_data, actions) =>
-  actions.order.create({
-    intent: 'CAPTURE',
-    purchase_units: [
-      {
-        custom_id: customId,
-        description,
-        amount: { currency_code: 'USD', value: amount.toFixed(2) },
-        // keep it minimal; remove items to avoid schema mismatches
-      },
-    ],
-  }),
-
+            actions.order.create({
+              intent: 'CAPTURE',
+              purchase_units: [
+                {
+                  custom_id: customId,
+                  description,
+                  amount: { currency_code: 'USD', value: amount.toFixed(2) },
+                },
+              ],
+            }),
           onApprove: async (_data, actions) => {
             try {
               const details = await actions.order.capture();
@@ -128,30 +147,24 @@ export default function PaySection({
                   body: JSON.stringify({ orderId: orderID, expectedAmount: amount }),
                 });
               } catch (e) {
-                // eslint-disable-next-line no-console
                 console.error('Verify failed', e);
               }
 
               window.location.href = `/thank-you?orderID=${encodeURIComponent(orderID)}`;
             } catch (e) {
-              // eslint-disable-next-line no-console
               console.error(e);
-              alert('Capture failed in sandbox.');
+              alert(`Capture failed in sandbox.${getErrorMessage(e) ? `\n\n${getErrorMessage(e)}` : ''}`);
             }
           },
           onError: (err) => {
-  // eslint-disable-next-line no-console
-  console.error('PayPal onError', err);
-  const msg =
-    (typeof err === 'object' && err && 'message' in err && (err as any).message) ||
-    (typeof err === 'string' ? err : '');
-  alert(`PayPal error in sandbox.${msg ? `\n\n${msg}` : ''}`);
-},
+            console.error('PayPal onError', err);
+            const msg = getErrorMessage(err);
+            alert(`PayPal error in sandbox.${msg ? `\n\n${msg}` : ''}`);
+          },
         });
 
         buttons.render(container);
       } catch (err) {
-        // eslint-disable-next-line no-console
         console.error(err);
       }
     };
