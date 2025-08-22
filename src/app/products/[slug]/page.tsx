@@ -29,13 +29,16 @@ export async function generateMetadata({
     description,
     alternates: { canonical: url },
     openGraph: {
-      title,
-      description,
-      url,
-      type: 'product',
-      images: ogImages,
-      siteName: 'Kami Kulture',
-    },
+  title,
+  description,
+  url,
+  // Note: Next Metadata doesn't support 'product' here.
+  // Using 'website' is valid and keeps OG tags type-safe.
+  type: 'website',
+  images: ogImages,
+  siteName: 'Kami Kulture',
+},
+
     twitter: {
       card: 'summary_large_image',
       title,
