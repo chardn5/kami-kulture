@@ -2,6 +2,7 @@
 import type { Metadata } from 'next';
 import { products } from '@/data/products';
 import PDPClient from './PDPClient';
+import { notFound } from "next/navigation";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://kamikulture.com';
 const DEFAULT_DESC = 'Anime-inspired designs printed on demand.';
@@ -66,7 +67,7 @@ export default async function ProductPage({
 }) {
   const { slug } = await params;
   const product = products.find(p => p.slug === slug);
-  if (!product) return null;
+  if (!product) { notFound(); }
 
   // simple recs (exclude current)
   const recs = products.filter(p => p.slug !== product.slug).slice(0, 3);
