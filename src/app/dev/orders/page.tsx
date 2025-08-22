@@ -1,7 +1,7 @@
 // /src/app/dev/orders/page.tsx
 'use client';
 
-import useSWR from 'swr';
+import { useEffect, useState } from 'react';
 
 type Entry = {
   ts: number;
@@ -12,17 +12,32 @@ type Entry = {
   customId: string | null;
 };
 
-const fetcher = (u: string) => fetch(u).then(r => r.json());
-
 export default function OrdersDevPage() {
-  const { data } = useSWR<{ ok: boolean; orders: Entry[] }>('/api/dev/orders', fetcher, { refreshInterval: 5000 });
+  const [orders, setOrders] = useState<Entry[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const orders = data?.orders ?? [];
+  const load = async () => {
+    try {
+      const res = await fetch('/api/dev/orders', { cache: 'no-store' });
+      const json = await res.json();
+      if (json?.ok && Array.isArray(json.orders)) setOrders(json.orders);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    load();
+    const t = setInterval(load, 5000);
+    return () => clearInterval(t);
+  }, []);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-12 text-white">
       <h1 className="text-2xl font-semibold">Orders (dev)</h1>
-      <p className="mt-1 text-sm text-neutral-400">Newest first. Local file in dev, /tmp in prod (ephemeral).</p>
+      <p className="mt-1 text-sm text-neutral-400">
+        Newest first. Local file in <code>.data/orders.json</code> (dev), <code>/tmp/orders.json</code> (prod, ephemeral).
+      </p>
 
       <div className="mt-6 overflow-x-auto rounded-xl ring-1 ring-white/10">
         <table className="min-w-full text-sm">
@@ -40,12 +55,14 @@ export default function OrdersDevPage() {
               <tr key={o.ts} className="odd:bg-neutral-900/40">
                 <td className="px-3 py-2">{new Date(o.ts).toLocaleString()}</td>
                 <td className="px-3 py-2 font-mono">{o.orderId}</td>
-                <td className="px-3 py-2">{o.amount.toFixed(2)} {o.currency}</td>
+                <td className="px-3 py-2">
+                  {o.amount.toFixed(2)} {o.currency}
+                </td>
                 <td className="px-3 py-2">{o.payerEmail ?? '—'}</td>
                 <td className="px-3 py-2">{o.customId ?? '—'}</td>
               </tr>
             ))}
-            {orders.length === 0 && (
+            {!loading && orders.length === 0 && (
               <tr>
                 <td colSpan={5} className="px-3 py-6 text-center text-neutral-400">
                   No orders logged yet.
