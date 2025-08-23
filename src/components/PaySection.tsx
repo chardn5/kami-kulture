@@ -55,14 +55,11 @@ async function loadPayPalSDK(): Promise<PayPalSDK> {
   if (w.paypal) return w.paypal;
 
   const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID;
-  if (!clientId) {
-    throw new Error('NEXT_PUBLIC_PAYPAL_CLIENT_ID is not set');
-  }
+  if (!clientId) throw new Error('NEXT_PUBLIC_PAYPAL_CLIENT_ID is not set');
 
   const src =
-    `https://www.paypal.com/sdk/js?components=buttons&client-id=${encodeURIComponent(
-      clientId
-    )}` + `&currency=USD&intent=capture`;
+    `https://www.paypal.com/sdk/js?components=buttons&client-id=${encodeURIComponent(clientId)}` +
+    `&currency=USD&intent=capture`;
 
   // guard against duplicate script injection
   const existing = Array.from(document.getElementsByTagName('script')).find((s) => s.src === src);
@@ -113,12 +110,14 @@ export default function PaySection({
         container.innerHTML = '';
 
         const description = `${productTitle}${selectedSize ? ` - Size: ${selectedSize}` : ''}`;
-        const customId = ['KK', productSlug ?? '', selectedSize ?? '', sku ?? '', Math.random().toString(36).slice(2, 8)]
+        // sku|size|slug|rand — useful for admin glance
+        const customId = [sku ?? '', selectedSize ?? '', productSlug ?? '', Math.random().toString(36).slice(2, 8)]
           .filter(Boolean)
-          .join(':');
+          .join('|');
 
         buttons = paypal.Buttons({
           style: { shape: 'pill', label: 'paypal', layout: 'horizontal' },
+
           createOrder: (_data, actions) =>
             actions.order.create({
               intent: 'CAPTURE',
@@ -130,13 +129,22 @@ export default function PaySection({
                 },
               ],
             }),
+
           onApprove: async (data, actions) => {
             try {
-              // Client-side capture (sandbox OK). `data.orderID` is the *Order ID*.
-              const details = await actions.order.capture(); // { id?: string }
+              // Capture on client (OK for sandbox)
+              const details = await actions.order.capture(); // { id?: string, ... }
               const orderID = data.orderID || details?.id || '';
 
-              // Verify on the server (non-blocking UX)
+              // Extract amounts (shape varies depending on account/flow)
+              const pu0: any = (details as any)?.purchase_units?.[0] ?? {};
+              const cap0: any = pu0?.payments?.captures?.[0] ?? {};
+              const amtObj: any = cap0?.amount || pu0?.amount || {};
+              const value = String(amtObj?.value ?? amount);
+              const currency = String(amtObj?.currency_code ?? 'USD');
+              const payerEmail = (details as any)?.payer?.email_address;
+
+              // (A) Optional: server verification (non-blocking)
               fetch('/api/paypal/verify-order', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -145,8 +153,23 @@ export default function PaySection({
                   expectedAmount: amount,
                   meta: { productTitle, selectedSize, productSlug, sku, customId },
                 }),
-              }).catch((e: unknown) => console.error('verify-order failed', e));
+              }).catch(() => {});
 
+              // (B) ***NEW***: append to local orders log so /admin/orders (dev) shows it
+              fetch('/api/orders', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  orderId: orderID,
+                  amount: value,
+                  currency,
+                  email: payerEmail,
+                  customId,
+                }),
+                keepalive: true, // survive navigation
+              }).catch(() => {});
+
+              // Redirect to thank-you
               window.location.href = `/thank-you?orderID=${encodeURIComponent(orderID)}`;
             } catch (e: unknown) {
               console.error(e);
@@ -154,6 +177,7 @@ export default function PaySection({
               alert(`Capture failed in sandbox.${msg ? `\n\n${msg}` : ''}`);
             }
           },
+
           onError: (err: unknown) => {
             console.error('PayPal onError', err);
             const msg = getErrorMessage(err);
