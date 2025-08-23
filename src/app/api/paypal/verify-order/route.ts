@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
     console.log('VERIFY_ORDER_START', { orderId, expectedAmount, meta });
 
     const raw = await showOrder(orderId);
-const order = raw as PayPalOrder;
+    const order = raw as PayPalOrder;
 
     // Sanity: ensure this is the same ORDER we asked for
     if (!order?.id || order.id !== orderId) {
@@ -78,12 +78,15 @@ const order = raw as PayPalOrder;
       order?.payer?.email_address ||
       pick(order, ['purchase_units', 0, 'payee', 'email_address']);
 
-    const capture = pick(order, ['purchase_units', 0, 'payments', 'captures', 0]);
-    const capturedValueStr: string | undefined = capture?.amount?.value;
-    const currency: string =
-      capture?.amount?.currency_code ||
-      pick(order, ['purchase_units', 0, 'amount', 'currency_code']) ||
-      'USD';
+  const pu = order.purchase_units?.[0];
+const capture = pu?.payments?.captures?.[0];
+
+const capturedValueStr = capture?.amount?.value;
+const currency =
+  capture?.amount?.currency_code ??
+  pu?.amount?.currency_code ??
+  'USD';
+
 
     let amountOk = true;
     if (expectedAmount != null && capturedValueStr != null) {
