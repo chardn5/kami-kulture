@@ -11,15 +11,34 @@ type PaySectionProps = {
   sku?: string;
 };
 
-/* --------- Minimal PayPal SDK types --------- */
+/* --------- Minimal PayPal SDK & response types (no `any`) --------- */
+type PayPalAmount = { value: string; currency_code?: string };
+type PayPalCapture = { id?: string; amount?: PayPalAmount; status?: string };
+type PayPalPayments = { captures?: PayPalCapture[] };
+type PayPalPurchaseUnit = {
+  custom_id?: string;
+  description?: string;
+  amount?: PayPalAmount;
+  payments?: PayPalPayments;
+};
+type PayPalPayer = { email_address?: string };
+type PayPalOrderDetails = {
+  id?: string;
+  payer?: PayPalPayer;
+  purchase_units?: PayPalPurchaseUnit[];
+};
+
 type PayPalOrderActions = {
   create: (input: unknown) => Promise<string>;
-  capture: () => Promise<{ id?: string }>;
+  capture: () => Promise<PayPalOrderDetails>;
 };
 
 type PayPalButtonsOptions = {
   style?: Record<string, unknown>;
-  createOrder: (data: unknown, actions: { order: PayPalOrderActions }) => Promise<string> | string;
+  createOrder: (
+    data: unknown,
+    actions: { order: PayPalOrderActions }
+  ) => Promise<string> | string;
   onApprove: (
     data: { orderID: string },
     actions: { order: PayPalOrderActions }
@@ -27,17 +46,10 @@ type PayPalButtonsOptions = {
   onError?: (err: unknown) => void;
 };
 
-type PayPalButtonsInstance = {
-  render: (container: HTMLElement) => void;
-  close?: () => void;
-};
-
-type PayPalSDK = {
-  Buttons: (opts: PayPalButtonsOptions) => PayPalButtonsInstance;
-};
-
+type PayPalButtonsInstance = { render: (container: HTMLElement) => void; close?: () => void };
+type PayPalSDK = { Buttons: (opts: PayPalButtonsOptions) => PayPalButtonsInstance };
 type WindowWithPaypal = Window & { paypal?: PayPalSDK };
-/* ------------------------------------------- */
+/* ------------------------------------------------------------------ */
 
 function getErrorMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
@@ -61,7 +73,6 @@ async function loadPayPalSDK(): Promise<PayPalSDK> {
     `https://www.paypal.com/sdk/js?components=buttons&client-id=${encodeURIComponent(clientId)}` +
     `&currency=USD&intent=capture`;
 
-  // guard against duplicate script injection
   const existing = Array.from(document.getElementsByTagName('script')).find((s) => s.src === src);
   if (existing) {
     await new Promise<void>((res) => {
@@ -106,11 +117,10 @@ export default function PaySection({
         const paypal = await loadPayPalSDK();
         if (cancelled) return;
 
-        // Clear existing buttons before re-render
         container.innerHTML = '';
 
         const description = `${productTitle}${selectedSize ? ` - Size: ${selectedSize}` : ''}`;
-        // sku|size|slug|rand — useful for admin glance
+        // sku|size|slug|rand — helpful string in admin
         const customId = [sku ?? '', selectedSize ?? '', productSlug ?? '', Math.random().toString(36).slice(2, 8)]
           .filter(Boolean)
           .join('|');
@@ -132,19 +142,24 @@ export default function PaySection({
 
           onApprove: async (data, actions) => {
             try {
-              // Capture on client (OK for sandbox)
-              const details = await actions.order.capture(); // { id?: string, ... }
-              const orderID = data.orderID || details?.id || '';
+              // Capture on client (OK for sandbox/MVP)
+              const details = await actions.order.capture(); // typed as PayPalOrderDetails
+              const orderID = data.orderID || details.id || '';
 
-              // Extract amounts (shape varies depending on account/flow)
-              const pu0: any = (details as any)?.purchase_units?.[0] ?? {};
-              const cap0: any = pu0?.payments?.captures?.[0] ?? {};
-              const amtObj: any = cap0?.amount || pu0?.amount || {};
-              const value = String(amtObj?.value ?? amount);
-              const currency = String(amtObj?.currency_code ?? 'USD');
-              const payerEmail = (details as any)?.payer?.email_address;
+              // Extract amounts safely
+              const pu0 = (details.purchase_units && details.purchase_units[0]) as
+                | PayPalPurchaseUnit
+                | undefined;
 
-              // (A) Optional: server verification (non-blocking)
+              const cap0 =
+                (pu0?.payments?.captures && pu0.payments.captures[0]) as PayPalCapture | undefined;
+
+              const amtObj: PayPalAmount | undefined = cap0?.amount ?? pu0?.amount ?? undefined;
+              const value: string = amtObj?.value ?? amount.toFixed(2);
+              const currency: string = amtObj?.currency_code ?? 'USD';
+              const payerEmail: string | undefined = details.payer?.email_address;
+
+              // (A) Optional verification (non‑blocking)
               fetch('/api/paypal/verify-order', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -155,7 +170,7 @@ export default function PaySection({
                 }),
               }).catch(() => {});
 
-              // (B) ***NEW***: append to local orders log so /admin/orders (dev) shows it
+              // (B) Append to local orders log → shows in admin/dev
               fetch('/api/orders', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -166,10 +181,9 @@ export default function PaySection({
                   email: payerEmail,
                   customId,
                 }),
-                keepalive: true, // survive navigation
+                keepalive: true,
               }).catch(() => {});
 
-              // Redirect to thank-you
               window.location.href = `/thank-you?orderID=${encodeURIComponent(orderID)}`;
             } catch (e: unknown) {
               console.error(e);
