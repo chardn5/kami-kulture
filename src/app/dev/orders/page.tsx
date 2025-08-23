@@ -1,9 +1,9 @@
 // /src/app/dev/orders/page.tsx
+'use client';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 export const metadata = { robots: { index: false, follow: false } };
-'use client';
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
