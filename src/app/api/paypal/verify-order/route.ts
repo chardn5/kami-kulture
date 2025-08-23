@@ -6,30 +6,25 @@ import { showOrder } from '@/lib/paypal';
 export const runtime = 'nodejs';
 
 // Minimal shapes we actually read from PayPal
-interface PayPalAmount {
-  currency_code?: string;
-  value?: string;
-}
-
-interface PayPalCapture {
-  amount?: PayPalAmount;
-}
-
-interface PayPalPayments {
-  captures?: PayPalCapture[];
-}
-
+interface PayPalAmount { currency_code?: string; value?: string }
+interface PayPalCapture { amount?: PayPalAmount }
+interface PayPalPayments { captures?: PayPalCapture[] }
 interface PayPalPurchaseUnit {
   amount?: PayPalAmount;
   payee?: { email_address?: string };
   payments?: PayPalPayments;
 }
-
 interface PayPalOrder {
   id: string;
   status?: string;
   payer?: { email_address?: string };
   purchase_units?: PayPalPurchaseUnit[];
+}
+interface VerifyBody {
+  orderId?: string;
+  orderID?: string; // client might send this key
+  expectedAmount?: number;
+  meta?: Record<string, unknown>;
 }
 
 
@@ -54,10 +49,10 @@ function pick<T>(v: unknown, path: (string | number)[], fallback?: T): T | undef
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json().catch(() => ({}));
-    const orderId: string | undefined = body?.orderId || body?.orderID;
-    const expectedAmount: number | undefined = body?.expectedAmount;
-    const meta = body?.meta || {};
+    const body = (await req.json().catch(() => ({}))) as VerifyBody;
+    const orderId = body.orderId || body.orderID;
+    const expectedAmount = body.expectedAmount;
+    const meta = body.meta ?? {};
 
     if (!orderId) {
       return NextResponse.json({ ok: false, error: 'Missing orderId' }, { status: 400 });
@@ -68,25 +63,19 @@ export async function POST(req: NextRequest) {
     const raw = await showOrder(orderId);
     const order = raw as PayPalOrder;
 
-    // Sanity: ensure this is the same ORDER we asked for
     if (!order?.id || order.id !== orderId) {
       throw new Error('Fetched object is not an Order or ID mismatch');
     }
 
-    const status: string | undefined = order?.status; // expect "COMPLETED" after capture
-    const payerEmail: string | undefined =
-      order?.payer?.email_address ||
-      pick(order, ['purchase_units', 0, 'payee', 'email_address']);
+    const status = order.status;
+    const pu = order.purchase_units?.[0];
+    const payerEmail =
+      order.payer?.email_address || pu?.payee?.email_address;
 
-  const pu = order.purchase_units?.[0];
-const capture = pu?.payments?.captures?.[0];
-
-const capturedValueStr = capture?.amount?.value;
-const currency =
-  capture?.amount?.currency_code ??
-  pu?.amount?.currency_code ??
-  'USD';
-
+    const capture = pu?.payments?.captures?.[0];
+    const capturedValueStr = capture?.amount?.value;
+    const currency =
+      capture?.amount?.currency_code ?? pu?.amount?.currency_code ?? 'USD';
 
     let amountOk = true;
     if (expectedAmount != null && capturedValueStr != null) {
@@ -100,43 +89,27 @@ const currency =
       <p><strong>Order ID:</strong> ${orderId}</p>
       <p><strong>Status:</strong> ${status ?? '(n/a)'}</p>
       <p><strong>Amount:</strong> ${currency} ${capturedValueStr ?? '(n/a)'}</p>
-      ${meta?.productTitle ? `<p><strong>Product:</strong> ${meta.productTitle}${meta?.selectedSize ? ` (Size: ${meta.selectedSize})` : ''}</p>` : ''}
-      ${meta?.sku ? `<p><strong>SKU:</strong> ${meta.sku}</p>` : ''}
-      ${meta?.customId ? `<p><strong>Custom ID:</strong> ${meta.customId}</p>` : ''}
+      ${meta && (meta as any).productTitle ? `<p><strong>Product:</strong> ${(meta as any).productTitle}${(meta as any).selectedSize ? ` (Size: ${(meta as any).selectedSize})` : ''}</p>` : ''}
+      ${(meta as any)?.sku ? `<p><strong>SKU:</strong> ${(meta as any).sku}</p>` : ''}
+      ${(meta as any)?.customId ? `<p><strong>Custom ID:</strong> ${(meta as any).customId}</p>` : ''}
       <p>We’ll email you again once the order ships. If you didn’t place this order, contact support@kamikulture.com.</p>
     `;
 
     const recipients = [payerEmail, process.env.ORDER_TO_EMAIL || 'orders@kamikulture.com']
       .filter(Boolean) as string[];
 
-    const emailSubject = `Order Confirmation – ${orderId}`;
-    const emailPayload = {
-      paypalOrderStatus: status,
-      paypalOrderId: orderId,
-      currency,
-      capturedValue: capturedValueStr,
-      amountOk,
-      meta,
-    };
+    const emailResult = await emailOrderJSON(
+      `Order Confirmation – ${orderId}`,
+      { paypalOrderStatus: status, paypalOrderId: orderId, currency, capturedValue: capturedValueStr, amountOk, meta },
+      { to: recipients, html }
+    );
 
-    const emailResult = await emailOrderJSON(emailSubject, emailPayload, {
-      to: recipients,
-      html,
-    });
+    if (!emailResult.ok) console.error('RESEND_FAILED', emailResult);
 
-    if (!emailResult.ok) {
-      console.error('RESEND_FAILED', emailResult);
-    }
-
-    return NextResponse.json({
-      ok: true,
-      orderId,
-      status,
-      amountOk,
-      email: emailResult.ok ? 'sent' : 'failed',
-    });
-  } catch (err: any) {
-    console.error('VERIFY_ORDER_ERROR', err?.message || err, err?.stack);
-    return NextResponse.json({ ok: false, error: String(err?.message || err) }, { status: 500 });
+    return NextResponse.json({ ok: true, orderId, status, amountOk, email: emailResult.ok ? 'sent' : 'failed' });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('VERIFY_ORDER_ERROR', msg);
+    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
   }
 }

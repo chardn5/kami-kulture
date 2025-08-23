@@ -105,27 +105,22 @@ export default function PaySection({
             }),
           onApprove: async (data: { orderID: string }, actions) => {
   try {
-    const details = await actions.order.capture(); // sandbox ok
-    const orderID = data.orderID || (details?.id as string) || '';
+    const details = await actions.order.capture(); // returns { id?: string }
+    const orderID = data.orderID || details?.id || '';
 
-              // Server verify & email (don’t block UX if it’s slow)
-              fetch('/api/paypal/verify-order', {
+    fetch('/api/paypal/verify-order', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        orderId: orderID,               // <-- ORDER ID (not capture id)
-        expectedAmount: amount,
-        meta: { productTitle, selectedSize, productSlug, sku, customId },
-      }),
-    }).catch((e) => console.error('verify-order failed', e));
+      body: JSON.stringify({ orderId: orderID, expectedAmount: amount, meta: { productTitle, selectedSize, productSlug, sku, customId } }),
+    }).catch((e: unknown) => console.error('verify-order failed', e));
 
-              window.location.href = `/thank-you?orderID=${encodeURIComponent(orderID)}`;
-            } catch (e) {
-              console.error(e);
-              const msg = getErrorMessage(e);
-              alert(`Capture failed in sandbox.${msg ? `\n\n${msg}` : ''}`);
-            }
-          },
+    window.location.href = `/thank-you?orderID=${encodeURIComponent(orderID)}`;
+  } catch (e: unknown) {
+    console.error(e);
+    const msg = getErrorMessage(e);
+    alert(`Capture failed in sandbox.${msg ? `\n\n${msg}` : ''}`);
+  }
+},
           onError: (err) => {
             console.error('PayPal onError', err);
             const msg = getErrorMessage(err);

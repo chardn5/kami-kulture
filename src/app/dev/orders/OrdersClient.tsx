@@ -31,11 +31,15 @@ export default function OrdersClient() {
     }
   };
 
-  useEffect(() => {
+  /*useEffect(() => {
     load();
     const t = setInterval(load, 5000);
     return () => clearInterval(t);
-  }, []);
+  }, []);*/
+
+  useEffect(() => {
+  load();
+}, []);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-12 text-white">
