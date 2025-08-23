@@ -1,3 +1,4 @@
+// src/lib/paypal.ts
 import 'server-only';
 
 const ENV = process.env.PAYPAL_ENV === 'live' ? 'live' : 'sandbox';
@@ -10,9 +11,15 @@ const BRAND_NAME = process.env.BRAND_NAME ?? 'Kami Kulture';
 type CreateOrderResponse = { id: string; status: string };
 type CaptureOrderResponse = Record<string, unknown>;
 
+function env(name: string) {
+  const v = process.env[name];
+  if (!v) throw new Error(`Missing env var: ${name}`);
+  return v;
+}
+
 async function getAccessToken(): Promise<string> {
-  const client = process.env.PAYPAL_CLIENT_ID!;
-  const secret = process.env.PAYPAL_CLIENT_SECRET!;
+  const client = env('PAYPAL_CLIENT_ID');
+  const secret = env('PAYPAL_CLIENT_SECRET');
   const auth = Buffer.from(`${client}:${secret}`).toString('base64');
 
   const res = await fetch(`${BASE_URL}/v1/oauth2/token`, {
@@ -90,14 +97,8 @@ export async function captureOrder(orderID: string) {
 }
 
 export async function showOrder(orderId: string) {
-  const base = process.env.PAYPAL_ENV === 'sandbox'
-    ? 'https://api.sandbox.paypal.com'
-    : 'https://api-m.paypal.com';
-
-  // reuse your existing getAccessToken() logic
   const token = await getAccessToken();
-
-  const res = await fetch(`${base}/v2/checkout/orders/${orderId}`, {
+  const res = await fetch(`${BASE_URL}/v2/checkout/orders/${orderId}`, {
     headers: { Authorization: `Bearer ${token}` },
     cache: 'no-store',
   });
