@@ -11,40 +11,66 @@ type PaySectionProps = {
   sku?: string;
 };
 
+/* --------- Minimal PayPal SDK types --------- */
 type PayPalOrderActions = {
   create: (input: unknown) => Promise<string>;
   capture: () => Promise<{ id?: string }>;
 };
+
 type PayPalButtonsOptions = {
   style?: Record<string, unknown>;
   createOrder: (data: unknown, actions: { order: PayPalOrderActions }) => Promise<string> | string;
-  onApprove: (data: { orderID: string }, actions: { order: PayPalOrderActions }) => Promise<void> | void;
+  onApprove: (
+    data: { orderID: string },
+    actions: { order: PayPalOrderActions }
+  ) => Promise<void> | void;
   onError?: (err: unknown) => void;
 };
-type PayPalButtonsInstance = { render: (container: HTMLElement) => void; close?: () => void };
-type PayPalSDK = { Buttons: (opts: PayPalButtonsOptions) => PayPalButtonsInstance };
+
+type PayPalButtonsInstance = {
+  render: (container: HTMLElement) => void;
+  close?: () => void;
+};
+
+type PayPalSDK = {
+  Buttons: (opts: PayPalButtonsOptions) => PayPalButtonsInstance;
+};
+
+type WindowWithPaypal = Window & { paypal?: PayPalSDK };
+/* ------------------------------------------- */
 
 function getErrorMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
   if (typeof err === 'string') return err;
-  try { return JSON.stringify(err); } catch { return ''; }
+  try {
+    return JSON.stringify(err);
+  } catch {
+    return '';
+  }
 }
 
 /** Load the PayPal SDK once and resolve when ready */
 async function loadPayPalSDK(): Promise<PayPalSDK> {
-  const w = window as any;
+  const w = window as WindowWithPaypal;
   if (w.paypal) return w.paypal;
 
   const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID;
-  if (!clientId) throw new Error('NEXT_PUBLIC_PAYPAL_CLIENT_ID is not set');
+  if (!clientId) {
+    throw new Error('NEXT_PUBLIC_PAYPAL_CLIENT_ID is not set');
+  }
 
   const src =
-    `https://www.paypal.com/sdk/js?components=buttons&client-id=${encodeURIComponent(clientId)}` +
-    `&currency=USD&intent=capture`;
+    `https://www.paypal.com/sdk/js?components=buttons&client-id=${encodeURIComponent(
+      clientId
+    )}` + `&currency=USD&intent=capture`;
 
+  // guard against duplicate script injection
   const existing = Array.from(document.getElementsByTagName('script')).find((s) => s.src === src);
   if (existing) {
-    await new Promise<void>((res) => (w.paypal ? res() : existing.addEventListener('load', () => res(), { once: true })));
+    await new Promise<void>((res) => {
+      if ((w as WindowWithPaypal).paypal) res();
+      else existing.addEventListener('load', () => res(), { once: true });
+    });
     if (!w.paypal) throw new Error('PayPal SDK not ready after existing script load');
     return w.paypal;
   }
@@ -83,6 +109,7 @@ export default function PaySection({
         const paypal = await loadPayPalSDK();
         if (cancelled) return;
 
+        // Clear existing buttons before re-render
         container.innerHTML = '';
 
         const description = `${productTitle}${selectedSize ? ` - Size: ${selectedSize}` : ''}`;
@@ -103,25 +130,31 @@ export default function PaySection({
                 },
               ],
             }),
-          onApprove: async (data: { orderID: string }, actions) => {
-  try {
-    const details = await actions.order.capture(); // returns { id?: string }
-    const orderID = data.orderID || details?.id || '';
+          onApprove: async (data, actions) => {
+            try {
+              // Client-side capture (sandbox OK). `data.orderID` is the *Order ID*.
+              const details = await actions.order.capture(); // { id?: string }
+              const orderID = data.orderID || details?.id || '';
 
-    fetch('/api/paypal/verify-order', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ orderId: orderID, expectedAmount: amount, meta: { productTitle, selectedSize, productSlug, sku, customId } }),
-    }).catch((e: unknown) => console.error('verify-order failed', e));
+              // Verify on the server (non-blocking UX)
+              fetch('/api/paypal/verify-order', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  orderId: orderID,
+                  expectedAmount: amount,
+                  meta: { productTitle, selectedSize, productSlug, sku, customId },
+                }),
+              }).catch((e: unknown) => console.error('verify-order failed', e));
 
-    window.location.href = `/thank-you?orderID=${encodeURIComponent(orderID)}`;
-  } catch (e: unknown) {
-    console.error(e);
-    const msg = getErrorMessage(e);
-    alert(`Capture failed in sandbox.${msg ? `\n\n${msg}` : ''}`);
-  }
-},
-          onError: (err) => {
+              window.location.href = `/thank-you?orderID=${encodeURIComponent(orderID)}`;
+            } catch (e: unknown) {
+              console.error(e);
+              const msg = getErrorMessage(e);
+              alert(`Capture failed in sandbox.${msg ? `\n\n${msg}` : ''}`);
+            }
+          },
+          onError: (err: unknown) => {
             console.error('PayPal onError', err);
             const msg = getErrorMessage(err);
             alert(`PayPal error in sandbox.${msg ? `\n\n${msg}` : ''}`);
@@ -129,7 +162,7 @@ export default function PaySection({
         });
 
         buttons.render(container);
-      } catch (err) {
+      } catch (err: unknown) {
         console.error(err);
       }
     };
@@ -138,7 +171,11 @@ export default function PaySection({
 
     return () => {
       cancelled = true;
-      try { buttons?.close?.(); } catch { /* no-op */ }
+      try {
+        buttons?.close?.();
+      } catch {
+        /* no-op */
+      }
     };
   }, [amount, productTitle, selectedSize, productSlug, sku]);
 

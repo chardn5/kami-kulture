@@ -20,11 +20,19 @@ interface PayPalOrder {
   payer?: { email_address?: string };
   purchase_units?: PayPalPurchaseUnit[];
 }
+/* ---- Body types (no any) ---- */
+interface Meta {
+  productTitle?: string;
+  selectedSize?: string;
+  productSlug?: string;
+  sku?: string;
+  customId?: string;
+}
 interface VerifyBody {
   orderId?: string;
-  orderID?: string; // client might send this key
+  orderID?: string;    // client might send this casing
   expectedAmount?: number;
-  meta?: Record<string, unknown>;
+  meta?: Meta;
 }
 
 
@@ -84,16 +92,16 @@ export async function POST(req: NextRequest) {
 
     console.log('VERIFY_ORDER_OK', { orderId, status, amountOk, currency, capturedValueStr });
 
-    const html = `
-      <h2>Thanks for your order!</h2>
-      <p><strong>Order ID:</strong> ${orderId}</p>
-      <p><strong>Status:</strong> ${status ?? '(n/a)'}</p>
-      <p><strong>Amount:</strong> ${currency} ${capturedValueStr ?? '(n/a)'}</p>
-      ${meta && (meta as any).productTitle ? `<p><strong>Product:</strong> ${(meta as any).productTitle}${(meta as any).selectedSize ? ` (Size: ${(meta as any).selectedSize})` : ''}</p>` : ''}
-      ${(meta as any)?.sku ? `<p><strong>SKU:</strong> ${(meta as any).sku}</p>` : ''}
-      ${(meta as any)?.customId ? `<p><strong>Custom ID:</strong> ${(meta as any).customId}</p>` : ''}
-      <p>We’ll email you again once the order ships. If you didn’t place this order, contact support@kamikulture.com.</p>
-    `;
+   const html = `
+  <h2>Thanks for your order!</h2>
+  <p><strong>Order ID:</strong> ${orderId}</p>
+  <p><strong>Status:</strong> ${status ?? '(n/a)'}</p>
+  <p><strong>Amount:</strong> ${currency} ${capturedValueStr ?? '(n/a)'}</p>
+  ${meta.productTitle ? `<p><strong>Product:</strong> ${meta.productTitle}${meta.selectedSize ? ` (Size: ${meta.selectedSize})` : ''}</p>` : ''}
+  ${meta.sku ? `<p><strong>SKU:</strong> ${meta.sku}</p>` : ''}
+  ${meta.customId ? `<p><strong>Custom ID:</strong> ${meta.customId}</p>` : ''}
+  <p>We’ll email you again once the order ships. If you didn’t place this order, contact support@kamikulture.com.</p>
+`;
 
     const recipients = [payerEmail, process.env.ORDER_TO_EMAIL || 'orders@kamikulture.com']
       .filter(Boolean) as string[];
