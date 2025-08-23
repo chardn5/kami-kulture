@@ -2,6 +2,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 type Entry = {
   ts: number;
@@ -11,14 +12,25 @@ type Entry = {
   payerEmail: string | null;
   customId: string | null;
 };
+<button
+  onClick={async () => { await fetch('/api/dev/logout', { method: 'POST' }); router.push('/dev/login'); }}
+  className="mb-4 rounded-lg bg-neutral-800 px-3 py-1 text-sm text-neutral-200 hover:bg-neutral-700"
+>
+  Sign out
+</button>
 
 export default function OrdersDevPage() {
   const [orders, setOrders] = useState<Entry[]>([]);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   const load = async () => {
     try {
       const res = await fetch('/api/dev/orders', { cache: 'no-store' });
+      if (res.status === 401) {
+        router.push(`/dev/login?next=${encodeURIComponent('/dev/orders')}`);
+        return;
+      }
       const json = await res.json();
       if (json?.ok && Array.isArray(json.orders)) setOrders(json.orders);
     } finally {
