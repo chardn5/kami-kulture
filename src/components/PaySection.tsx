@@ -13,7 +13,7 @@ type PaySectionProps = {
 
 type PayPalOrderActions = {
   create: (input: unknown) => Promise<string>;
-  capture: () => Promise<any>;
+  capture: () => Promise<{ id?: string }>;
 };
 type PayPalButtonsOptions = {
   style?: Record<string, unknown>;

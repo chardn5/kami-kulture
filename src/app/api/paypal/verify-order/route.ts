@@ -5,12 +5,51 @@ import { showOrder } from '@/lib/paypal';
 
 export const runtime = 'nodejs';
 
-function pick<T = any>(v: any, path: (string | number)[], fallback?: T): T | undefined {
-  try {
-    return path.reduce<any>((a, k) => (a == null ? a : a[k]), v) ?? fallback;
-  } catch {
-    return fallback;
+// Minimal shapes we actually read from PayPal
+interface PayPalAmount {
+  currency_code?: string;
+  value?: string;
+}
+
+interface PayPalCapture {
+  amount?: PayPalAmount;
+}
+
+interface PayPalPayments {
+  captures?: PayPalCapture[];
+}
+
+interface PayPalPurchaseUnit {
+  amount?: PayPalAmount;
+  payee?: { email_address?: string };
+  payments?: PayPalPayments;
+}
+
+interface PayPalOrder {
+  id: string;
+  status?: string;
+  payer?: { email_address?: string };
+  purchase_units?: PayPalPurchaseUnit[];
+}
+
+
+function pick<T>(v: unknown, path: (string | number)[], fallback?: T): T | undefined {
+  let cur: unknown = v;
+  for (const key of path) {
+    if (cur == null) return fallback;
+    if (typeof key === 'number') {
+      if (Array.isArray(cur)) {
+        cur = (cur as unknown[])[key];
+      } else {
+        return fallback;
+      }
+    } else if (typeof cur === 'object') {
+      cur = (cur as Record<string, unknown>)[key];
+    } else {
+      return fallback;
+    }
   }
+  return (cur as T) ?? fallback;
 }
 
 export async function POST(req: NextRequest) {
@@ -26,7 +65,8 @@ export async function POST(req: NextRequest) {
 
     console.log('VERIFY_ORDER_START', { orderId, expectedAmount, meta });
 
-    const order = await showOrder(orderId);
+    const raw = await showOrder(orderId);
+const order = raw as PayPalOrder;
 
     // Sanity: ensure this is the same ORDER we asked for
     if (!order?.id || order.id !== orderId) {
