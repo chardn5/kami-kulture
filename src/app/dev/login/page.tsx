@@ -1,30 +1,33 @@
 'use client';
 
-import { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
-export default function DevLoginPage() {
-  const [password, setPassword] = useState("");
-  const [err, setErr] = useState("");
+import { Suspense, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+
+function LoginInner() {
+  const [password, setPassword] = useState('');
+  const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const search = useSearchParams();
-  const next = search.get("next") ?? "/dev/orders";
+  const next = search.get('next') ?? '/dev/orders';
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setErr("");
+    setErr('');
     setLoading(true);
     try {
-      const res = await fetch("/api/dev/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const res = await fetch('/api/dev/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password }),
       });
       if (res.ok) router.push(next);
       else {
         const data = (await res.json().catch(() => ({}))) as { error?: string };
-        setErr(data?.error ?? "Invalid password");
+        setErr(data?.error ?? 'Invalid password');
       }
     } finally {
       setLoading(false);
@@ -56,10 +59,18 @@ export default function DevLoginPage() {
             disabled={loading}
             className="w-full rounded-lg bg-emerald-500 px-4 py-2 font-medium text-black disabled:opacity-60"
           >
-            {loading ? "Signing in…" : "Sign in"}
+            {loading ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
       </div>
     </div>
+  );
+}
+
+export default function DevLoginPage() {
+  return (
+    <Suspense fallback={<main className="mx-auto max-w-md px-4 py-16 text-center text-white">Loading…</main>}>
+      <LoginInner />
+    </Suspense>
   );
 }
