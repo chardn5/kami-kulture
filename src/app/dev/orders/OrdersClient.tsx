@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from 'next/navigation';
 
 type Entry = {
@@ -12,34 +12,81 @@ type Entry = {
   customId: string | null;
 };
 
+type ApiResp = {
+  ok: boolean;
+  orders: Entry[];
+};
+
+// ---- type guards (no `any`) ----
+function isString(v: unknown): v is string {
+  return typeof v === "string";
+}
+function isNumber(v: unknown): v is number {
+  return typeof v === "number" && Number.isFinite(v);
+}
+function isNullableString(v: unknown): v is string | null {
+  return v === null || typeof v === "string";
+}
+function isEntry(v: unknown): v is Entry {
+  const o = v as Record<string, unknown>;
+  return (
+    typeof v === "object" && v !== null &&
+    isNumber(o.ts) &&
+    isString(o.orderId) &&
+    isNumber(o.amount) &&
+    isString(o.currency) &&
+    isNullableString(o.payerEmail) &&
+    isNullableString(o.customId)
+  );
+}
+function isApiResp(v: unknown): v is ApiResp {
+  const o = v as Record<string, unknown>;
+  return (
+    typeof v === "object" && v !== null &&
+    typeof o.ok === "boolean" &&
+    Array.isArray(o.orders) &&
+    o.orders.every(isEntry)
+  );
+}
+
 export default function OrdersClient() {
   const [orders, setOrders] = useState<Entry[]>([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
       const res = await fetch('/api/dev/orders', { cache: 'no-store' });
       if (res.status === 401) {
         router.push(`/dev/login?next=${encodeURIComponent('/dev/orders')}`);
         return;
       }
-      const json = (await res.json()) as { ok?: boolean; orders?: Entry[] };
-      if (json?.ok && Array.isArray(json.orders)) setOrders(json.orders);
+
+      // Safely parse JSON
+      let parsed: unknown = null;
+      try {
+        parsed = await res.json();
+      } catch {
+        parsed = null;
+      }
+
+      if (isApiResp(parsed)) {
+        setOrders(parsed.orders);
+      } else if (res.ok) {
+        // Response OK but not in expected shape
+        setOrders([]);
+      }
     } finally {
       setLoading(false);
     }
-  };
-
-  /*useEffect(() => {
-    load();
-    const t = setInterval(load, 5000);
-    return () => clearInterval(t);
-  }, []);*/
+  }, [router]);
 
   useEffect(() => {
-  load();
-}, []);
+    void load();
+    // If you want auto-refresh:
+    // const t = setInterval(() => void load(), 5000);
+    // return () => clearInterval(t);
+  }, [load]);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-12 text-white">
@@ -74,7 +121,7 @@ export default function OrdersClient() {
           </thead>
           <tbody>
             {orders.map((o) => (
-              <tr key={o.ts} className="odd:bg-neutral-900/40">
+              <tr key={`${o.orderId}-${o.ts}`} className="odd:bg-neutral-900/40">
                 <td className="px-3 py-2">{new Date(o.ts).toLocaleString()}</td>
                 <td className="px-3 py-2 font-mono">{o.orderId}</td>
                 <td className="px-3 py-2">
