@@ -45,7 +45,7 @@ export default async function AdminLayout({
       <section style={{ maxWidth: 720, margin: '6rem auto', padding: '1rem', textAlign: 'center' }}>
         <h1 style={{ fontSize: '1.25rem', fontWeight: 600 }}>401 – Auth required</h1>
         <p style={{ marginTop: 12 }}>
-  This area is protected. <a href="/api/orders">Sign in</a> to continue.
+  This area is protected. <a href="/admin/sign-in?next=/admin/orders">Sign in</a> to continue.
 </p>
       </section>
     );

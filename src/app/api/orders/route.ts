@@ -22,9 +22,10 @@ function checkBasicAuth(req: NextRequest) {
 function unauthorized() {
   return new NextResponse('Unauthorized', {
     status: 401,
-    headers: { 'WWW-Authenticate': 'Basic realm="Orders API (GET)"' },
+    headers: { 'WWW-Authenticate': 'Basic realm="Admin Area"' }, // unify realm
   });
 }
+
 
 export async function GET(req: NextRequest) {
   if (!checkBasicAuth(req)) return unauthorized();
