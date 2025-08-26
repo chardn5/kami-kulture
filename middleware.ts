@@ -47,8 +47,13 @@ export function middleware(req: NextRequest) {
     return res;
   }
 
-  const USER = process.env.BASIC_AUTH_USER ?? process.env.ADMIN_USER ?? '';
-  const PASS = process.env.BASIC_AUTH_PASS ?? process.env.ADMIN_PASS ?? '';
+ // /middleware.ts  (keep the rest as you have)
+const USER =
+  process.env.BASIC_AUTH_USER || process.env.ADMIN_USER || '';
+
+const PASS =
+  process.env.BASIC_AUTH_PASS || process.env.ADMIN_PASSWORD || process.env.ADMIN_PASS || '';
+
 
   const unauthorized = () =>
     new NextResponse('Auth required', {
