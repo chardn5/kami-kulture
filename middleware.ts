@@ -2,50 +2,49 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-// Limit scope of middleware only to /admin
+// Run on all page requests (not assets/api) so we also catch /en/admin/* etc.
 export const config = {
-  matcher: ['/admin/:path*'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|api).*)'],
 };
 
-// Edge-safe Basic auth decode (no Node Buffer in middleware)
 function decodeBasicAuth(header: string): { user: string; pass: string } | null {
-  if (!header.startsWith('Basic ')) return null;
+  if (!header?.startsWith('Basic ')) return null;
   try {
     const b64 = header.split(' ')[1] || '';
-    const decoded = atob(b64); // Edge runtime provides atob
-    const idx = decoded.indexOf(':');
-    if (idx === -1) return null;
-    return { user: decoded.slice(0, idx), pass: decoded.slice(idx + 1) };
-  } catch {
-    return null;
-  }
+    const decoded = atob(b64);
+    const i = decoded.indexOf(':');
+    if (i === -1) return null;
+    return { user: decoded.slice(0, i), pass: decoded.slice(i + 1) };
+  } catch { return null; }
+}
+
+// Matches /admin/* or /<locale>/admin/*   e.g. /en/admin/orders
+function isAdminPath(pathname: string): boolean {
+  return /^\/(?:[A-Za-z]{2}(?:-[A-Za-z]{2})?\/)?admin(?:\/|$)/.test(pathname);
 }
 
 export function middleware(req: NextRequest) {
-  // Only protect /admin/*
-  if (!req.nextUrl.pathname.startsWith('/admin')) {
+  const { pathname } = req.nextUrl;
+
+  if (!isAdminPath(pathname)) {
     return NextResponse.next();
   }
 
-  const header = req.headers.get('authorization') || '';
-  const creds = decodeBasicAuth(header);
-
-  // Support both env naming styles
   const USER = process.env.BASIC_AUTH_USER ?? process.env.ADMIN_USER ?? '';
   const PASS = process.env.BASIC_AUTH_PASS ?? process.env.ADMIN_PASS ?? '';
 
   const unauthorized = () =>
     new NextResponse('Auth required', {
       status: 401,
-      headers: { 'WWW-Authenticate': 'Basic realm="Admin Area"' },
+      headers: { 'WWW-Authenticate': 'Basic realm="Admin Area v2"' }, // changed realm busts browser cache
     });
 
   if (!USER || !PASS) return unauthorized();
-  if (!creds) return unauthorized();
 
-  if (creds.user !== USER || creds.pass !== PASS) {
-    return unauthorized();
-  }
+  const creds = decodeBasicAuth(req.headers.get('authorization') || '');
+  if (!creds || creds.user !== USER || creds.pass !== PASS) return unauthorized();
 
-  return NextResponse.next();
+  const res = NextResponse.next();
+  res.headers.set('x-admin-protected', '1'); // debug header
+  return res;
 }
