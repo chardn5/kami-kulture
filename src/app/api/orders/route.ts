@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
+import { cookies } from 'next/headers';
 
 export const runtime = 'nodejs';
 
@@ -12,23 +13,28 @@ function checkBasicAuth(req: NextRequest) {
   const decoded = Buffer.from(auth.split(' ')[1], 'base64').toString();
   const [u, p] = decoded.split(':');
 
-  // use || so empty BASIC_* fall back to ADMIN_* (and support ADMIN_PASSWORD)
   const user = process.env.BASIC_AUTH_USER || process.env.ADMIN_USER || '';
   const pass = process.env.BASIC_AUTH_PASS || process.env.ADMIN_PASSWORD || process.env.ADMIN_PASS || '';
-
   return !!user && !!pass && u === user && p === pass;
 }
 
-function unauthorized() {
+// Make unauthorized() pure; pass realm in
+function unauthorized(realm: string) {
   return new NextResponse('Unauthorized', {
     status: 401,
-    headers: { 'WWW-Authenticate': 'Basic realm="Admin Area"' }, // unify realm
+    headers: {
+      'WWW-Authenticate': `Basic realm="${realm}"`,
+      'Cache-Control': 'no-store',
+    },
   });
 }
 
-
 export async function GET(req: NextRequest) {
-  if (!checkBasicAuth(req)) return unauthorized();
+  // cookies() is async in your version
+  const cookieStore = await cookies();
+  const realm = cookieStore.get('admin_realm')?.value || 'Admin Area';
+
+  if (!checkBasicAuth(req)) return unauthorized(realm);
 
   const { searchParams } = new URL(req.url);
   const q = (searchParams.get('q') ?? '').trim();
@@ -43,26 +49,22 @@ export async function GET(req: NextRequest) {
     sort === 'status_desc' ? { status: 'desc' }      :
                              { createdAt: 'desc' };
 
-  const where: Prisma.OrderWhereInput = q
-    ? {
-        OR: [
-          { id:           { contains: q } },
-          { payerEmail:   { contains: q } },
-          { productTitle: { contains: q } },
-          { productSlug:  { contains: q } },
-          { sku:          { contains: q } },
-          { selectedSize: { contains: q } },
-        ],
-      }
-    : {};
+  const where: Prisma.OrderWhereInput = q ? {
+    OR: [
+      { id: { contains: q } },
+      { payerEmail: { contains: q } },
+      { productTitle: { contains: q } },
+      { productSlug: { contains: q } },
+      { sku: { contains: q } },
+      { selectedSize: { contains: q } },
+    ],
+  } : {};
 
-  // Exclude BigInt 'seq' from the selection (or convert to string below if you need it)
   const rows = await prisma.order.findMany({
     where,
     orderBy,
     take,
     select: {
-      // seq: true, // include only if you convert it to string below
       id: true,
       createdAt: true,
       status: true,
@@ -76,17 +78,57 @@ export async function GET(req: NextRequest) {
     },
   });
 
-  // Normalize Decimal/BigInt for JSON
   const data = rows.map((r) => ({
     ...r,
-    // If you decided to select seq above: seq: (r as any).seq?.toString(),
     amountTotal:
-      typeof (r.amountTotal as unknown as { toString?: () => string }).toString === 'function'
-        ? (r.amountTotal as unknown as { toString: () => string }).toString()
+      typeof (r.amountTotal as any)?.toString === 'function'
+        ? (r.amountTotal as any).toString()
         : String(r.amountTotal),
   }));
 
-  return NextResponse.json({ data }, { headers: { 'cache-control': 'no-store' } });
+  // ---- CSV / JSON formats ----
+  const format = searchParams.get('format');
+  const pretty = searchParams.has('pretty');
+
+  if (format === 'csv') {
+    const header = [
+      'id','createdAt','status','amountTotal','currency',
+      'payerEmail','productTitle','productSlug','selectedSize','sku',
+    ].join(',');
+
+    const lines = data.map((r) =>
+      [
+        r.id,
+        r.createdAt instanceof Date ? r.createdAt.toISOString() : String(r.createdAt),
+        r.status,
+        r.amountTotal,
+        r.currency,
+        r.payerEmail ?? '',
+        r.productTitle ?? '',
+        r.productSlug ?? '',
+        r.selectedSize ?? '',
+        r.sku ?? '',
+      ]
+        .map((v) => `"${String(v).replace(/"/g, '""')}"`)
+        .join(',')
+    );
+
+    const csv = [header, ...lines].join('\n');
+    return new Response(csv, {
+      headers: {
+        'content-type': 'text/csv; charset=utf-8',
+        'content-disposition': 'attachment; filename="orders.csv"',
+        'cache-control': 'no-store',
+      },
+    });
+  }
+
+  return new Response(JSON.stringify({ data }, null, pretty ? 2 : 0), {
+    headers: {
+      'content-type': 'application/json; charset=utf-8',
+      'cache-control': 'no-store',
+    },
+  });
 }
 
 export async function POST() {

@@ -71,12 +71,13 @@ export default async function AdminOrders({
 
   <div className="flex items-center gap-2">
     {/* Optional: quick export */}
-    <Link
-      href="/api/orders?format=csv"
-      className="text-sm rounded border border-white/20 px-3 py-1 hover:bg-white/5"
-    >
-      Export CSV
-    </Link>
+  <a
+  href="/api/orders?format=csv"
+  className="text-sm rounded border border-white/20 px-3 py-1 hover:bg-white/5"
+  rel="noopener"
+>
+  Export CSV
+</a>
 
     {/* Sign out clears the admin cookie and returns home */}
     <Link

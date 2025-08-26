@@ -16,36 +16,26 @@ function ok(req: NextRequest) {
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const next = url.searchParams.get('next') || '/admin/orders';
+  const realm = req.cookies.get('admin_realm')?.value || 'Admin Area';
 
   if (!ok(req)) {
     return new NextResponse('Auth required', {
       status: 401,
-      headers: { 'WWW-Authenticate': 'Basic realm="Admin Area"' },
+      headers: { 'WWW-Authenticate': `Basic realm="${realm}"` },
     });
   }
 
-  // Success → set cookie and redirect
-  const res = NextResponse.redirect(new URL(next, url.origin));
 
+  // Success → set cookie and redirect
+ const res = NextResponse.redirect(new URL(next, url.origin));
+  if (!req.cookies.get('admin_realm')) {
+    res.cookies.set('admin_realm', realm, {
+      httpOnly: true, secure: true, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 24,
+    });
+  }
   // Style A: name/value/options
   res.cookies.set('admin_ok', '1', {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'lax',   // <-- lowercase
-    path: '/',
-    maxAge: 60 * 60,   // 1 hour
+    httpOnly: true, secure: true, sameSite: 'lax', path: '/', maxAge: 60 * 60,
   });
-
-  // // Style B: object form (also valid)
-  // res.cookies.set({
-  //   name: 'admin_ok',
-  //   value: '1',
-  //   httpOnly: true,
-  //   secure: true,
-  //   sameSite: 'lax',
-  //   path: '/',
-  //   maxAge: 60 * 60,
-  // });
-
   return res;
 }

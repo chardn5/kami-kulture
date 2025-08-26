@@ -32,12 +32,16 @@ export function middleware(req: NextRequest) {
   const USER = process.env.BASIC_AUTH_USER || process.env.ADMIN_USER || '';
   const PASS = process.env.BASIC_AUTH_PASS || process.env.ADMIN_PASSWORD || process.env.ADMIN_PASS || '';
 
-  const unauthorized = () =>
-    new NextResponse('Auth required', {
-      status: 401,
-      headers: { 'WWW-Authenticate': 'Basic realm="Admin Area v4"' }, // new realm busts browser cache
-    });
+ const realm = req.cookies.get('admin_realm')?.value || 'Admin Area';
 
+const unauthorized = () =>
+  new NextResponse('Auth required', {
+    status: 401,
+    headers: {
+      'WWW-Authenticate': `Basic realm="${realm}"`,
+      'Cache-Control': 'no-store',
+    },
+  });
   if (!USER || !PASS) return unauthorized();
 
   const creds = decodeBasicAuth(req.headers.get('authorization') || '');
