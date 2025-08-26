@@ -2,63 +2,40 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-// Run on ALL requests so nothing slips through.
-// We'll skip assets/API inside the function.
+// Run on all pages; we'll filter inside.
 export const config = { matcher: '/(.*)' };
 
-function decodeBasicAuth(header: string) {
-  if (!header?.startsWith('Basic ')) return null;
+function decodeBasicAuth(header?: string) {
+  if (!header || !header.startsWith('Basic ')) return null;
   try {
     const b64 = header.split(' ')[1] || '';
-    const decoded = atob(b64); // Edge runtime
-    const i = decoded.indexOf(':');
+    const s = atob(b64);
+    const i = s.indexOf(':');
     if (i === -1) return null;
-    return { user: decoded.slice(0, i), pass: decoded.slice(i + 1) };
-  } catch {
-    return null;
-  }
+    return { user: s.slice(0, i), pass: s.slice(i + 1) };
+  } catch { return null; }
 }
 
-// Matches /admin/* OR /<locale>/admin/* (e.g., /en/admin/orders)
-function isAdminPath(pathname: string): boolean {
-  return /^\/(?:[A-Za-z]{2}(?:-[A-Za-z]{2})?\/)?admin(?:\/|$)/.test(pathname);
-}
+// Match /admin/* or /<locale>/admin/*
+const isAdmin = (p: string) => /^\/(?:[A-Za-z]{2}(?:-[A-Za-z]{2})?\/)?admin(?:\/|$)/.test(p);
 
 export function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl;
+  const p = req.nextUrl.pathname;
 
-  // Skip static assets and API routes explicitly
-  if (
-    pathname.startsWith('/_next/') ||
-    pathname.startsWith('/assets/') ||
-    pathname.startsWith('/public/') ||
-    pathname === '/favicon.ico' ||
-    pathname.startsWith('/api/')
-  ) {
-    const res = NextResponse.next();
-    res.headers.set('x-mw-hit', '1'); // debug: middleware ran
-    return res;
+  // Skip assets and API
+  if (p.startsWith('/_next/') || p === '/favicon.ico' || p.startsWith('/api/')) {
+    return NextResponse.next();
   }
+  if (!isAdmin(p)) return NextResponse.next();
 
-  // Only protect admin paths
-  if (!isAdminPath(pathname)) {
-    const res = NextResponse.next();
-    res.headers.set('x-mw-hit', '1'); // debug: middleware ran
-    return res;
-  }
-
- // /middleware.ts  (keep the rest as you have)
-const USER =
-  process.env.BASIC_AUTH_USER || process.env.ADMIN_USER || '';
-
-const PASS =
-  process.env.BASIC_AUTH_PASS || process.env.ADMIN_PASSWORD || process.env.ADMIN_PASS || '';
-
+  // IMPORTANT: use || so empty BASIC_* don't block fallback to ADMIN_*
+  const USER = process.env.BASIC_AUTH_USER || process.env.ADMIN_USER || '';
+  const PASS = process.env.BASIC_AUTH_PASS || process.env.ADMIN_PASSWORD || process.env.ADMIN_PASS || '';
 
   const unauthorized = () =>
     new NextResponse('Auth required', {
       status: 401,
-      headers: { 'WWW-Authenticate': 'Basic realm="Admin Area v3"' }, // bump realm to bust cache
+      headers: { 'WWW-Authenticate': 'Basic realm="Admin Area v4"' }, // new realm busts browser cache
     });
 
   if (!USER || !PASS) return unauthorized();
@@ -66,8 +43,5 @@ const PASS =
   const creds = decodeBasicAuth(req.headers.get('authorization') || '');
   if (!creds || creds.user !== USER || creds.pass !== PASS) return unauthorized();
 
-  const res = NextResponse.next();
-  res.headers.set('x-mw-hit', '1');            // debug: middleware ran
-  res.headers.set('x-admin-protected', '1');   // debug: admin auth passed
-  return res;
+  return NextResponse.next();
 }
