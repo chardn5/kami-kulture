@@ -1,31 +1,51 @@
-// middleware.ts
-import { NextResponse } from "next/server";
+// /middleware.ts
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 
-export function middleware(req: Request) {
-  const url = new URL(req.url);
+// Limit scope of middleware only to /admin
+export const config = {
+  matcher: ['/admin/:path*'],
+};
 
-  if (url.pathname.startsWith("/admin")) {
-    const auth = req.headers.get("authorization") || "";
-    const [scheme, b64] = auth.split(" ");
-    if (scheme !== "Basic" || !b64) {
-      return new NextResponse("Auth required", {
-        status: 401,
-        headers: { "WWW-Authenticate": 'Basic realm="Admin Area"' },
-      });
-    }
-    const [u, p] = Buffer.from(b64, "base64").toString().split(":");
-    if (u !== process.env.ADMIN_USER || p !== process.env.ADMIN_PASS) {
-      return new NextResponse("Auth required", {
-        status: 401,
-        headers: { "WWW-Authenticate": 'Basic realm="Admin Area"' },
-      });
-    }
+// Edge-safe Basic auth decode (no Node Buffer in middleware)
+function decodeBasicAuth(header: string): { user: string; pass: string } | null {
+  if (!header.startsWith('Basic ')) return null;
+  try {
+    const b64 = header.split(' ')[1] || '';
+    const decoded = atob(b64); // Edge runtime provides atob
+    const idx = decoded.indexOf(':');
+    if (idx === -1) return null;
+    return { user: decoded.slice(0, idx), pass: decoded.slice(idx + 1) };
+  } catch {
+    return null;
+  }
+}
+
+export function middleware(req: NextRequest) {
+  // Only protect /admin/*
+  if (!req.nextUrl.pathname.startsWith('/admin')) {
+    return NextResponse.next();
+  }
+
+  const header = req.headers.get('authorization') || '';
+  const creds = decodeBasicAuth(header);
+
+  // Support both env naming styles
+  const USER = process.env.BASIC_AUTH_USER ?? process.env.ADMIN_USER ?? '';
+  const PASS = process.env.BASIC_AUTH_PASS ?? process.env.ADMIN_PASS ?? '';
+
+  const unauthorized = () =>
+    new NextResponse('Auth required', {
+      status: 401,
+      headers: { 'WWW-Authenticate': 'Basic realm="Admin Area"' },
+    });
+
+  if (!USER || !PASS) return unauthorized();
+  if (!creds) return unauthorized();
+
+  if (creds.user !== USER || creds.pass !== PASS) {
+    return unauthorized();
   }
 
   return NextResponse.next();
 }
-
-// Limit scope of middleware only to /admin
-export const config = {
-  matcher: ["/admin/:path*"],
-};

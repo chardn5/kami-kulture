@@ -1,85 +1,128 @@
-// src/app/admin/orders/page.tsx
-import Link from "next/link";
+// /src/app/admin/orders/page.tsx
+import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
+import Link from 'next/link';
 
-type Row = {
-  time: string;
-  orderId: string;
-  amount: string;
-  currency?: string;
-  email?: string;
-  customId?: string;
-};
+/** Infer the row type directly from Prisma */
+type OrderRow = Awaited<ReturnType<typeof prisma.order.findMany>>[number];
 
-export const dynamic = "force-dynamic"; // avoid caching
-
-async function getOrders(): Promise<Row[]> {
-  const baseUrl =
-    process.env.NEXT_PUBLIC_BASE_URL?.replace(/\/$/, "") || "http://localhost:3000";
-  const user = process.env.ADMIN_USER ?? "";
-  const pass = process.env.ADMIN_PASS ?? "";
-  const headers: Record<string, string> = {};
-
-  if (user && pass) {
-    const token = Buffer.from(`${user}:${pass}`).toString("base64");
-    headers["Authorization"] = `Basic ${token}`;
-  }
-
-  try {
-    const res = await fetch(`${baseUrl}/api/orders`, { cache: "no-store", headers });
-    if (!res.ok) return [];
-    const data = (await res.json()) as Row[];
-    return Array.isArray(data) ? data : [];
-  } catch {
-    return [];
-  }
+function sortHref(base: { q: string; sort: string }, key: string) {
+  const qs = new URLSearchParams();
+  if (base.q) qs.set('q', base.q);
+  qs.set('sort', key);
+  return `?${qs.toString()}`;
 }
 
-export default async function AdminOrdersPage() {
-  const rows = await getOrders();
+/** Convert Prisma.Decimal | number | string -> number */
+function toNumber(v: unknown): number {
+  if (typeof v === 'number') return v;
+  // Prisma.Decimal has .toNumber()
+  if (v && typeof (v as any).toNumber === 'function') return (v as any).toNumber();
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
+
+export default async function AdminOrders({
+  // In your setup, searchParams is a Promise – await it below.
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const sp = await searchParams;
+
+  const qRaw = sp.q;
+  const sortRaw = sp.sort;
+
+  const q = (Array.isArray(qRaw) ? qRaw[0] : qRaw) ?? '';
+  const sort = ((Array.isArray(sortRaw) ? sortRaw[0] : sortRaw) ?? 'createdAt_desc').toLowerCase();
+
+ const orderBy: Prisma.OrderOrderByWithRelationInput =
+  sort === 'amount_desc' ? { amountTotal: 'desc' } :
+  sort === 'amount_asc'  ? { amountTotal: 'asc' }  :
+  sort === 'status_asc'  ? { status: 'asc' }       :
+  sort === 'status_desc' ? { status: 'desc' }      :
+                           { createdAt: 'desc' };
+
+ const where: Prisma.OrderWhereInput = q
+  ? {
+      OR: [
+        { id:           { contains: q, mode: 'insensitive' } },
+        { payerEmail:   { contains: q, mode: 'insensitive' } },
+        { productTitle: { contains: q, mode: 'insensitive' } },
+        { productSlug:  { contains: q, mode: 'insensitive' } },
+        { sku:          { contains: q, mode: 'insensitive' } },
+        { selectedSize: { contains: q, mode: 'insensitive' } },
+      ],
+    }
+  : {};
+
+  const orders = await prisma.order.findMany({
+    where,
+    orderBy,
+    take: 200,
+  });
+
+  const baseQS = { q, sort };
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-10">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Orders (dev)</h1>
-        <Link href="/" className="text-sm underline opacity-80 hover:opacity-100">
-          Back to site
-        </Link>
-      </div>
-      <p className="mb-4 text-sm opacity-70">
-        Newest first. File path: <code>.data/orders.json</code> (dev) /{" "}
-        <code>/tmp/orders.json</code> (prod).
-      </p>
+    <main className="mx-auto max-w-6xl p-6">
+      <h1 className="mb-4 text-2xl font-semibold">Orders</h1>
 
-      <div className="overflow-x-auto rounded-2xl border border-white/10">
+      <form className="mb-4">
+        <input
+          className="w-full rounded border px-3 py-2 md:w-80"
+          name="q"
+          defaultValue={q}
+          placeholder="Search id, email, title, SKU…"
+        />
+      </form>
+
+      <div className="overflow-x-auto">
         <table className="min-w-full text-sm">
-          <thead className="bg-white/5">
-            <tr>
-              <th className="px-4 py-3 text-left">Time</th>
-              <th className="px-4 py-3 text-left">Order ID</th>
-              <th className="px-4 py-3 text-left">Amount</th>
-              <th className="px-4 py-3 text-left">Email</th>
-              <th className="px-4 py-3 text-left">Custom ID</th>
+          <thead>
+            <tr className="border-b text-left">
+              <th className="py-2 pr-4">#</th>
+              <th className="py-2 pr-4">
+                <Link href={sortHref(baseQS, 'createdAt_desc')}>Created</Link>
+              </th>
+              <th className="py-2 pr-4">
+                <Link href={sortHref(baseQS, 'amount_desc')}>Amount</Link>
+              </th>
+              <th className="py-2 pr-4">
+                <Link href={sortHref(baseQS, 'status_desc')}>Status</Link>
+              </th>
+              <th className="py-2 pr-4">Order ID</th>
+              <th className="py-2 pr-4">Email</th>
+              <th className="py-2 pr-4">Item</th>
+              <th className="py-2 pr-4">SKU/Size</th>
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 ? (
-              <tr>
-                <td className="px-4 py-6 text-center opacity-70" colSpan={5}>
-                  No orders logged yet.
+            {orders.map((o: OrderRow, idx: number) => (
+              <tr key={o.id} className="border-b">
+                <td className="py-2 pr-4">{idx + 1}</td>
+                <td className="py-2 pr-4">
+                  {o.createdAt.toISOString().slice(0, 19).replace('T', ' ')}
+                </td>
+                <td className="py-2 pr-4">
+                  {o.currency} {toNumber(o.amountTotal).toFixed(2)}
+                </td>
+                <td className="py-2 pr-4">{o.status}</td>
+                <td className="py-2 pr-4 font-mono">{o.id}</td>
+                <td className="py-2 pr-4">{o.payerEmail ?? '—'}</td>
+                <td className="py-2 pr-4">{o.productTitle ?? '—'}</td>
+                <td className="py-2 pr-4">
+                  {o.sku ?? '—'}
+                  {o.selectedSize ? ` / ${o.selectedSize}` : ''}
                 </td>
               </tr>
-            ) : (
-              rows.map((r) => (
-                <tr key={`${r.orderId}-${r.time}`} className="odd:bg-white/[0.02]">
-                  <td className="px-4 py-3">{new Date(r.time).toLocaleString()}</td>
-                  <td className="px-4 py-3">{r.orderId}</td>
-                  <td className="px-4 py-3">
-                    {(r.currency ?? "USD") + " " + r.amount}
-                  </td>
-                  <td className="px-4 py-3">{r.email ?? "—"}</td>
-                  <td className="px-4 py-3">{r.customId ?? "—"}</td>
-                </tr>
-              ))
+            ))}
+            {orders.length === 0 && (
+              <tr>
+                <td colSpan={8} className="py-6 text-center text-gray-500">
+                  No orders found.
+                </td>
+              </tr>
             )}
           </tbody>
         </table>

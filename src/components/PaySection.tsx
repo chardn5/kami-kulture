@@ -142,60 +142,53 @@ export default function PaySection({
 
           onApprove: async (data, actions) => {
             try {
-              // Capture on client (OK for sandbox/MVP)
+              // Capture on client (sandbox MVP)
               const details = await actions.order.capture(); // typed as PayPalOrderDetails
               const orderID = data.orderID || details.id || '';
 
-              // Extract amounts safely
-              const pu0 = (details.purchase_units && details.purchase_units[0]) as
-                | PayPalPurchaseUnit
-                | undefined;
-
-              const cap0 =
-                (pu0?.payments?.captures && pu0.payments.captures[0]) as PayPalCapture | undefined;
-
-              const amtObj: PayPalAmount | undefined = cap0?.amount ?? pu0?.amount ?? undefined;
+              const pu0 = details.purchase_units?.[0];
+              const cap0 = pu0?.payments?.captures?.[0];
+              const amtObj: PayPalAmount | undefined = cap0?.amount ?? pu0?.amount;
               const value: string = amtObj?.value ?? amount.toFixed(2);
               const currency: string = amtObj?.currency_code ?? 'USD';
               const payerEmail: string | undefined = details.payer?.email_address;
 
-              // (A) Optional verification (non‑blocking)
-              fetch('/api/paypal/verify-order', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    orderId: orderID,
-    expectedAmount: Number(value),
-    meta: { productTitle, selectedSize, productSlug, sku, customId, payerEmail, currency },
-  }),
-}).catch(() => {});
+              // Send to our backend capture endpoint:
+              // - emails the order JSON (per your config)
+              // - writes/updates the order in Neon via Prisma
+              await fetch('/api/paypal/capture-order', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  orderID,
+                  productTitle,
+                  selectedSize,
+                  productSlug,
+                  sku,
+                  emailOverride: payerEmail, // optional; lets us email buyer if configured
+                }),
+              }).catch(() => {});
 
-              // (B) Append to local orders log → shows in admin/dev
-             fetch('/api/orders', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    orderId: orderID,
-    amount: value,
-    currency,
-    email: payerEmail,
-    customId,
-  }),
-  keepalive: true,
-}).catch(() => {});
+              // Optional: remember email for Thank You auto-lookup
+              if (payerEmail && typeof window !== 'undefined') {
+                sessionStorage.setItem('kk_email', payerEmail);
+              }
 
-              window.location.href = `/thank-you?orderID=${encodeURIComponent(orderID)}`;
+              // Redirect to Thank You (with orderID & email for auto-lookup)
+              const query = new URLSearchParams({ orderID });
+              if (payerEmail) query.set('email', payerEmail);
+              window.location.href = `/thank-you?${query.toString()}`;
             } catch (e: unknown) {
               console.error(e);
               const msg = getErrorMessage(e);
-              alert(`Capture failed in sandbox.${msg ? `\n\n${msg}` : ''}`);
+              alert(`Capture failed.${msg ? `\n\n${msg}` : ''}`);
             }
           },
 
           onError: (err: unknown) => {
             console.error('PayPal onError', err);
             const msg = getErrorMessage(err);
-            alert(`PayPal error in sandbox.${msg ? `\n\n${msg}` : ''}`);
+            alert(`PayPal error.${msg ? `\n\n${msg}` : ''}`);
           },
         });
 
