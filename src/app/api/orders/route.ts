@@ -78,57 +78,60 @@ export async function GET(req: NextRequest) {
     },
   });
 
-  const data = rows.map((r) => ({
-    ...r,
-    amountTotal:
-      typeof (r.amountTotal as any)?.toString === 'function'
-        ? (r.amountTotal as any).toString()
-        : String(r.amountTotal),
-  }));
+ // ---- helpers: typed guard, no `any` ----
+type Stringable = { toString: () => string };
+const isStringable = (v: unknown): v is Stringable =>
+  typeof v === 'object' && v !== null && 'toString' in (v as Record<string, unknown>) &&
+  typeof (v as { toString: unknown }).toString === 'function';
+
+// Normalize Decimal/BigInt for JSON (no `any`)
+const data = rows.map((r) => ({
+  ...r,
+  amountTotal: isStringable(r.amountTotal) ? r.amountTotal.toString() : String(r.amountTotal),
+}));
+
 
   // ---- CSV / JSON formats ----
-  const format = searchParams.get('format');
-  const pretty = searchParams.has('pretty');
+const format = searchParams.get('format');
+const pretty = searchParams.has('pretty');
 
-  if (format === 'csv') {
-    const header = [
-      'id','createdAt','status','amountTotal','currency',
-      'payerEmail','productTitle','productSlug','selectedSize','sku',
-    ].join(',');
+if (format === 'csv') {
+  const header = [
+    'id','createdAt','status','amountTotal','currency',
+    'payerEmail','productTitle','productSlug','selectedSize','sku',
+  ].join(',');
 
-    const lines = data.map((r) =>
-      [
-        r.id,
-        r.createdAt instanceof Date ? r.createdAt.toISOString() : String(r.createdAt),
-        r.status,
-        r.amountTotal,
-        r.currency,
-        r.payerEmail ?? '',
-        r.productTitle ?? '',
-        r.productSlug ?? '',
-        r.selectedSize ?? '',
-        r.sku ?? '',
-      ]
-        .map((v) => `"${String(v).replace(/"/g, '""')}"`)
-        .join(',')
-    );
+  const lines = data.map((row) => [
+    row.id,
+    row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt),
+    row.status,
+    row.amountTotal,
+    row.currency,
+    row.payerEmail ?? '',
+    row.productTitle ?? '',
+    row.productSlug ?? '',
+    row.selectedSize ?? '',
+    row.sku ?? '',
+  ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(','));
 
-    const csv = [header, ...lines].join('\n');
-    return new Response(csv, {
-      headers: {
-        'content-type': 'text/csv; charset=utf-8',
-        'content-disposition': 'attachment; filename="orders.csv"',
-        'cache-control': 'no-store',
-      },
-    });
-  }
 
-  return new Response(JSON.stringify({ data }, null, pretty ? 2 : 0), {
+  const csv = [header, ...lines].join('\n');
+  return new Response(csv, {
     headers: {
-      'content-type': 'application/json; charset=utf-8',
+      'content-type': 'text/csv; charset=utf-8',
+      'content-disposition': 'attachment; filename="orders.csv"',
       'cache-control': 'no-store',
     },
   });
+}
+
+// Default JSON (pretty if ?pretty=1)
+return new Response(JSON.stringify({ data }, null, pretty ? 2 : 0), {
+  headers: {
+    'content-type': 'application/json; charset=utf-8',
+    'cache-control': 'no-store',
+  },
+});
 }
 
 export async function POST() {
