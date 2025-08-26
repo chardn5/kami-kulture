@@ -66,7 +66,27 @@ export default async function AdminOrders({
 
   return (
     <main className="mx-auto max-w-6xl p-6">
-      <h1 className="mb-4 text-2xl font-semibold">Orders</h1>
+      <div className="mb-4 flex items-center justify-between">
+  <h1 className="text-2xl font-semibold">Orders</h1>
+
+  <div className="flex items-center gap-2">
+    {/* Optional: quick export */}
+    <Link
+      href="/api/orders?format=csv"
+      className="text-sm rounded border border-white/20 px-3 py-1 hover:bg-white/5"
+    >
+      Export CSV
+    </Link>
+
+    {/* Sign out clears the admin cookie and returns home */}
+    <Link
+      href="/admin/sign-out?next=/"
+      className="text-sm rounded border border-white/20 px-3 py-1 hover:bg-white/5"
+    >
+      Sign out
+    </Link>
+  </div>
+</div>
 
       <form className="mb-4">
         <input
