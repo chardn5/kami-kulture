@@ -16,39 +16,36 @@ function decodeBasicAuth(header: string): { user: string; pass: string } | null 
 
 export const dynamic = 'force-dynamic'; // ensure this runs on every request
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const h = headers();
-  const auth = h.get('authorization') || '';
+export default async function AdminLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  // NOTE: headers() is async in your setup
+  const h = await headers();
+  const auth = h.get('authorization') ?? '';
 
-  // IMPORTANT: include ADMIN_PASSWORD fallback (your env shows ADMIN_PASSWORD, not ADMIN_PASS)
+  // Treat empty BASIC_* as unset and fall back to ADMIN_*
   const USER =
-    process.env.BASIC_AUTH_USER ??
-    process.env.ADMIN_USER ??
+    process.env.BASIC_AUTH_USER ||
+    process.env.ADMIN_USER ||
     '';
-
   const PASS =
-    process.env.BASIC_AUTH_PASS ??
-    process.env.ADMIN_PASSWORD ??
-    process.env.ADMIN_PASS ??
+    process.env.BASIC_AUTH_PASS ||
+    process.env.ADMIN_PASSWORD || // you have ADMIN_PASSWORD in Vercel
+    process.env.ADMIN_PASS ||
     '';
 
   const creds = decodeBasicAuth(auth);
   const ok = !!USER && !!PASS && !!creds && creds.user === USER && creds.pass === PASS;
 
   if (!ok) {
-    // Render a simple 401 page (no sensitive data). This blocks the admin UI content.
-    // (We can’t set the 401 status from a server component; the content is enough to prevent leakage.)
+    // Block the admin UI if not authorized (no popup here—just a hard gate)
     return (
-      <html lang="en">
-        <body>
-          <main style={{ maxWidth: 720, margin: '6rem auto', padding: '1rem', textAlign: 'center' }}>
-            <h1 style={{ fontSize: '1.5rem', fontWeight: 600 }}>401 – Auth required</h1>
-            <p style={{ marginTop: 12 }}>
-              This area is protected. Please supply Basic Auth credentials.
-            </p>
-          </main>
-        </body>
-      </html>
+      <section style={{ maxWidth: 720, margin: '6rem auto', padding: '1rem', textAlign: 'center' }}>
+        <h1 style={{ fontSize: '1.25rem', fontWeight: 600 }}>401 – Auth required</h1>
+        <p style={{ marginTop: 12 }}>This area is protected. Supply Basic Auth credentials.</p>
+      </section>
     );
   }
 
