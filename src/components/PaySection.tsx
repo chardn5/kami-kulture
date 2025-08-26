@@ -161,28 +161,28 @@ export default function PaySection({
 
               // (A) Optional verification (non‑blocking)
               fetch('/api/paypal/verify-order', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  orderId: orderID,
-                  expectedAmount: amount,
-                  meta: { productTitle, selectedSize, productSlug, sku, customId },
-                }),
-              }).catch(() => {});
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    orderId: orderID,
+    expectedAmount: Number(value),
+    meta: { productTitle, selectedSize, productSlug, sku, customId, payerEmail, currency },
+  }),
+}).catch(() => {});
 
               // (B) Append to local orders log → shows in admin/dev
-              fetch('/api/orders', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  orderId: orderID,
-                  amount: value,
-                  currency,
-                  email: payerEmail,
-                  customId,
-                }),
-                keepalive: true,
-              }).catch(() => {});
+             fetch('/api/orders', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    orderId: orderID,
+    amount: value,
+    currency,
+    email: payerEmail,
+    customId,
+  }),
+  keepalive: true,
+}).catch(() => {});
 
               window.location.href = `/thank-you?orderID=${encodeURIComponent(orderID)}`;
             } catch (e: unknown) {

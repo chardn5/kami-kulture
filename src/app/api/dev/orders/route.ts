@@ -1,6 +1,6 @@
 // src/app/api/dev/orders/route.ts
 import { NextResponse } from "next/server";
-import { readOrders } from "@/lib/orderStore";  // <-- make sure this path matches your file
+import { readOrders } from "@/lib/orderStore";
 import { cookies } from "next/headers";
 import { createHash } from "crypto";
 
@@ -9,8 +9,16 @@ function expectedToken(): string | null {
   return pass ? createHash("sha256").update(pass).digest("base64url") : null;
 }
 
+type Entry = {
+  ts: number;
+  orderId: string;
+  amount: number;
+  currency: string;
+  payerEmail: string | null;
+  customId: string | null;
+};
+
 export async function GET() {
-  // Optional cookie gate (dev)
   const expected = expectedToken();
   if (expected) {
     const cookieStore = await cookies(); // Next 15: async
@@ -20,15 +28,8 @@ export async function GET() {
     }
   }
 
-  // Read & map to OrdersClient shape
-  let rows: Awaited<ReturnType<typeof readOrders>> = [];
-  try {
-    rows = await readOrders();
-  } catch {
-    rows = [];
-  }
-
-  const orders = rows.map((r) => ({
+  const rows = await readOrders().catch(() => []);
+  const orders: Entry[] = rows.map((r) => ({
     ts: Date.parse(r.time),
     orderId: r.orderId,
     amount: Number(r.amount),
