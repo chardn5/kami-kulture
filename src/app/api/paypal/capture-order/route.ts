@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { captureOrder, showOrder } from '@/lib/paypal'; // your existing helpers
 import { emailOrderJSON } from '@/lib/email';            // your existing helper
 import { prisma } from '@/lib/prisma';                   // Prisma client -> Neon
+import { Prisma } from '@prisma/client';
 
 export const runtime = 'nodejs';
 
@@ -133,7 +134,7 @@ export async function POST(req: NextRequest) {
         productSlug,
         selectedSize,
         sku,
-        raw: capture as any,
+        raw: capture as Prisma.InputJsonValue,
         buyerEmail: payerEmail,
       },
       update: {
@@ -147,7 +148,7 @@ export async function POST(req: NextRequest) {
         productSlug,
         selectedSize,
         sku,
-        raw: capture as any,
+        raw: capture as Prisma.InputJsonValue,
       },
     });
 
