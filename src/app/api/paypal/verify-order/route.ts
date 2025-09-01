@@ -45,7 +45,7 @@ export async function POST(req: Request) {
   try {
     await appendOrder(row);
     // console.log(`[verify-order] appended ${row.orderId} -> ${row.amount} ${row.currency}`);
-  } catch (_e) {
+  } catch  {
     // If writing fails we still return 200, but include a hint for logs
     return NextResponse.json({ ok: true, warn: "append-failed" });
   }

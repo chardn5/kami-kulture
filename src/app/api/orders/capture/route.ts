@@ -10,23 +10,32 @@ type CartLine = {
   sku: string;
   title: string;
   qty: number;
-  price: number;   // major units, e.g., 499.00 (NOT cents)
+  price: number;   // major units
   size?: string;
   image?: string;
 };
 
 type Body = {
-  paypalOrderId?: string;                     // e.g., "5P123456789..."
-  cart: CartLine[];                           // required
-  currency?: string;                          // default "USD" (or "PHP")
-  shipping?: number;                          // default 0
-  tax?: number;                               // default 0
-  payer?: { email?: string; name?: string };  // optional (fallback if not verifying)
-  paypalRaw?: unknown;                        // optional raw capture JSON from client
+  paypalOrderId?: string;
+  cart: CartLine[];
+  currency?: string;
+  shipping?: number;
+  tax?: number;
+  payer?: { email?: string; name?: string };
+  paypalRaw?: unknown; // keep as unknown; cast when saving to JSON
 };
 
-/** ----------------------- PayPal helpers (optional) ----------------------- */
-async function getPayPalAccessToken() {
+/** ---------------- PayPal minimal types (server) ---------------- */
+type PPName = { given_name?: string; surname?: string };
+type PPPayer = { email_address?: string; name?: PPName };
+type PPCapture = { id?: string };
+type PPPayments = { captures?: PPCapture[] };
+type PPAmt = { value?: string; currency_code?: string };
+type PPPurchaseUnit = { amount?: PPAmt; payments?: PPPayments };
+type PPOrder = { id?: string; payer?: PPPayer; purchase_units?: PPPurchaseUnit[] };
+
+/** ---------------- PayPal helpers (optional) ---------------- */
+async function getPayPalAccessToken(): Promise<{ token: string; base: string } | null> {
   const cid = process.env.PAYPAL_CLIENT_ID;
   const secret = process.env.PAYPAL_SECRET;
   if (!cid || !secret) return null;
@@ -43,36 +52,34 @@ async function getPayPalAccessToken() {
     body: 'grant_type=client_credentials',
     cache: 'no-store',
   });
-
   if (!res.ok) {
     console.error('[paypal] token fail', res.status, await res.text());
     return null;
   }
-  const data = await res.json();
-  return { token: data.access_token as string, base };
+  const data = (await res.json()) as { access_token?: string };
+  return data.access_token ? { token: data.access_token, base } : null;
 }
 
-async function fetchPayPalOrder(id: string, token: string, base: string) {
+async function fetchPayPalOrder(id: string, token: string, base: string): Promise<PPOrder> {
   const res = await fetch(`${base}/v2/checkout/orders/${id}`, {
     headers: { Authorization: `Bearer ${token}` },
     cache: 'no-store',
   });
-  const json = await res.json();
+  const json = (await res.json()) as unknown;
   if (!res.ok) {
     console.error('[paypal] order fetch fail', res.status, json);
     throw new Error('PAYPAL_VERIFY_FAILED');
   }
-  return json as any;
+  return json as PPOrder;
 }
 
-/** ------------------------- Util helpers ------------------------- */
+/** ---------------- Util helpers ---------------- */
 function dec(n: number | string | null | undefined) {
   const v = typeof n === 'number' ? n : n ? Number(n) : 0;
   return new Prisma.Decimal(v.toFixed(2));
 }
 
 async function generateOrderId(): Promise<string> {
-  // Human-friendly order number: KK-YYMMDD-XXXXX
   const d = new Date();
   const yymmdd = [
     String(d.getUTCFullYear()).slice(-2),
@@ -110,7 +117,7 @@ export async function POST(req: NextRequest) {
   let payerEmail = body.payer?.email;
   let payerName = body.payer?.name;
   let captureId: string | undefined;
-  let paypalRaw: any = body.paypalRaw;
+  let paypalRaw: unknown = body.paypalRaw;
 
   if (body.paypalOrderId) {
     const creds = await getPayPalAccessToken();
@@ -119,17 +126,16 @@ export async function POST(req: NextRequest) {
         const ppo = await fetchPayPalOrder(body.paypalOrderId, creds.token, creds.base);
         paypalRaw = paypalRaw ?? ppo;
 
-        // pull payer details
+        // payer details
         payerEmail = ppo?.payer?.email_address ?? payerEmail;
-        const given = ppo?.payer?.name?.given_name;
-        const surname = ppo?.payer?.name?.surname;
-        payerName = (given || surname) ? `${given ?? ''} ${surname ?? ''}`.trim() : payerName;
+        const given = ppo?.payer?.name?.given_name ?? '';
+        const surname = ppo?.payer?.name?.surname ?? '';
+        payerName = (given || surname) ? `${given} ${surname}`.trim() : payerName;
 
-        // order total
         const pu = ppo?.purchase_units?.[0];
         const apiTotal = pu?.amount?.value ? Number(pu.amount.value) : undefined;
 
-        // capture id (if already captured client-side)
+        // capture id if present
         const cap = pu?.payments?.captures?.[0];
         captureId = cap?.id ?? body.paypalOrderId;
 
@@ -144,7 +150,6 @@ export async function POST(req: NextRequest) {
         console.warn('[paypal] verify skipped/failed, continuing with client payload', e);
       }
     } else {
-      // No server creds, at least retain PayPal order id
       captureId = body.paypalOrderId;
     }
   }
@@ -181,13 +186,13 @@ export async function POST(req: NextRequest) {
       payerName: payerName ?? null,
       captureId: captureId ?? null,
 
-      // keep your legacy columns nullable (single-product flow)
+      // legacy single-product columns (kept nullable)
       productTitle: null,
       productSlug: null,
       selectedSize: null,
       sku: null,
 
-      raw: paypalRaw ?? null,
+      raw: (paypalRaw ?? null) as Prisma.InputJsonValue | null,
       buyerEmail: payerEmail ?? null,
 
       customerId,
@@ -206,7 +211,7 @@ export async function POST(req: NextRequest) {
     include: { items: true },
   });
 
-  // -------- Emails (best-effort; do not block response on failure) --------
+  // -------- Emails (best-effort; non-blocking) --------
   try {
     if (payerEmail) {
       await sendOrderReceipt({
@@ -226,7 +231,9 @@ export async function POST(req: NextRequest) {
         shipping: Number(order.amountShipping ?? 0),
         tax: order.amountTax ? Number(order.amountTax) : undefined,
         total: Number(order.amountTotal),
-        trackUrl: `${process.env.NEXT_PUBLIC_SITE_URL ?? 'https://kamikulture.com'}/track?order=${order.id}`,
+        trackUrl: `${process.env.NEXT_PUBLIC_SITE_URL ?? 'https://kamikulture.com'}/thank-you?orderID=${order.id}&email=${encodeURIComponent(
+          payerEmail
+        )}`,
       });
     }
 
