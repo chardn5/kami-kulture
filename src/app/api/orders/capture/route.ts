@@ -192,7 +192,7 @@ export async function POST(req: NextRequest) {
       selectedSize: null,
       sku: null,
 
-      raw: (paypalRaw ?? null) as Prisma.InputJsonValue | null,
+      raw: (paypalRaw !== undefined ? { raw: paypalRaw as Prisma.InputJsonValue } : {}),
       buyerEmail: payerEmail ?? null,
 
       customerId,
