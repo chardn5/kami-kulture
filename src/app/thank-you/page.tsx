@@ -15,7 +15,9 @@ function ThankYouInner() {
   const router = useRouter();
   const search = useSearchParams();
 
-  const orderID = search.get('orderID') || '';
+  // Accept both ?order (new) and ?orderID (legacy)
+  const orderIdParam = search.get('order') || search.get('orderID') || '';
+
   const emailFromQuery = search.get('email') || '';
   const [email, setEmail] = useState('');
   const [seconds, setSeconds] = useState(TOTAL);
@@ -25,7 +27,6 @@ function ThankYouInner() {
 
   // Try to auto-fill email from sessionStorage or URL
   useEffect(() => {
-    // Prefer explicit ?email=, otherwise use a value you may have set after checkout
     const stored = typeof window !== 'undefined' ? sessionStorage.getItem('kk_email') || '' : '';
     const preferred = emailFromQuery || stored;
     if (preferred) setEmail(preferred);
@@ -33,7 +34,7 @@ function ThankYouInner() {
 
   // Countdown redirect
   useEffect(() => {
-    const t = setInterval(() => setSeconds((s) => Math.max(0, s - 1)), 1000);
+    const t = setInterval(() => setSeconds(s => Math.max(0, s - 1)), 1000);
     return () => clearInterval(t);
   }, []);
   useEffect(() => {
@@ -42,16 +43,16 @@ function ThankYouInner() {
 
   const pct = useMemo(() => ((TOTAL - seconds) / TOTAL) * 100, [seconds]);
 
-  // Auto-lookup once when we have orderID + email
+  // Auto-lookup once when we have orderId + email
   useEffect(() => {
-    if (!orderID || !email || lookupAttempted) return;
+    if (!orderIdParam || !email || lookupAttempted) return;
     (async () => {
       try {
         setLoading(true);
         const res = await fetch('/api/orders/lookup', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ orderID, email }),
+          body: JSON.stringify({ orderID: orderIdParam, email }),
         });
         const json = (await res.json()) as LookupResult;
         setResult(json);
@@ -62,21 +63,20 @@ function ThankYouInner() {
         setLookupAttempted(true);
       }
     })();
-  }, [orderID, email, lookupAttempted]);
+  }, [orderIdParam, email, lookupAttempted]);
 
   async function handleManualLookup(e: React.FormEvent) {
     e.preventDefault();
-    if (!orderID || !email) return;
+    if (!orderIdParam || !email) return;
     try {
       setLoading(true);
       const res = await fetch('/api/orders/lookup', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ orderID, email }),
+        body: JSON.stringify({ orderID: orderIdParam, email }),
       });
       const json = (await res.json()) as LookupResult;
       setResult(json);
-      // remember for future visits
       if (typeof window !== 'undefined') sessionStorage.setItem('kk_email', email);
     } finally {
       setLoading(false);
@@ -90,11 +90,11 @@ function ThankYouInner() {
 
       <p className="mt-2 text-neutral-600">
         Your payment was received
-        {orderID ? (
+        {orderIdParam ? (
           <>
-            {' — '}Order ID: <span className="font-mono">{orderID}</span>
+            {' — '}Order ID: <span className="font-mono">{orderIdParam}</span>
             <button
-              onClick={() => navigator.clipboard.writeText(orderID)}
+              onClick={() => navigator.clipboard.writeText(orderIdParam)}
               className="ml-2 inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-neutral-50"
               aria-label="Copy order ID"
             >
@@ -150,7 +150,7 @@ function ThankYouInner() {
             </label>
             <button
               className="mt-1 rounded bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-              disabled={!orderID || !email || loading}
+              disabled={!orderIdParam || !email || loading}
               type="submit"
             >
               {loading ? 'Checking…' : 'Verify order'}
@@ -173,22 +173,13 @@ function ThankYouInner() {
         </div>
 
         <div className="mt-6 flex items-center justify-center gap-3">
-          <Link
-            href="/"
-            className="inline-flex items-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-neutral-50"
-          >
+          <Link href="/" className="inline-flex items-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-neutral-50">
             Go to homepage now
           </Link>
-          <Link
-            href="/products"
-            className="inline-flex items-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-neutral-50"
-          >
+          <Link href="/products" className="inline-flex items-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-neutral-50">
             Browse more designs
           </Link>
-          <Link
-            href="/track-order"
-            className="inline-flex items-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-neutral-50"
-          >
+          <Link href="/track-order" className="inline-flex items-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-neutral-50">
             Track order
           </Link>
         </div>
@@ -199,11 +190,7 @@ function ThankYouInner() {
 
 export default function ThankYouPage() {
   return (
-    <Suspense
-      fallback={
-        <main className="mx-auto max-w-2xl px-4 py-16 text-center">Loading…</main>
-      }
-    >
+    <Suspense fallback={<main className="mx-auto max-w-2xl px-4 py-16 text-center">Loading…</main>}>
       <ThankYouInner />
     </Suspense>
   );

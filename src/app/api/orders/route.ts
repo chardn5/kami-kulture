@@ -136,7 +136,8 @@ return new Response(JSON.stringify({ data }, null, pretty ? 2 : 0), {
 
 export async function POST() {
   return NextResponse.json(
-    { ok: false, error: 'Use /api/paypal/capture-order to create/update orders.' },
+    { ok: false, error: 'Use POST /api/orders/capture to create orders.' },
     { status: 405 },
   );
 }
+

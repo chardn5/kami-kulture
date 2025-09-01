@@ -3,15 +3,16 @@
 
 import { useEffect, useRef } from 'react';
 
+/* -------- Props -------- */
 type PaySectionProps = {
-  amount: number;
+  amount: number;          // major units (e.g., 499.00)
   productTitle: string;
   selectedSize?: string;
   productSlug?: string;
   sku?: string;
 };
 
-/* --------- Minimal PayPal SDK & response types (no `any`) --------- */
+/* -------- Minimal PayPal SDK & response types (no `any`) -------- */
 type PayPalAmount = { value: string; currency_code?: string };
 type PayPalCapture = { id?: string; amount?: PayPalAmount; status?: string };
 type PayPalPayments = { captures?: PayPalCapture[] };
@@ -21,7 +22,8 @@ type PayPalPurchaseUnit = {
   amount?: PayPalAmount;
   payments?: PayPalPayments;
 };
-type PayPalPayer = { email_address?: string };
+type PayPalPayerName = { given_name?: string; surname?: string };
+type PayPalPayer = { email_address?: string; name?: PayPalPayerName };
 type PayPalOrderDetails = {
   id?: string;
   payer?: PayPalPayer;
@@ -49,16 +51,14 @@ type PayPalButtonsOptions = {
 type PayPalButtonsInstance = { render: (container: HTMLElement) => void; close?: () => void };
 type PayPalSDK = { Buttons: (opts: PayPalButtonsOptions) => PayPalButtonsInstance };
 type WindowWithPaypal = Window & { paypal?: PayPalSDK };
-/* ------------------------------------------------------------------ */
+/* ---------------------------------------------------------------- */
+
+const CURRENCY = (process.env.NEXT_PUBLIC_CURRENCY ?? 'USD').toUpperCase();
 
 function getErrorMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
   if (typeof err === 'string') return err;
-  try {
-    return JSON.stringify(err);
-  } catch {
-    return '';
-  }
+  try { return JSON.stringify(err); } catch { return ''; }
 }
 
 /** Load the PayPal SDK once and resolve when ready */
@@ -71,12 +71,12 @@ async function loadPayPalSDK(): Promise<PayPalSDK> {
 
   const src =
     `https://www.paypal.com/sdk/js?components=buttons&client-id=${encodeURIComponent(clientId)}` +
-    `&currency=USD&intent=capture`;
+    `&currency=${encodeURIComponent(CURRENCY)}&intent=capture`;
 
   const existing = Array.from(document.getElementsByTagName('script')).find((s) => s.src === src);
   if (existing) {
     await new Promise<void>((res) => {
-      if ((w as WindowWithPaypal).paypal) res();
+      if (w.paypal) res();
       else existing.addEventListener('load', () => res(), { once: true });
     });
     if (!w.paypal) throw new Error('PayPal SDK not ready after existing script load');
@@ -120,7 +120,7 @@ export default function PaySection({
         container.innerHTML = '';
 
         const description = `${productTitle}${selectedSize ? ` - Size: ${selectedSize}` : ''}`;
-        // sku|size|slug|rand — helpful string in admin
+        // helpful string for admin debug
         const customId = [sku ?? '', selectedSize ?? '', productSlug ?? '', Math.random().toString(36).slice(2, 8)]
           .filter(Boolean)
           .join('|');
@@ -135,53 +135,68 @@ export default function PaySection({
                 {
                   custom_id: customId,
                   description,
-                  amount: { currency_code: 'USD', value: amount.toFixed(2) },
+                  amount: { currency_code: CURRENCY, value: amount.toFixed(2) },
                 },
               ],
             }),
 
           onApprove: async (data, actions) => {
             try {
-              // Capture on client (sandbox MVP)
-              const details = await actions.order.capture(); // typed as PayPalOrderDetails
+              // Capture on client (sandbox-friendly)
+              const details = await actions.order.capture();
               const orderID = data.orderID || details.id || '';
 
+              // Extract payer info & final amount from PayPal response
               const pu0 = details.purchase_units?.[0];
               const cap0 = pu0?.payments?.captures?.[0];
               const amtObj: PayPalAmount | undefined = cap0?.amount ?? pu0?.amount;
-              const value: string = amtObj?.value ?? amount.toFixed(2);
-              const currency: string = amtObj?.currency_code ?? 'USD';
-              const payerEmail: string | undefined = details.payer?.email_address;
+              const value = Number(amtObj?.value ?? amount);
+              const currency = (amtObj?.currency_code ?? CURRENCY).toUpperCase();
+              const given = details.payer?.name?.given_name ?? '';
+              const surname = details.payer?.name?.surname ?? '';
+              const payerName = `${given} ${surname}`.trim();
+              const payerEmail = details.payer?.email_address;
 
-              // Send to our backend capture endpoint:
-              // - emails the order JSON (per your config)
-              // - writes/updates the order in Neon via Prisma
-              await fetch('/api/paypal/capture-order', {
+              // Build a single-line "Buy Now" cart payload
+              const line = {
+                sku: sku ?? `${productSlug ?? productTitle}-${selectedSize ?? 'NA'}`,
+                title: productTitle,
+                qty: 1,
+                price: value,          // major units
+                size: selectedSize,
+                image: undefined as string | undefined,
+              };
+
+              // Send to our capture endpoint (creates Customer/Order/Items + emails)
+              const res = await fetch('/api/orders/capture', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                  orderID,
-                  productTitle,
-                  selectedSize,
-                  productSlug,
-                  sku,
-                  emailOverride: payerEmail, // optional; lets us email buyer if configured
+                  paypalOrderId: orderID,
+                  cart: [line],
+                  currency,
+                  shipping: 0,
+                  tax: 0,
+                  payer: { email: payerEmail, name: payerName },
+                  paypalRaw: details,
                 }),
-              }).catch(() => {});
+              });
 
-              // Optional: remember email for Thank You auto-lookup
-              if (payerEmail && typeof window !== 'undefined') {
-                sessionStorage.setItem('kk_email', payerEmail);
+              type CaptureResponse = { ok: boolean; orderId?: string; error?: string };
+              const json: CaptureResponse = await res.json().catch(() => ({ ok: false }));
+
+              if (!res.ok || !json.ok) {
+                throw new Error(json.error || `Capture API failed (${res.status})`);
               }
 
-              // Redirect to Thank You (with orderID & email for auto-lookup)
-              const query = new URLSearchParams({ orderID });
-              if (payerEmail) query.set('email', payerEmail);
-              window.location.href = `/thank-you?${query.toString()}`;
+              // Redirect to Thank You with our backend orderId
+              const qp = new URLSearchParams({ orderID: json.orderId ?? '' });
+if (payerEmail) qp.set('email', payerEmail);
+window.location.href = `/thank-you?${qp.toString()}`;
             } catch (e: unknown) {
               console.error(e);
               const msg = getErrorMessage(e);
-              alert(`Capture failed.${msg ? `\n\n${msg}` : ''}`);
+              alert(`Checkout failed.${msg ? `\n\n${msg}` : ''}`);
             }
           },
 
@@ -202,11 +217,7 @@ export default function PaySection({
 
     return () => {
       cancelled = true;
-      try {
-        buttons?.close?.();
-      } catch {
-        /* no-op */
-      }
+      try { buttons?.close?.(); } catch { /* no-op */ }
     };
   }, [amount, productTitle, selectedSize, productSlug, sku]);
 

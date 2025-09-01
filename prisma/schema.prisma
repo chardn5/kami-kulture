@@ -1,9 +1,4 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
+// prisma/schema.prisma
 generator client {
   provider = "prisma-client-js"
 }
@@ -13,30 +8,85 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+/**
+ * -------------------- NEW --------------------
+ */
+model Customer {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  firstName String?
+  lastName  String?
+  phone     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orders Order[]
+
+  @@index([email])
+}
+
+model OrderItem {
+  id       String @id @default(cuid())
+  orderSeq BigInt
+  order    Order  @relation(fields: [orderSeq], references: [seq], onDelete: Cascade)
+
+  sku       String
+  title     String
+  size      String?
+  unitPrice Decimal @db.Decimal(12, 2)
+  qty       Int
+  image     String?
+
+  createdAt DateTime @default(now())
+
+  @@index([orderSeq])
+}
+
+/**
+ * ---------------- EXISTING (with additions) ----------------
+ */
 model Order {
-  seq           BigInt   @id @default(autoincrement())
-  id            String   @unique
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  seq       BigInt   @id @default(autoincrement())
+  id        String   @unique // your public order id / number
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  status        String
-  amountTotal   Decimal  @db.Decimal(12, 2)  // ⬅️ change this line
-  currency      String   @default("USD")
+  status      String
+  amountTotal Decimal @db.Decimal(12, 2)
+  currency    String  @default("USD")
 
-  payerEmail    String?
-  payerName     String?
-  captureId     String?
+  payerEmail String?
+  payerName  String?
+  captureId  String?
 
-  productTitle  String?
-  productSlug   String?
-  selectedSize  String?
-  sku           String?
+  productTitle String?
+  productSlug  String?
+  selectedSize String?
+  sku          String?
 
-  raw           Json?
-  buyerEmail    String?
+  raw        Json?
+  buyerEmail String?
+
+  /**
+   * ---- NEW RELATION FIELDS ----
+   */
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id])
+
+  items       OrderItem[]
+  fulfilledAt DateTime?
+
+  /**
+   * ---- OPTIONAL MONEY BREAKOUTS (use later) ----
+   */
+  amountSubtotal Decimal? @db.Decimal(12, 2)
+  amountShipping Decimal? @db.Decimal(12, 2)
+  amountTax      Decimal? @db.Decimal(12, 2)
 
   @@index([createdAt])
   @@index([status])
   @@index([payerEmail])
   @@index([productSlug])
+  @@index([customerId])
+  @@index([captureId])
 }

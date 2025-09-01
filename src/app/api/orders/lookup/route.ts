@@ -21,23 +21,48 @@ export async function POST(req: NextRequest) {
   }
 
   const body: LookupBody = await req.json().catch(() => ({}) as LookupBody);
-  const orderID = body.orderID ?? '';
-  const email = body.email ?? '';
+  const orderID = (body.orderID ?? '').trim();
+  const email = (body.email ?? '').trim();
 
   if (!orderID || !email) {
     return NextResponse.json({ error: 'orderID and email required' }, { status: 400 });
   }
 
-  const order = await prisma.order.findUnique({ where: { id: orderID } });
+  // Broader match: payerEmail OR buyerEmail OR related Customer.email (case-insensitive)
+  const order = await prisma.order.findFirst({
+    where: {
+      id: orderID,
+      OR: [
+        { payerEmail: { equals: email, mode: 'insensitive' } },
+        { buyerEmail: { equals: email, mode: 'insensitive' } },
+        { customer: { is: { email: { equals: email, mode: 'insensitive' } } } },
+      ],
+    },
+    select: {
+      status: true,
+      amountTotal: true,
+      currency: true,
+      createdAt: true,
+      productTitle: true,
+      selectedSize: true,
+      sku: true,
+    },
+  });
 
-  if (!order || (order.payerEmail?.toLowerCase() ?? '') !== email.toLowerCase()) {
+  if (!order) {
     return NextResponse.json({ found: false }, { status: 200 });
   }
+
+  // Prisma Decimal -> string
+  const amountTotal =
+    typeof (order.amountTotal as unknown as { toString?: () => string }).toString === 'function'
+      ? (order.amountTotal as unknown as { toString: () => string }).toString()
+      : String(order.amountTotal);
 
   return NextResponse.json({
     found: true,
     status: order.status,
-    amountTotal: String(order.amountTotal),
+    amountTotal,
     currency: order.currency,
     createdAt: order.createdAt,
     productTitle: order.productTitle,

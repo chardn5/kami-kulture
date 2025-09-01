@@ -1,13 +1,15 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { formatPrice } from '@/lib/format';
 import dynamic from 'next/dynamic';
+import { useCart } from '@/lib/cartStore';
 
 const PaySection = dynamic(() => import('@/components/PaySection'), { ssr: false });
 
+type Variant = { size: 'S' | 'M' | 'L' | 'XL'; sku?: string };
 type Product = {
   slug: string;
   title: string;
@@ -15,7 +17,7 @@ type Product = {
   description?: string;
   images?: string[];
   category?: string;
-  variants?: { size: 'S' | 'M' | 'L' | 'XL'; sku?: string }[];
+  variants?: Variant[];
 };
 
 export default function PDPClient({ product, recs }: { product: Product; recs: Product[] }) {
@@ -27,6 +29,34 @@ export default function PDPClient({ product, recs }: { product: Product; recs: P
   const [selectedSize, setSelectedSize] = useState<string>(sizesFromVariants[0] ?? 'M');
   const images = product.images?.length ? product.images : ['/placeholder.jpg'];
   const [mainIdx, setMainIdx] = useState(0);
+
+  // --- CART wiring ---
+  const addToCart = useCart(s => s.add);
+  const [justAdded, setJustAdded] = useState(false);
+
+  // derive active SKU (use variant.sku if present; fallback to slug-size)
+  const activeSku = useMemo(() => {
+    const match = product.variants?.find(v => v.size === (selectedSize as Variant['size']));
+    return match?.sku || `${product.slug}-${selectedSize}`;
+  }, [product.variants, product.slug, selectedSize]);
+
+  const handleAddToCart = () => {
+    addToCart({
+      sku: activeSku,
+      title: product.title,
+      price: product.price,
+      image: images[0],
+      size: selectedSize,
+      qty: 1,
+    });
+    setJustAdded(true);
+  };
+
+  useEffect(() => {
+    if (!justAdded) return;
+    const t = setTimeout(() => setJustAdded(false), 1800);
+    return () => clearTimeout(t);
+  }, [justAdded]);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 text-white">
@@ -51,7 +81,7 @@ export default function PDPClient({ product, recs }: { product: Product; recs: P
           )}
         </section>
 
-        {/* --- INFO + SIZE + PAY --- */}
+        {/* --- INFO + SIZE + CART + PAY --- */}
         <section className="space-y-6">
           <h1 className="text-2xl font-semibold">{product.title}</h1>
           <p className="text-emerald-300">{formatPrice(product.price)}</p>
@@ -74,14 +104,29 @@ export default function PDPClient({ product, recs }: { product: Product; recs: P
             ))}
           </div>
 
-          {/* PayPal */}
-          <PaySection
-            productTitle={product.title}
-            amount={product.price}
-            selectedSize={selectedSize}
-            productSlug={product.slug}
-            sku={product.variants?.find(v => v.size === selectedSize)?.sku}
-          />
+          {/* Add to Cart + feedback */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleAddToCart}
+              className="rounded-xl px-4 py-2 bg-white text-black hover:opacity-90 transition"
+              aria-label="Add item to cart"
+            >
+              Add to Cart
+            </button>
+            {justAdded && <span className="text-xs text-emerald-400">Added!</span>}
+          </div>
+
+          {/* OR buy now with PayPal */}
+          <div className="pt-2">
+            <p className="text-xs text-neutral-400 mb-1">or Buy Now</p>
+            <PaySection
+              productTitle={product.title}
+              amount={product.price}
+              selectedSize={selectedSize}
+              productSlug={product.slug}
+              sku={activeSku}
+            />
+          </div>
 
           {/* Recs */}
           {recs.length > 0 && (
