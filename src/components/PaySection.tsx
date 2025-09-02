@@ -12,7 +12,7 @@ type PaySectionProps = {
   sku?: string;
 };
 
-/* -------- Minimal PayPal SDK & response types (no `any`) -------- */
+/* -------- Minimal PayPal SDK & response types -------- */
 type PayPalAmount = { value: string; currency_code?: string };
 type PayPalCapture = { id?: string; amount?: PayPalAmount; status?: string };
 type PayPalPayments = { captures?: PayPalCapture[] };
@@ -71,7 +71,7 @@ async function loadPayPalSDK(): Promise<PayPalSDK> {
 
   const src =
     `https://www.paypal.com/sdk/js?components=buttons&client-id=${encodeURIComponent(clientId)}` +
-    `&currency=${encodeURIComponent(CURRENCY)}&intent=capture`;
+    `&currency=${encodeURIComponent(CURRENCY)}&intent=capture&enable-funding=card`;
 
   const existing = Array.from(document.getElementsByTagName('script')).find((s) => s.src === src);
   if (existing) {
@@ -120,13 +120,12 @@ export default function PaySection({
         container.innerHTML = '';
 
         const description = `${productTitle}${selectedSize ? ` - Size: ${selectedSize}` : ''}`;
-        // helpful string for admin debug
         const customId = [sku ?? '', selectedSize ?? '', productSlug ?? '', Math.random().toString(36).slice(2, 8)]
           .filter(Boolean)
           .join('|');
 
         buttons = paypal.Buttons({
-          style: { shape: 'pill', label: 'paypal', layout: 'horizontal' },
+          style: { shape: 'pill', label: 'paypal', layout: 'vertical' }, // vertical to show both PayPal + Card
 
           createOrder: (_data, actions) =>
             actions.order.create({
@@ -142,11 +141,9 @@ export default function PaySection({
 
           onApprove: async (data, actions) => {
             try {
-              // Capture on client (sandbox-friendly)
               const details = await actions.order.capture();
               const orderID = data.orderID || details.id || '';
 
-              // Extract payer info & final amount from PayPal response
               const pu0 = details.purchase_units?.[0];
               const cap0 = pu0?.payments?.captures?.[0];
               const amtObj: PayPalAmount | undefined = cap0?.amount ?? pu0?.amount;
@@ -157,17 +154,15 @@ export default function PaySection({
               const payerName = `${given} ${surname}`.trim();
               const payerEmail = details.payer?.email_address;
 
-              // Build a single-line "Buy Now" cart payload
               const line = {
                 sku: sku ?? `${productSlug ?? productTitle}-${selectedSize ?? 'NA'}`,
                 title: productTitle,
                 qty: 1,
-                price: value,          // major units
+                price: value,
                 size: selectedSize,
                 image: undefined as string | undefined,
               };
 
-              // Send to our capture endpoint (creates Customer/Order/Items + emails)
               const res = await fetch('/api/orders/capture', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -189,10 +184,9 @@ export default function PaySection({
                 throw new Error(json.error || `Capture API failed (${res.status})`);
               }
 
-              // Redirect to Thank You with our backend orderId
               const qp = new URLSearchParams({ orderID: json.orderId ?? '' });
-if (payerEmail) qp.set('email', payerEmail);
-window.location.href = `/thank-you?${qp.toString()}`;
+              if (payerEmail) qp.set('email', payerEmail);
+              window.location.href = `/thank-you?${qp.toString()}`;
             } catch (e: unknown) {
               console.error(e);
               const msg = getErrorMessage(e);
