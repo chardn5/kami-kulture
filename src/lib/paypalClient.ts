@@ -1,9 +1,30 @@
 // src/lib/paypalClient.ts
-// Client-only helper to load the PayPal JS SDK with consistent params.
+
+// Minimal client-side PayPal SDK types (no `any`)
+type PayPalOrderActions = {
+  create: (input: unknown) => Promise<string>;
+  capture: () => Promise<unknown>;
+};
+
+type PayPalButtonsOptions = {
+  fundingSource?: unknown;
+  style?: Record<string, unknown>;
+  createOrder: (data: unknown, actions: { order: PayPalOrderActions }) => Promise<string> | string;
+  onApprove: (data: { orderID: string }, actions: { order: PayPalOrderActions }) => Promise<void> | void;
+  onError?: (err: unknown) => void;
+};
+
+type PayPalButtonsInstance = {
+  render: (container: HTMLElement) => void;
+  isEligible?: () => boolean;
+  close?: () => void;
+};
+
 type PayPalSDK = {
-  Buttons: (opts: any) => any;
+  Buttons: (opts: PayPalButtonsOptions) => PayPalButtonsInstance;
   FUNDING: { PAYPAL: unknown; CARD: unknown };
 };
+
 type WindowWithPaypal = Window & { paypal?: PayPalSDK };
 
 const CURRENCY = (process.env.NEXT_PUBLIC_CURRENCY ?? 'USD').toUpperCase();
@@ -16,9 +37,7 @@ function buildSdkSrc(clientId: string) {
   return `${base}?${params}`;
 }
 
-/** Load (or reload) the PayPal SDK with the desired params.
- * If another SDK with different params exists, remove it and inject the correct one.
- */
+/** Load (or reload) the PayPal SDK with the desired params. */
 export async function loadPayPalSDK(): Promise<PayPalSDK> {
   if (typeof window === 'undefined') throw new Error('loadPayPalSDK must run on the client');
 
@@ -28,7 +47,7 @@ export async function loadPayPalSDK(): Promise<PayPalSDK> {
 
   const desiredSrc = buildSdkSrc(clientId);
 
-  // Find any paypal sdk scripts
+  // Find any PayPal SDK scripts
   const existing = Array.from(
     document.querySelectorAll<HTMLScriptElement>('script[src*="paypal.com/sdk/js"]')
   );
@@ -37,8 +56,8 @@ export async function loadPayPalSDK(): Promise<PayPalSDK> {
   // If wrong/missing params, remove them so we can inject the correct one
   if (!exact && existing.length) {
     existing.forEach((s) => s.parentElement?.removeChild(s));
-    // reset global to force re-init
-    (w as any).paypal = undefined;
+    // Reset global to force re-init (avoid `any`)
+    delete (w as WindowWithPaypal).paypal;
   }
 
   // Already present with correct params
