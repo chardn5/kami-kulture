@@ -1,3 +1,4 @@
+// src/app/checkout/page.tsx
 'use client';
 
 import { useEffect, useMemo, useRef } from 'react';
@@ -5,6 +6,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useCart } from '@/lib/cartStore';
 import { formatPrice } from '@/lib/format';
+import { loadPayPalSDK } from '@/lib/paypalClient';
 
 /* ---- Minimal PayPal types ---- */
 type PPAmount = { value?: string; currency_code?: string };
@@ -20,56 +22,21 @@ type PayPalOrderActions = {
   capture: () => Promise<PPOrder>;
 };
 
-type PayPalButtonsInstance = { render: (container: HTMLElement) => void; close?: () => void };
-type PayPalSDK = {
-  Buttons: (opts: {
-    style?: Record<string, unknown>;
-    createOrder: (data: unknown, actions: { order: PayPalOrderActions }) => Promise<string> | string;
-    onApprove: (data: { orderID: string }, actions: { order: PayPalOrderActions }) => Promise<void> | void;
-    onError?: (err: unknown) => void;
-  }) => PayPalButtonsInstance;
+type PayPalButtonsInstance = {
+  render: (container: HTMLElement) => void;
+  /** Optional on some SDK builds */
+  isEligible?: () => boolean;
+  close?: () => void;
 };
-type WindowWithPaypal = Window & { paypal?: PayPalSDK };
 /* -------------------------------- */
 
 const CURRENCY = (process.env.NEXT_PUBLIC_CURRENCY ?? 'USD').toUpperCase();
 
-async function loadPayPalSDK(): Promise<PayPalSDK> {
-  const w = window as WindowWithPaypal;
-  if (w.paypal) return w.paypal;
-  const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID;
-  if (!clientId) throw new Error('NEXT_PUBLIC_PAYPAL_CLIENT_ID not set');
-
-  const src =
-    `https://www.paypal.com/sdk/js?components=buttons&client-id=${encodeURIComponent(clientId)}` +
-    `&currency=${encodeURIComponent(CURRENCY)}&intent=capture`;
-
-  const existing = Array.from(document.getElementsByTagName('script')).find((s) => s.src === src);
-  if (existing) {
-    await new Promise<void>((res) => {
-      if (w.paypal) res();
-      else existing.addEventListener('load', () => res(), { once: true });
-    });
-    if (!w.paypal) throw new Error('PayPal SDK not ready');
-    return w.paypal;
-  }
-
-  await new Promise<void>((resolve, reject) => {
-    const el = document.createElement('script');
-    el.src = src;
-    el.async = true;
-    el.onload = () => resolve();
-    el.onerror = () => reject(new Error('Failed to load PayPal SDK'));
-    document.head.appendChild(el);
-  });
-  if (!w.paypal) throw new Error('PayPal SDK loaded but window.paypal is undefined');
-  return w.paypal;
-}
-
 export default function CheckoutPage() {
   const items = useCart((s) => s.items);
   const clear = useCart((s) => s.clear);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const paypalRef = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
 
   const subtotal = useMemo(() => items.reduce((s, i) => s + i.price * i.qty, 0), [items]);
   const shipping = 0;
@@ -79,99 +46,115 @@ export default function CheckoutPage() {
   useEffect(() => {
     if (items.length === 0) return;
     let cancelled = false;
-    let buttons: PayPalButtonsInstance | null = null;
+    let walletButtons: PayPalButtonsInstance | null = null;
+    let cardButtons: PayPalButtonsInstance | null = null;
 
     const renderButtons = async () => {
-      const container = containerRef.current;
-      if (!container) return;
-
       const paypal = await loadPayPalSDK();
       if (cancelled) return;
 
-      container.innerHTML = '';
+      const walletContainer = paypalRef.current;
+      const cardContainer = cardRef.current;
+      if (!walletContainer || !cardContainer) return;
 
-      buttons = paypal.Buttons({
-        style: { shape: 'pill', label: 'paypal', layout: 'horizontal' },
+      walletContainer.innerHTML = '';
+      cardContainer.innerHTML = '';
 
-        createOrder: (_data, actions) =>
-          actions.order.create({
-            intent: 'CAPTURE',
-            purchase_units: [
-              {
-                description: `Kami Kulture order (${items.length} item${items.length > 1 ? 's' : ''})`,
-                amount: { currency_code: CURRENCY, value: total.toFixed(2) },
-              },
-            ],
+      const createOrder = (_data: unknown, actions: { order: PayPalOrderActions }) =>
+        actions.order.create({
+          intent: 'CAPTURE',
+          purchase_units: [
+            {
+              description: `Kami Kulture order (${items.length} item${items.length > 1 ? 's' : ''})`,
+              amount: { currency_code: CURRENCY, value: total.toFixed(2) },
+            },
+          ],
+        });
+
+      const onApprove = async (data: { orderID: string }, actions: { order: PayPalOrderActions }) => {
+        const details = await actions.order.capture();
+        const orderID = data.orderID || details.id || '';
+
+        const pu0 = details.purchase_units?.[0];
+        const cap0 = pu0?.payments?.captures?.[0];
+        const amtObj: PPAmount | undefined = cap0?.amount ?? pu0?.amount;
+        const currency = (amtObj?.currency_code ?? CURRENCY).toUpperCase();
+        const given = details.payer?.name?.given_name ?? '';
+        const surname = details.payer?.name?.surname ?? '';
+        const payerName = `${given} ${surname}`.trim();
+        const payerEmail = details.payer?.email_address;
+
+        const lines = items.map((i) => ({
+          sku: i.sku,
+          title: i.title,
+          qty: i.qty,
+          price: i.price,
+          size: i.size,
+          image: i.image,
+        }));
+
+        const res = await fetch('/api/orders/capture', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            paypalOrderId: orderID,
+            cart: lines,
+            currency,
+            shipping,
+            tax,
+            payer: { email: payerEmail, name: payerName },
+            paypalRaw: details,
           }),
+        });
 
-        onApprove: async (data, actions) => {
-          const details = await actions.order.capture();
-          const orderID = data.orderID || details.id || '';
+        type CaptureResponse = { ok: boolean; orderId?: string; error?: string };
+        const json: CaptureResponse = await res.json().catch(() => ({ ok: false }));
 
-          const pu0 = details.purchase_units?.[0];
-          const cap0 = pu0?.payments?.captures?.[0];
-          const amtObj: PPAmount | undefined = cap0?.amount ?? pu0?.amount;
-          // Removed unused 'value' variable to satisfy eslint
-          const currency = (amtObj?.currency_code ?? CURRENCY).toUpperCase();
-          const given = details.payer?.name?.given_name ?? '';
-          const surname = details.payer?.name?.surname ?? '';
-          const payerName = `${given} ${surname}`.trim();
-          const payerEmail = details.payer?.email_address;
+        if (!res.ok || !json.ok) {
+          throw new Error(json.error || `Capture API failed (${res.status})`);
+        }
 
-          const lines = items.map((i) => ({
-            sku: i.sku,
-            title: i.title,
-            qty: i.qty,
-            price: i.price,
-            size: i.size,
-            image: i.image,
-          }));
+        clear();
+        const qp = new URLSearchParams({ orderID: json.orderId ?? '' });
+        if (payerEmail) qp.set('email', payerEmail);
+        window.location.href = `/thank-you?${qp.toString()}`;
+      };
 
-          const res = await fetch('/api/orders/capture', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              paypalOrderId: orderID,
-              cart: lines,
-              currency,
-              shipping,
-              tax,
-              payer: { email: payerEmail, name: payerName },
-              paypalRaw: details,
-            }),
-          });
+      const onError = (err: unknown) => {
+        console.error('PayPal onError', err);
+        alert('PayPal error. Please try again.');
+      };
 
-          type CaptureResponse = { ok: boolean; orderId?: string; error?: string };
-          const json: CaptureResponse = await res.json().catch(() => ({ ok: false }));
+      // Wallet button (wallet-only to avoid duplicate Card)
+      walletButtons = paypal.Buttons({
+        fundingSource: paypal.FUNDING.PAYPAL,
+        style: { shape: 'pill', label: 'paypal', layout: 'vertical' },
+        createOrder,
+        onApprove,
+        onError,
+      }) as PayPalButtonsInstance;
+      walletButtons.render(walletContainer);
 
-          if (!res.ok || !json.ok) {
-            throw new Error(json.error || `Capture API failed (${res.status})`);
-          }
+      // Card button (render only if eligible)
+      cardButtons = paypal.Buttons({
+        fundingSource: paypal.FUNDING.CARD,
+        style: { layout: 'vertical', shape: 'pill' },
+        createOrder,
+        onApprove,
+        onError,
+      }) as PayPalButtonsInstance;
 
-          clear();
-          const qp = new URLSearchParams({ orderID: json.orderId ?? '' });
-          if (payerEmail) qp.set('email', payerEmail);
-          window.location.href = `/thank-you?${qp.toString()}`;
-        },
-
-        onError: (err) => {
-          console.error('PayPal onError', err);
-          alert('PayPal error. Please try again.');
-        },
-      });
-
-      buttons.render(container);
+      if (cardButtons.isEligible?.()) {
+        cardButtons.render(cardContainer);
+      }
     };
 
     renderButtons();
 
     return () => {
       cancelled = true;
-      try {
-        buttons?.close?.();
-      } catch {
-        /* noop */
-      }
+      try { walletButtons?.close?.(); } catch {}
+      try { cardButtons?.close?.(); } catch {}
     };
   }, [items, subtotal, total, clear]);
 
@@ -230,8 +213,9 @@ export default function CheckoutPage() {
       </div>
 
       {/* PayPal */}
-      <div className="mt-6">
-        <div ref={containerRef} />
+      <div className="mt-6 space-y-2">
+        <div ref={paypalRef} />
+        <div ref={cardRef} />
         <p className="mt-2 text-xs text-neutral-500">PayPal Sandbox active.</p>
       </div>
     </main>

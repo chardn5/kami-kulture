@@ -2,6 +2,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { loadPayPalSDK } from '@/lib/paypalClient';
 
 /* -------- Props -------- */
 type PaySectionProps = {
@@ -49,12 +50,12 @@ type PayPalButtonsOptions = {
   onError?: (err: unknown) => void;
 };
 
-type PayPalButtonsInstance = { render: (container: HTMLElement) => void; isEligible: () => boolean; close?: () => void };
-type PayPalSDK = {
-  Buttons: (opts: PayPalButtonsOptions) => PayPalButtonsInstance;
-  FUNDING: { CARD: unknown };
+type PayPalButtonsInstance = {
+  render: (container: HTMLElement) => void;
+  /** Optional on some SDK builds */
+  isEligible?: () => boolean;
+  close?: () => void;
 };
-type WindowWithPaypal = Window & { paypal?: PayPalSDK };
 /* ---------------------------------------------------------------- */
 
 const CURRENCY = (process.env.NEXT_PUBLIC_CURRENCY ?? 'USD').toUpperCase();
@@ -63,64 +64,6 @@ function getErrorMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
   if (typeof err === 'string') return err;
   try { return JSON.stringify(err); } catch { return ''; }
-}
-
-/** Build the desired SDK URL */
-function buildSdkSrc(clientId: string) {
-  const base = 'https://www.paypal.com/sdk/js';
-  const params =
-    `components=buttons&client-id=${encodeURIComponent(clientId)}` +
-    `&currency=${encodeURIComponent(CURRENCY)}&intent=capture&enable-funding=card`;
-  return `${base}?${params}`;
-}
-
-/** Load (or reload) the PayPal SDK with the *desired* params.
- * If a different paypal SDK is already on the page, remove it and inject the correct one.
- */
-async function loadPayPalSDK(): Promise<PayPalSDK> {
-  const w = window as WindowWithPaypal;
-
-  const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID;
-  if (!clientId) throw new Error('NEXT_PUBLIC_PAYPAL_CLIENT_ID is not set');
-
-  const desiredSrc = buildSdkSrc(clientId);
-
-  // Find any paypal sdk scripts
-  const existingScripts = Array.from(document.querySelectorAll<HTMLScriptElement>('script[src*="paypal.com/sdk/js"]'));
-  const exact = existingScripts.find(s => s.src === desiredSrc);
-
-  // If wrong/missing params, remove them so we can inject the correct one
-  if (!exact && existingScripts.length) {
-    existingScripts.forEach(s => s.parentElement?.removeChild(s));
-    // Also drop the cached global so PayPal fully re-initializes
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (w as any).paypal = undefined;
-  }
-
-  // If already loaded correctly, just wait for it
-  if (exact) {
-    if (w.paypal) return w.paypal;
-    await new Promise<void>((res, rej) => {
-      exact.addEventListener('load', () => res(), { once: true });
-      exact.addEventListener('error', () => rej(new Error('Failed loading PayPal SDK')), { once: true });
-    });
-    if (!w.paypal) throw new Error('PayPal SDK not ready after existing script load');
-    return w.paypal!;
-  }
-
-  // Inject fresh
-  await new Promise<void>((resolve, reject) => {
-    const el = document.createElement('script');
-    el.src = desiredSrc;
-    el.async = true;
-    el.onload = () => resolve();
-    el.onerror = () => reject(new Error('Failed to load PayPal SDK'));
-    document.head.appendChild(el);
-  });
-
-  const paypal = (w as WindowWithPaypal).paypal;
-  if (!paypal) throw new Error('PayPal SDK loaded but window.paypal is undefined');
-  return paypal;
 }
 
 export default function PaySection({
@@ -132,6 +75,18 @@ export default function PaySection({
 }: PaySectionProps) {
   const paypalRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
+
+  /** Keep latest values without re-rendering buttons on every change */
+  const latest = useRef({
+    amount,
+    productTitle,
+    selectedSize,
+    productSlug,
+    sku,
+  });
+  useEffect(() => {
+    latest.current = { amount, productTitle, selectedSize, productSlug, sku };
+  }, [amount, productTitle, selectedSize, productSlug, sku]);
 
   useEffect(() => {
     let cancelled = false;
@@ -150,13 +105,14 @@ export default function PaySection({
         walletContainer.innerHTML = '';
         cardContainer.innerHTML = '';
 
-        const description = `${productTitle}${selectedSize ? ` - Size: ${selectedSize}` : ''}`;
-        const customId = [sku ?? '', selectedSize ?? '', productSlug ?? '', Math.random().toString(36).slice(2, 8)]
-          .filter(Boolean)
-          .join('|');
+        const createOrder = (_data: unknown, actions: { order: PayPalOrderActions }) => {
+          const { amount, productTitle, selectedSize, productSlug, sku } = latest.current;
+          const description = `${productTitle}${selectedSize ? ` - Size: ${selectedSize}` : ''}`;
+          const customId = [sku ?? '', selectedSize ?? '', productSlug ?? '', Math.random().toString(36).slice(2, 8)]
+            .filter(Boolean)
+            .join('|');
 
-        const createOrder = (_data: unknown, actions: { order: PayPalOrderActions }) =>
-          actions.order.create({
+          return actions.order.create({
             intent: 'CAPTURE',
             purchase_units: [
               {
@@ -166,8 +122,10 @@ export default function PaySection({
               },
             ],
           });
+        };
 
         const onApprove = async (data: { orderID: string }, actions: { order: PayPalOrderActions }) => {
+          const { amount, productTitle, selectedSize, productSlug, sku } = latest.current;
           try {
             const details = await actions.order.capture();
             const orderID = data.orderID || details.id || '';
@@ -228,13 +186,14 @@ export default function PaySection({
           alert(`PayPal error.${msg ? `\n\n${msg}` : ''}`);
         };
 
-        // 1) PayPal wallet button
+        // 1) PayPal wallet button (wallet-only to avoid duplicate Card)
         walletButtons = paypal.Buttons({
+          fundingSource: paypal.FUNDING.PAYPAL,
           style: { layout: 'vertical', shape: 'pill', label: 'paypal' },
           createOrder,
           onApprove,
           onError,
-        });
+        }) as PayPalButtonsInstance;
         walletButtons.render(walletContainer);
 
         // 2) Dedicated Card button (shows only if eligible)
@@ -244,13 +203,17 @@ export default function PaySection({
           createOrder,
           onApprove,
           onError,
-        });
-        if (cardButtons.isEligible()) cardButtons.render(cardContainer);
+        }) as PayPalButtonsInstance;
+
+        if (cardButtons.isEligible?.()) {
+          cardButtons.render(cardContainer);
+        }
       } catch (err: unknown) {
         console.error(err);
       }
     };
 
+    // Run once on mount; buttons stay mounted (fast when size changes)
     render();
 
     return () => {
@@ -258,7 +221,8 @@ export default function PaySection({
       try { walletButtons?.close?.(); } catch {}
       try { cardButtons?.close?.(); } catch {}
     };
-  }, [amount, productTitle, selectedSize, productSlug, sku]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="space-y-2">
@@ -268,7 +232,6 @@ export default function PaySection({
         </p>
       )}
 
-      {/* Render PayPal wallet + Card as two separate containers */}
       <div ref={paypalRef} />
       <div ref={cardRef} />
 
