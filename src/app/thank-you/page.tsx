@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import Input from '@/components/ui/Input';
 
 const TOTAL = 10;
 
@@ -65,7 +66,7 @@ function ThankYouInner() {
     })();
   }, [orderIdParam, email, lookupAttempted]);
 
-  async function handleManualLookup(e: React.FormEvent) {
+  async function handleManualLookup(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!orderIdParam || !email) return;
     try {
@@ -88,14 +89,14 @@ function ThankYouInner() {
     <main className="mx-auto max-w-2xl px-4 py-16 text-center">
       <h1 className="text-3xl font-bold">Thank you! 🎉</h1>
 
-      <p className="mt-2 text-neutral-600">
+      <p className="mt-2 text-neutral-300">
         Your payment was received
         {orderIdParam ? (
           <>
             {' — '}Order ID: <span className="font-mono">{orderIdParam}</span>
             <button
               onClick={() => navigator.clipboard.writeText(orderIdParam)}
-              className="ml-2 inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-neutral-50"
+              className="ml-2 inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-white/5"
               aria-label="Copy order ID"
             >
               Copy
@@ -109,20 +110,20 @@ function ThankYouInner() {
       <div className="mt-6">
         <h2 className="text-lg font-semibold">Order details</h2>
 
-        {loading && <p className="mt-2 text-sm text-neutral-700">Checking your order…</p>}
+        {loading && <p className="mt-2 text-sm text-neutral-400">Checking your order…</p>}
 
         {!loading && result && 'found' in result && result.found && (
-          <div className="mt-3 inline-block rounded-md border px-4 py-3 text-left">
+          <div className="mt-3 inline-block rounded-md border border-white/10 px-4 py-3 text-left">
             {result.status && (
               <p>
-                <span className="text-neutral-600">Status:</span>{' '}
-                <span className="font-semibold">{result.status}</span>
+                <span className="text-neutral-400">Status:</span>{' '}
+                <span className="font-semibold text-white">{result.status}</span>
               </p>
             )}
             {result.amountTotal && (
               <p>
-                <span className="text-neutral-600">Total:</span>{' '}
-                <span className="font-semibold">
+                <span className="text-neutral-400">Total:</span>{' '}
+                <span className="font-semibold text-white">
                   {result.currency} {Number(result.amountTotal).toFixed(2)}
                 </span>
               </p>
@@ -131,25 +132,25 @@ function ThankYouInner() {
         )}
 
         {!loading && result && 'found' in result && !result.found && (
-          <p className="mt-2 text-sm text-red-600">We couldn’t verify that order with the email provided.</p>
+          <p className="mt-2 text-sm text-red-400">We couldn’t verify that order with the email provided.</p>
         )}
 
         {/* If auto-lookup didn’t happen (no email) or failed, show a small form */}
         {!loading && (!lookupAttempted || (result && 'found' in result && !result.found)) && (
-          <form onSubmit={handleManualLookup} className="mx-auto mt-4 flex max-w-md flex-col items-stretch gap-2 text-left">
-            <label className="text-sm text-neutral-700">
-              Email used at checkout
-              <input
-                className="mt-1 w-full rounded border px-3 py-2"
-                type="email"
-                placeholder="name@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </label>
+          <form
+            onSubmit={handleManualLookup}
+            className="mx-auto mt-4 flex max-w-md flex-col items-stretch gap-3 text-left"
+          >
+            <Input
+              type="email"
+              label="Email used at checkout"
+              placeholder="name@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
             <button
-              className="mt-1 rounded bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+              className="rounded bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
               disabled={!orderIdParam || !email || loading}
               type="submit"
             >
@@ -161,25 +162,34 @@ function ThankYouInner() {
 
       {/* Progress + actions */}
       <div className="mt-8">
-        <p className="text-sm text-neutral-700" aria-live="polite">
-          Returning to home in <span className="font-semibold">{seconds}</span> seconds…
+        <p className="text-sm text-neutral-400" aria-live="polite">
+          Returning to home in <span className="font-semibold text-white">{seconds}</span> seconds…
         </p>
-        <div className="mt-3 h-2 w-full rounded bg-neutral-200">
+        <div className="mt-3 h-2 w-full rounded bg-white/10">
           <div
-            className="h-full rounded bg-black transition-[width] duration-1000 ease-linear motion-reduce:transition-none"
+            className="h-full rounded bg-white transition-[width] duration-1000 ease-linear motion-reduce:transition-none"
             style={{ width: `${pct}%` }}
             aria-hidden
           />
         </div>
 
         <div className="mt-6 flex items-center justify-center gap-3">
-          <Link href="/" className="inline-flex items-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-neutral-50">
+          <Link
+            href="/"
+            className="inline-flex items-center rounded-md border border-white/20 px-4 py-2 text-sm font-medium hover:bg-white/5"
+          >
             Go to homepage now
           </Link>
-          <Link href="/products" className="inline-flex items-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-neutral-50">
+          <Link
+            href="/products"
+            className="inline-flex items-center rounded-md border border-white/20 px-4 py-2 text-sm font-medium hover:bg-white/5"
+          >
             Browse more designs
           </Link>
-          <Link href="/track-order" className="inline-flex items-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-neutral-50">
+          <Link
+            href="/track-order"
+            className="inline-flex items-center rounded-md border border-white/20 px-4 py-2 text-sm font-medium hover:bg-white/5"
+          >
             Track order
           </Link>
         </div>

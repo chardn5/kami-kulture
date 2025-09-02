@@ -83,6 +83,11 @@ export default function ProductsClient({ initialProducts, categories }: Props) {
 
   const hasCategories = categories.length > 0;
 
+  // Shared select classes: dark bg + white text (override global base), accessible focus
+  const selectCls =
+    'rounded-xl bg-neutral-950 px-3 py-2 text-sm text-white ' +
+    'ring-1 ring-white/10 focus:outline-none focus:ring-2 focus:ring-emerald-400';
+
   return (
     <div className="space-y-6">
       {/* Controls */}
@@ -104,7 +109,9 @@ export default function ProductsClient({ initialProducts, categories }: Props) {
                 id="cat"
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                className="rounded-xl bg-neutral-950 px-3 py-2 text-sm ring-1 ring-white/10 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                className={selectCls}
+                // Safari sometimes ignores text color on native controls
+                style={{ WebkitTextFillColor: '#fff' }}
               >
                 <option value="all">All</option>
                 {categories.map((c) => (
@@ -121,7 +128,8 @@ export default function ProductsClient({ initialProducts, categories }: Props) {
             id="sort"
             value={sort}
             onChange={(e) => setSort(e.target.value as SortKey)}
-            className="rounded-xl bg-neutral-950 px-3 py-2 text-sm ring-1 ring-white/10 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+            className={selectCls}
+            style={{ WebkitTextFillColor: '#fff' }}
           >
             <option value="newest">Newest</option>
             <option value="alpha-asc">Alphabetical: A → Z</option>
@@ -214,7 +222,6 @@ function Stars({ rating }: { rating: number }) {
 }
 
 function Star({ type }: { type: 'full' | 'half' | 'empty' }) {
-  // simple inline SVG; no color classes for consistency with dark theme
   if (type === 'half') {
     return (
       <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" className="shrink-0">
