@@ -8,7 +8,7 @@ import { useCart } from '@/lib/cartStore';
 import { formatPrice } from '@/lib/format';
 import { loadPayPalSDK } from '@/lib/paypalClient';
 
-/* ---- Minimal PayPal types ---- */
+/* ---- Minimal PayPal types (aligned with paypalClient.ts) ---- */
 type PPAmount = { value?: string; currency_code?: string };
 type PPName = { given_name?: string; surname?: string };
 type PPPayer = { email_address?: string; name?: PPName };
@@ -19,12 +19,12 @@ type PPOrder = { id?: string; payer?: PPPayer; purchase_units?: PPPurchaseUnit[]
 
 type PayPalOrderActions = {
   create: (input: unknown) => Promise<string>;
-  capture: () => Promise<PPOrder>;
+  // IMPORTANT: must match paypalClient.ts
+  capture: () => Promise<unknown>;
 };
 
 type PayPalButtonsInstance = {
   render: (container: HTMLElement) => void;
-  /** Optional on some SDK builds */
   isEligible?: () => boolean;
   close?: () => void;
 };
@@ -72,7 +72,9 @@ export default function CheckoutPage() {
         });
 
       const onApprove = async (data: { orderID: string }, actions: { order: PayPalOrderActions }) => {
-        const details = await actions.order.capture();
+        const detailsUnknown = await actions.order.capture(); // unknown by type
+        // We can safely narrow the parts we use
+        const details = detailsUnknown as PPOrder;
         const orderID = data.orderID || details.id || '';
 
         const pu0 = details.purchase_units?.[0];
@@ -103,7 +105,7 @@ export default function CheckoutPage() {
             shipping,
             tax,
             payer: { email: payerEmail, name: payerName },
-            paypalRaw: details,
+            paypalRaw: detailsUnknown, // keep raw
           }),
         });
 

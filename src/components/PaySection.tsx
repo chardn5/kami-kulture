@@ -33,21 +33,8 @@ type PayPalOrderDetails = {
 
 type PayPalOrderActions = {
   create: (input: unknown) => Promise<string>;
-  capture: () => Promise<PayPalOrderDetails>;
-};
-
-type PayPalButtonsOptions = {
-  fundingSource?: unknown;
-  style?: Record<string, unknown>;
-  createOrder: (
-    data: unknown,
-    actions: { order: PayPalOrderActions }
-  ) => Promise<string> | string;
-  onApprove: (
-    data: { orderID: string },
-    actions: { order: PayPalOrderActions }
-  ) => Promise<void> | void;
-  onError?: (err: unknown) => void;
+  /** Must match paypalClient.ts */
+  capture: () => Promise<unknown>;
 };
 
 type PayPalButtonsInstance = {
@@ -127,7 +114,9 @@ export default function PaySection({
         const onApprove = async (data: { orderID: string }, actions: { order: PayPalOrderActions }) => {
           const { amount, productTitle, selectedSize, productSlug, sku } = latest.current;
           try {
-            const details = await actions.order.capture();
+            // capture() is typed as unknown in the loader; narrow to what we use here
+            const detailsUnknown = await actions.order.capture();
+            const details = detailsUnknown as PayPalOrderDetails;
             const orderID = data.orderID || details.id || '';
 
             const pu0 = details.purchase_units?.[0];
@@ -159,7 +148,7 @@ export default function PaySection({
                 shipping: 0,
                 tax: 0,
                 payer: { email: payerEmail, name: payerName },
-                paypalRaw: details,
+                paypalRaw: detailsUnknown, // keep raw response
               }),
             });
 
@@ -221,7 +210,6 @@ export default function PaySection({
       try { walletButtons?.close?.(); } catch {}
       try { cardButtons?.close?.(); } catch {}
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
