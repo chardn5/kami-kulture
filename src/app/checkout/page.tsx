@@ -1,4 +1,3 @@
-// /src/app/checkout/page.tsx
 'use client';
 
 import { useEffect, useMemo, useRef } from 'react';
@@ -78,7 +77,7 @@ export default function CheckoutPage() {
   const total = subtotal + shipping + tax;
 
   useEffect(() => {
-    if (items.length === 0) return; // nothing to render
+    if (items.length === 0) return;
     let cancelled = false;
     let buttons: PayPalButtonsInstance | null = null;
 
@@ -112,19 +111,18 @@ export default function CheckoutPage() {
           const pu0 = details.purchase_units?.[0];
           const cap0 = pu0?.payments?.captures?.[0];
           const amtObj: PPAmount | undefined = cap0?.amount ?? pu0?.amount;
-          const value = Number(amtObj?.value ?? total);
+          // Removed unused 'value' variable to satisfy eslint
           const currency = (amtObj?.currency_code ?? CURRENCY).toUpperCase();
           const given = details.payer?.name?.given_name ?? '';
           const surname = details.payer?.name?.surname ?? '';
           const payerName = `${given} ${surname}`.trim();
           const payerEmail = details.payer?.email_address;
 
-          // Build cart lines for backend
           const lines = items.map((i) => ({
             sku: i.sku,
             title: i.title,
             qty: i.qty,
-            price: i.price, // major units
+            price: i.price,
             size: i.size,
             image: i.image,
           }));
@@ -150,7 +148,6 @@ export default function CheckoutPage() {
             throw new Error(json.error || `Capture API failed (${res.status})`);
           }
 
-          // success → clear cart and go to thank-you
           clear();
           const qp = new URLSearchParams({ orderID: json.orderId ?? '' });
           if (payerEmail) qp.set('email', payerEmail);
@@ -170,7 +167,11 @@ export default function CheckoutPage() {
 
     return () => {
       cancelled = true;
-      try { buttons?.close?.(); } catch { /* noop */ }
+      try {
+        buttons?.close?.();
+      } catch {
+        /* noop */
+      }
     };
   }, [items, subtotal, total, clear]);
 

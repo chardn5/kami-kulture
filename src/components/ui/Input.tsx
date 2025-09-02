@@ -21,7 +21,10 @@ const Input = React.forwardRef<HTMLInputElement, Props>(function Input(
   { className, label, hint, id, ...props },
   ref
 ) {
-  const inputId = id || React.useId();
+  // Call the hook unconditionally, then prefer the passed id.
+  const autoId = React.useId();
+  const inputId = id ?? autoId;
+
   return (
     <div className="w-full">
       {label && (
