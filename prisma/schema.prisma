@@ -66,7 +66,17 @@ model Order {
 
   raw        Json?
   buyerEmail String?
-
+  // Shipping / customer snapshot (add these)
+  shipFirstName  String?
+  shipLastName   String?
+  shipEmail      String?
+  shipPhone      String?
+  shipAddress1   String?
+  shipAddress2   String?
+  shipCity       String?
+  shipState      String?
+  shipPostalCode String?
+  shipCountry    String?
   /**
    * ---- NEW RELATION FIELDS ----
    */
