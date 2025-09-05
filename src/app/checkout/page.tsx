@@ -1,12 +1,13 @@
 // src/app/checkout/page.tsx
 'use client';
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useCart } from '@/lib/cartStore';
 import { formatPrice } from '@/lib/format';
 import { loadPayPalSDK } from '@/lib/paypalClient';
+import CheckoutForm, { type CheckoutFormValues } from '@/components/CheckoutForm';
 
 /* ---- Minimal PayPal types (aligned with paypalClient.ts) ---- */
 type PPAmount = { value?: string; currency_code?: string };
@@ -19,7 +20,6 @@ type PPOrder = { id?: string; payer?: PPPayer; purchase_units?: PPPurchaseUnit[]
 
 type PayPalOrderActions = {
   create: (input: unknown) => Promise<string>;
-  // IMPORTANT: must match paypalClient.ts
   capture: () => Promise<unknown>;
 };
 
@@ -37,6 +37,9 @@ export default function CheckoutPage() {
   const clear = useCart((s) => s.clear);
   const paypalRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
+
+  // 🆕 track form validity and values
+  const [formValues, setFormValues] = useState<CheckoutFormValues | null>(null);
 
   const subtotal = useMemo(() => items.reduce((s, i) => s + i.price * i.qty, 0), [items]);
   const shipping = 0;
@@ -60,6 +63,7 @@ export default function CheckoutPage() {
       walletContainer.innerHTML = '';
       cardContainer.innerHTML = '';
 
+      // 🆕 include formValues into order data
       const createOrder = (_data: unknown, actions: { order: PayPalOrderActions }) =>
         actions.order.create({
           intent: 'CAPTURE',
@@ -67,13 +71,33 @@ export default function CheckoutPage() {
             {
               description: `Kami Kulture order (${items.length} item${items.length > 1 ? 's' : ''})`,
               amount: { currency_code: CURRENCY, value: total.toFixed(2) },
+              shipping: formValues
+                ? {
+                    address: {
+                      address_line_1: formValues.address1,
+                      address_line_2: formValues.address2 || undefined,
+                      admin_area_2: formValues.city,
+                      admin_area_1: formValues.state || undefined,
+                      postal_code: formValues.postalCode,
+                      country_code: formValues.country.toUpperCase(),
+                    },
+                  }
+                : undefined,
             },
           ],
+          payer: formValues
+            ? {
+                email_address: formValues.email,
+                name: {
+                  given_name: formValues.firstName,
+                  surname: formValues.lastName,
+                },
+              }
+            : undefined,
         });
 
       const onApprove = async (data: { orderID: string }, actions: { order: PayPalOrderActions }) => {
-        const detailsUnknown = await actions.order.capture(); // unknown by type
-        // We can safely narrow the parts we use
+        const detailsUnknown = await actions.order.capture();
         const details = detailsUnknown as PPOrder;
         const orderID = data.orderID || details.id || '';
 
@@ -95,6 +119,7 @@ export default function CheckoutPage() {
           image: i.image,
         }));
 
+        // 🆕 send formValues along to your capture API
         const res = await fetch('/api/orders/capture', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -105,7 +130,8 @@ export default function CheckoutPage() {
             shipping,
             tax,
             payer: { email: payerEmail, name: payerName },
-            paypalRaw: detailsUnknown, // keep raw
+            customer: formValues, // include raw form values
+            paypalRaw: detailsUnknown,
           }),
         });
 
@@ -127,7 +153,6 @@ export default function CheckoutPage() {
         alert('PayPal error. Please try again.');
       };
 
-      // Wallet button (wallet-only to avoid duplicate Card)
       walletButtons = paypal.Buttons({
         fundingSource: paypal.FUNDING.PAYPAL,
         style: { shape: 'pill', label: 'paypal', layout: 'vertical' },
@@ -137,7 +162,6 @@ export default function CheckoutPage() {
       }) as PayPalButtonsInstance;
       walletButtons.render(walletContainer);
 
-      // Card button (render only if eligible)
       cardButtons = paypal.Buttons({
         fundingSource: paypal.FUNDING.CARD,
         style: { layout: 'vertical', shape: 'pill' },
@@ -158,7 +182,7 @@ export default function CheckoutPage() {
       try { walletButtons?.close?.(); } catch {}
       try { cardButtons?.close?.(); } catch {}
     };
-  }, [items, subtotal, total, clear]);
+  }, [items, subtotal, total, clear, formValues]); // 🆕 add formValues to deps
 
   if (items.length === 0) {
     return (
@@ -175,51 +199,70 @@ export default function CheckoutPage() {
   }
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-10">
+    <main className="mx-auto max-w-3xl px-4 py-10 space-y-8">
       <h1 className="text-2xl font-semibold">Checkout</h1>
 
-      {/* Cart items */}
-      <ul className="mt-6 divide-y divide-white/10 rounded-lg border border-white/10">
-        {items.map((i) => (
-          <li key={`${i.sku}-${i.size ?? ''}`} className="flex items-center gap-3 p-4">
-            <div className="relative h-16 w-16 overflow-hidden rounded bg-neutral-900">
-              {i.image ? <Image src={i.image} alt={i.title} fill className="object-cover" /> : null}
-            </div>
-            <div className="flex-1">
-              <p className="font-medium">{i.title}</p>
-              <p className="text-xs text-neutral-400">
-                {i.size ? <>Size: {i.size} · </> : null}SKU: {i.sku}
-              </p>
-            </div>
-            <div className="text-sm text-neutral-300">
-              x{i.qty} · {formatPrice(i.price)}
-            </div>
-          </li>
-        ))}
-      </ul>
+      {/* Customer details */}
+      <section className="rounded-lg border border-white/10 p-4">
+        <h2 className="mb-4 text-lg font-medium">Customer details</h2>
+        <CheckoutForm onValidChange={setFormValues} />
+        <p className="mt-2 text-xs text-neutral-500">
+          {formValues ? 'Form valid' : 'Form incomplete'}
+        </p>
+      </section>
 
-      {/* Totals */}
-      <div className="mt-6 space-y-1 text-sm">
-        <div className="flex justify-between text-neutral-400">
-          <span>Subtotal</span>
-          <span>{formatPrice(subtotal)}</span>
-        </div>
-        <div className="flex justify-between text-neutral-400">
-          <span>Shipping</span>
-          <span>{formatPrice(shipping)}</span>
-        </div>
-        <div className="flex justify-between text-white font-semibold pt-1 border-t border-white/10">
-          <span>Total</span>
-          <span>{formatPrice(total)}</span>
-        </div>
-      </div>
+      {/* Cart + PayPal */}
+      <section>
+        {/* Cart items */}
+        <ul className="divide-y divide-white/10 rounded-lg border border-white/10">
+          {items.map((i) => (
+            <li key={`${i.sku}-${i.size ?? ''}`} className="flex items-center gap-3 p-4">
+              <div className="relative h-16 w-16 overflow-hidden rounded bg-neutral-900">
+                {i.image ? <Image src={i.image} alt={i.title} fill className="object-cover" /> : null}
+              </div>
+              <div className="flex-1">
+                <p className="font-medium">{i.title}</p>
+                <p className="text-xs text-neutral-400">
+                  {i.size ? <>Size: {i.size} · </> : null}SKU: {i.sku}
+                </p>
+              </div>
+              <div className="text-sm text-neutral-300">
+                x{i.qty} · {formatPrice(i.price)}
+              </div>
+            </li>
+          ))}
+        </ul>
 
-      {/* PayPal */}
-      <div className="mt-6 space-y-2">
-        <div ref={paypalRef} />
-        <div ref={cardRef} />
-        <p className="mt-2 text-xs text-neutral-500">PayPal Sandbox active.</p>
-      </div>
+        {/* Totals */}
+        <div className="mt-6 space-y-1 text-sm">
+          <div className="flex justify-between text-neutral-400">
+            <span>Subtotal</span>
+            <span>{formatPrice(subtotal)}</span>
+          </div>
+          <div className="flex justify-between text-neutral-400">
+            <span>Shipping</span>
+            <span>{formatPrice(shipping)}</span>
+          </div>
+          <div className="flex justify-between border-t border-white/10 pt-1 font-semibold text-white">
+            <span>Total</span>
+            <span>{formatPrice(total)}</span>
+          </div>
+        </div>
+
+        {/* PayPal */}
+        <div
+          className={`mt-6 space-y-2 transition-opacity ${
+            formValues ? 'opacity-100' : 'opacity-40 pointer-events-none'
+          }`}
+        >
+          <div ref={paypalRef} />
+          <div ref={cardRef} />
+          <p className="mt-2 text-xs text-neutral-500">PayPal Sandbox active.</p>
+          {!formValues && (
+            <p className="text-xs text-red-500">Fill in your details to enable payment.</p>
+          )}
+        </div>
+      </section>
     </main>
   );
 }

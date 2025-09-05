@@ -10,9 +10,24 @@ type CartLine = {
   sku: string;
   title: string;
   qty: number;
-  price: number;   // major units
+  // client may send cents or major units (we normalize below)
+  price: number;
   size?: string;
   image?: string;
+};
+
+// Customer payload from CheckoutForm
+type Customer = {
+  email: string;
+  firstName: string;
+  lastName: string;
+  phone?: string;
+  address1: string;
+  address2?: string;
+  city: string;
+  state?: string;
+  postalCode: string;
+  country: string; // e.g., "PH"
 };
 
 type Body = {
@@ -22,7 +37,8 @@ type Body = {
   shipping?: number;
   tax?: number;
   payer?: { email?: string; name?: string };
-  paypalRaw?: unknown; // keep as unknown; cast when saving to JSON
+  paypalRaw?: unknown;
+  customer?: Customer; // from the form (optional for backward-compat)
 };
 
 /** ---------------- PayPal minimal types (server) ---------------- */
@@ -79,6 +95,11 @@ function dec(n: number | string | null | undefined) {
   return new Prisma.Decimal(v.toFixed(2));
 }
 
+// Normalize to major units (e.g., 1999 cents -> 19.99)
+function toMajorUnits(possibleCents: number): number {
+  return possibleCents >= 1000 ? possibleCents / 100 : possibleCents;
+}
+
 async function generateOrderId(): Promise<string> {
   const d = new Date();
   const yymmdd = [
@@ -106,11 +127,19 @@ export async function POST(req: NextRequest) {
   if (!body?.cart || !Array.isArray(body.cart) || body.cart.length === 0) {
     return bad('CART_REQUIRED');
   }
+
   const currency = (body.currency || process.env.NEXT_PUBLIC_CURRENCY || 'USD').toUpperCase();
   const shipping = Number(body.shipping ?? 0);
   const tax = typeof body.tax === 'number' ? body.tax : 0;
 
-  const subtotal = body.cart.reduce((s, l) => s + (Number(l.price) || 0) * (Number(l.qty) || 0), 0);
+  // Normalize line items
+  const normalizedLines = body.cart.map((l) => ({
+    ...l,
+    price: toMajorUnits(Number(l.price) || 0),
+    qty: Number(l.qty) || 1,
+  }));
+
+  const subtotal = normalizedLines.reduce((s, l) => s + l.price * l.qty, 0);
   const total = subtotal + shipping + tax;
 
   // -------- Optional PayPal verification --------
@@ -142,7 +171,7 @@ export async function POST(req: NextRequest) {
         if (typeof apiTotal === 'number') {
           const delta = Math.abs(apiTotal - total);
           if (delta > 0.02) {
-            console.error('[paypal] total mismatch', { apiTotal, computedTotal: total });
+            console.error('[paypal] total mismatch', { apiTotal, computedTotal: total, currency });
             return bad('TOTAL_MISMATCH');
           }
         }
@@ -172,6 +201,9 @@ export async function POST(req: NextRequest) {
     customerId = cust.id;
   }
 
+  // Prefer the shipping/customer block from the form if available
+  const c = body.customer;
+
   const order = await prisma.order.create({
     data: {
       id: orderId,
@@ -186,24 +218,40 @@ export async function POST(req: NextRequest) {
       payerName: payerName ?? null,
       captureId: captureId ?? null,
 
+      // Denormalized shipping/customer snapshot fields
+      shipFirstName: c?.firstName ?? null,
+      shipLastName:  c?.lastName ?? null,
+      shipEmail:     c?.email ?? payerEmail ?? null,
+      shipPhone:     c?.phone ?? null,
+      shipAddress1:  c?.address1 ?? null,
+      shipAddress2:  c?.address2 ?? null,
+      shipCity:      c?.city ?? null,
+      shipState:     c?.state ?? null,
+      shipPostalCode:c?.postalCode ?? null,
+      shipCountry:   c?.country ?? null,
+
       // legacy single-product columns (kept nullable)
       productTitle: null,
       productSlug: null,
       selectedSize: null,
       sku: null,
 
-      raw: (paypalRaw !== undefined ? { raw: paypalRaw as Prisma.InputJsonValue } : {}),
-      buyerEmail: payerEmail ?? null,
+      // Keep full payloads for auditing
+      raw: {
+        raw: (paypalRaw ?? null) as Prisma.InputJsonValue,
+        customer: (c ?? null) as Prisma.InputJsonValue,
+      } as Prisma.InputJsonValue,
 
+      buyerEmail: payerEmail ?? null,
       customerId,
 
       items: {
-        create: body.cart.map((l) => ({
+        create: normalizedLines.map((l) => ({
           sku: String(l.sku),
           title: String(l.title),
           size: l.size ?? null,
-          unitPrice: dec(l.price),
-          qty: Number(l.qty || 1),
+          unitPrice: dec(l.price), // major units
+          qty: l.qty,
           image: l.image ?? null,
         })),
       },
@@ -213,45 +261,44 @@ export async function POST(req: NextRequest) {
 
   // -------- Emails (best-effort; non-blocking) --------
   try {
+    // Flatten items with Decimal -> number conversion via .toNumber()
+    const lineItems = order.items.map((i) => ({
+      title: i.title,
+      qty: i.qty,
+      unitPrice: i.unitPrice.toNumber(),
+      size: i.size ?? undefined,
+      sku: i.sku,
+      image: i.image ?? undefined,
+    }));
+
+    // Convert monetary fields safely with .toNumber()
+    const amounts = {
+      subtotal: order.amountSubtotal ? order.amountSubtotal.toNumber() : 0,
+      shipping: order.amountShipping ? order.amountShipping.toNumber() : 0,
+      tax: order.amountTax == null ? undefined : order.amountTax.toNumber(),
+      total: order.amountTotal.toNumber(),
+    };
+
     if (payerEmail) {
       await sendOrderReceipt({
         to: payerEmail,
         orderNumber: order.id,
         customerName: payerName ?? undefined,
         currency,
-        items: order.items.map((i) => ({
-          title: i.title,
-          qty: i.qty,
-          unitPrice: Number(i.unitPrice),
-          size: i.size ?? undefined,
-          sku: i.sku,
-          image: i.image ?? undefined,
-        })),
-        subtotal: Number(order.amountSubtotal ?? order.amountTotal),
-        shipping: Number(order.amountShipping ?? 0),
-        tax: order.amountTax ? Number(order.amountTax) : undefined,
-        total: Number(order.amountTotal),
-        trackUrl: `${process.env.NEXT_PUBLIC_SITE_URL ?? 'https://kamikulture.com'}/thank-you?orderID=${order.id}&email=${encodeURIComponent(
-          payerEmail
-        )}`,
+        items: lineItems,
+        ...amounts,
+        trackUrl: `${
+          process.env.NEXT_PUBLIC_SITE_URL ?? 'https://kamikulture.com'
+        }/thank-you?orderID=${order.id}&email=${encodeURIComponent(payerEmail)}`,
       });
     }
 
     await notifyAdminNewOrder({
       orderNumber: order.id,
       customerEmail: payerEmail ?? undefined,
-      total: Number(order.amountTotal),
-      subtotal: Number(order.amountSubtotal ?? 0),
-      shipping: Number(order.amountShipping ?? 0),
-      tax: order.amountTax ? Number(order.amountTax) : undefined,
       currency,
-      items: order.items.map((i) => ({
-        title: i.title,
-        qty: i.qty,
-        unitPrice: Number(i.unitPrice),
-        size: i.size ?? undefined,
-        sku: i.sku,
-      })),
+      items: lineItems,
+      ...amounts,
       raw: order,
     });
   } catch (e) {
