@@ -17,7 +17,7 @@ const Schema = z.object({
   city: z.string().min(1, 'Required'),
   state: z.string().optional(),
   postalCode: z.string().min(3, 'Required'),
-  country: z.string().min(2, 'Required'),
+  country: z.string().min(2, 'Required'), // still a string, but we render a <select>
 });
 
 export type CheckoutFormValues = z.infer<typeof Schema>;
@@ -35,6 +35,69 @@ const inputClass =
 const inputStyle: React.CSSProperties = {
   WebkitTextFillColor: '#000', // fixes white text with Chrome autofill
 };
+
+/** A practical country list (ISO-2 codes as values). Add more anytime. */
+const COUNTRIES: { code: string; name: string }[] = [
+  { code: 'PH', name: 'Philippines' },
+  { code: 'US', name: 'United States' },
+  { code: 'CA', name: 'Canada' },
+  { code: 'GB', name: 'United Kingdom' },
+  { code: 'AU', name: 'Australia' },
+  { code: 'NZ', name: 'New Zealand' },
+  { code: 'SG', name: 'Singapore' },
+  { code: 'JP', name: 'Japan' },
+  { code: 'KR', name: 'South Korea' },
+  { code: 'HK', name: 'Hong Kong' },
+  { code: 'TW', name: 'Taiwan' },
+  { code: 'MY', name: 'Malaysia' },
+  { code: 'TH', name: 'Thailand' },
+  { code: 'VN', name: 'Vietnam' },
+  { code: 'ID', name: 'Indonesia' },
+  { code: 'AE', name: 'United Arab Emirates' },
+  { code: 'DE', name: 'Germany' },
+  { code: 'FR', name: 'France' },
+  { code: 'ES', name: 'Spain' },
+  { code: 'IT', name: 'Italy' },
+  { code: 'NL', name: 'Netherlands' },
+  { code: 'SE', name: 'Sweden' },
+  { code: 'NO', name: 'Norway' },
+  { code: 'DK', name: 'Denmark' },
+  { code: 'FI', name: 'Finland' },
+  { code: 'IE', name: 'Ireland' },
+  { code: 'PT', name: 'Portugal' },
+  { code: 'GR', name: 'Greece' },
+  { code: 'PL', name: 'Poland' },
+  { code: 'CZ', name: 'Czechia' },
+  { code: 'HU', name: 'Hungary' },
+  { code: 'RO', name: 'Romania' },
+  { code: 'TR', name: 'Turkey' },
+  { code: 'IL', name: 'Israel' },
+  { code: 'SA', name: 'Saudi Arabia' },
+  { code: 'ZA', name: 'South Africa' },
+  { code: 'BR', name: 'Brazil' },
+  { code: 'MX', name: 'Mexico' },
+];
+
+/** US states (shown when country == 'US') */
+const US_STATES: { code: string; name: string }[] = [
+  { code: 'AL', name: 'Alabama' }, { code: 'AK', name: 'Alaska' }, { code: 'AZ', name: 'Arizona' },
+  { code: 'AR', name: 'Arkansas' }, { code: 'CA', name: 'California' }, { code: 'CO', name: 'Colorado' },
+  { code: 'CT', name: 'Connecticut' }, { code: 'DE', name: 'Delaware' }, { code: 'DC', name: 'District of Columbia' },
+  { code: 'FL', name: 'Florida' }, { code: 'GA', name: 'Georgia' }, { code: 'HI', name: 'Hawaii' },
+  { code: 'ID', name: 'Idaho' }, { code: 'IL', name: 'Illinois' }, { code: 'IN', name: 'Indiana' },
+  { code: 'IA', name: 'Iowa' }, { code: 'KS', name: 'Kansas' }, { code: 'KY', name: 'Kentucky' },
+  { code: 'LA', name: 'Louisiana' }, { code: 'ME', name: 'Maine' }, { code: 'MD', name: 'Maryland' },
+  { code: 'MA', name: 'Massachusetts' }, { code: 'MI', name: 'Michigan' }, { code: 'MN', name: 'Minnesota' },
+  { code: 'MS', name: 'Mississippi' }, { code: 'MO', name: 'Missouri' }, { code: 'MT', name: 'Montana' },
+  { code: 'NE', name: 'Nebraska' }, { code: 'NV', name: 'Nevada' }, { code: 'NH', name: 'New Hampshire' },
+  { code: 'NJ', name: 'New Jersey' }, { code: 'NM', name: 'New Mexico' }, { code: 'NY', name: 'New York' },
+  { code: 'NC', name: 'North Carolina' }, { code: 'ND', name: 'North Dakota' }, { code: 'OH', name: 'Ohio' },
+  { code: 'OK', name: 'Oklahoma' }, { code: 'OR', name: 'Oregon' }, { code: 'PA', name: 'Pennsylvania' },
+  { code: 'RI', name: 'Rhode Island' }, { code: 'SC', name: 'South Carolina' }, { code: 'SD', name: 'South Dakota' },
+  { code: 'TN', name: 'Tennessee' }, { code: 'TX', name: 'Texas' }, { code: 'UT', name: 'Utah' },
+  { code: 'VT', name: 'Vermont' }, { code: 'VA', name: 'Virginia' }, { code: 'WA', name: 'Washington' },
+  { code: 'WV', name: 'West Virginia' }, { code: 'WI', name: 'Wisconsin' }, { code: 'WY', name: 'Wyoming' },
+];
 
 export default function CheckoutForm({ onValidChange, initialValues }: Props) {
   const {
@@ -61,14 +124,14 @@ export default function CheckoutForm({ onValidChange, initialValues }: Props) {
     },
   });
 
-  // Emit values upward only when valid (no PayPal wiring yet)
+  // Emit values upward only when valid
   const values = watch();
+  const country = watch('country');
   useEffect(() => {
     onValidChange?.(isValid ? values : null);
   }, [isValid, values, onValidChange]);
 
   function onSubmit(data: CheckoutFormValues) {
-    // For now, do nothing disruptive. Keep it isolated.
     console.log('CheckoutForm submit:', data);
   }
 
@@ -162,16 +225,39 @@ export default function CheckoutForm({ onValidChange, initialValues }: Props) {
             style={inputStyle}
           />,
         )}
-        {field(
-          'state',
-          <input
-            placeholder="Province/State"
-            autoComplete="address-level1"
-            {...register('state')}
-            className={inputClass}
-            style={inputStyle}
-          />,
-        )}
+
+        {/* State/Province:
+            - If US selected, show dropdown of states with 2-letter codes
+            - Otherwise, keep as free text (PayPal only *requires* US states) */}
+        {country === 'US'
+          ? field(
+              'state',
+              <select
+                {...register('state')}
+                className={inputClass}
+                style={inputStyle}
+                autoComplete="address-level1"
+                defaultValue=""
+              >
+                <option value="" disabled>
+                  Select state
+                </option>
+                {US_STATES.map((s) => (
+                  <option key={s.code} value={s.code}>{s.name}</option>
+                ))}
+              </select>,
+            )
+          : field(
+              'state',
+              <input
+                placeholder="Province/State"
+                autoComplete="address-level1"
+                {...register('state')}
+                className={inputClass}
+                style={inputStyle}
+              />,
+            )}
+
         {field(
           'postalCode',
           <input
@@ -184,15 +270,22 @@ export default function CheckoutForm({ onValidChange, initialValues }: Props) {
         )}
       </div>
 
+      {/* Country dropdown – values are ISO-2 codes PayPal accepts */}
       {field(
         'country',
-        <input
-          placeholder="Country (e.g., PH)"
-          autoComplete="country"
+        <select
           {...register('country')}
           className={inputClass}
           style={inputStyle}
-        />,
+          autoComplete="country"
+          defaultValue={initialValues?.country ?? 'PH'}
+        >
+          {COUNTRIES.map((c) => (
+            <option key={c.code} value={c.code}>
+              {c.name}
+            </option>
+          ))}
+        </select>,
       )}
 
       {/* Keep the submit button for local validation only */}
