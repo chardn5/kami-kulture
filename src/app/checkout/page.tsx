@@ -28,6 +28,35 @@ type PayPalButtonsInstance = {
   isEligible?: () => boolean;
   close?: () => void;
 };
+
+/** Types for create-order payload (enough for our use) */
+type PayPalShipping = {
+  name?: { full_name?: string };
+  address: {
+    address_line_1?: string;
+    address_line_2?: string;
+    admin_area_1?: string; // state/province
+    admin_area_2?: string; // city
+    postal_code?: string;
+    country_code: string;   // ISO-2
+  };
+};
+
+type PayPalCreateOrderPayload = {
+  intent: 'CAPTURE' | 'AUTHORIZE';
+  purchase_units: Array<{
+    description?: string;
+    amount: { currency_code: string; value: string };
+    shipping?: PayPalShipping;
+  }>;
+  payer?: {
+    email_address?: string;
+    name?: { given_name?: string; surname?: string };
+  };
+  application_context?: {
+    shipping_preference?: 'GET_FROM_FILE' | 'SET_PROVIDED_ADDRESS' | 'NO_SHIPPING';
+  };
+};
 /* -------------------------------- */
 
 const CURRENCY = (process.env.NEXT_PUBLIC_CURRENCY ?? 'USD').toUpperCase();
@@ -64,12 +93,12 @@ function normalizeCountryCode(input?: string | null): string | null {
 }
 
 /** Build a PayPal shipping object only when it's valid for the selected country */
-function buildShipping(fv: CheckoutFormValues | null) {
+function buildShipping(fv: CheckoutFormValues | null): PayPalShipping | undefined {
   if (!fv) return undefined;
   const cc = normalizeCountryCode(fv.country);
   if (!cc) return undefined;
 
-  // For US, require 2-letter state + valid ZIP; otherwise omit shipping (PayPal will ask inside)
+  // For US, require 2-letter state + valid ZIP; otherwise omit shipping
   if (cc === 'US') {
     if (!fv.state || fv.state.length !== 2 || !isUSZip(fv.postalCode)) {
       console.warn('[checkout] Omitting shipping: invalid US state/ZIP', fv.state, fv.postalCode);
@@ -124,13 +153,13 @@ export default function CheckoutPage() {
         const fv = formValues;
         const shippingObj = buildShipping(fv);
 
-        const purchaseUnit: any = {
+        const purchaseUnit: PayPalCreateOrderPayload['purchase_units'][number] = {
           description: `Kami Kulture order (${items.length} item${items.length > 1 ? 's' : ''})`,
           amount: { currency_code: CURRENCY, value: total.toFixed(2) },
           ...(shippingObj ? { shipping: shippingObj } : {}),
         };
 
-        const payload: any = {
+        const payload: PayPalCreateOrderPayload = {
           intent: 'CAPTURE',
           purchase_units: [purchaseUnit],
           ...(fv
@@ -141,11 +170,10 @@ export default function CheckoutPage() {
                 },
               }
             : {}),
+          ...(shippingObj ? { application_context: { shipping_preference: 'SET_PROVIDED_ADDRESS' } } : {}),
         };
 
         try {
-          // Helpful for debugging any future address issues
-          // console.debug('[paypal] create payload', payload);
           return await actions.order.create(payload);
         } catch (err) {
           console.error('[paypal] actions.order.create failed', err, payload);
