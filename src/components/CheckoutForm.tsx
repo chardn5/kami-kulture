@@ -29,6 +29,13 @@ type Props = {
   initialValues?: Partial<CheckoutFormValues>;
 };
 
+// ✅ Force readable text on dark theme + Chrome Autofill
+const inputClass =
+  'w-full rounded-xl border px-3 py-2 bg-white text-black placeholder:text-neutral-500 caret-black';
+const inputStyle: React.CSSProperties = {
+  WebkitTextFillColor: '#000', // fixes white text with Chrome autofill
+};
+
 export default function CheckoutForm({ onValidChange, initialValues }: Props) {
   const {
     register,
@@ -62,7 +69,6 @@ export default function CheckoutForm({ onValidChange, initialValues }: Props) {
 
   function onSubmit(data: CheckoutFormValues) {
     // For now, do nothing disruptive. Keep it isolated.
-    // You can verify in DevTools that you're getting clean values.
     console.log('CheckoutForm submit:', data);
   }
 
@@ -82,26 +88,32 @@ export default function CheckoutForm({ onValidChange, initialValues }: Props) {
         <input
           type="email"
           placeholder="Email"
+          autoComplete="email"
           {...register('email')}
-          className="w-full rounded-xl border px-3 py-2"
+          className={inputClass}
+          style={inputStyle}
         />,
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {field(
           'firstName',
           <input
             placeholder="First name"
+            autoComplete="given-name"
             {...register('firstName')}
-            className="w-full rounded-xl border px-3 py-2"
+            className={inputClass}
+            style={inputStyle}
           />,
         )}
         {field(
           'lastName',
           <input
             placeholder="Last name"
+            autoComplete="family-name"
             {...register('lastName')}
-            className="w-full rounded-xl border px-3 py-2"
+            className={inputClass}
+            style={inputStyle}
           />,
         )}
       </div>
@@ -110,8 +122,10 @@ export default function CheckoutForm({ onValidChange, initialValues }: Props) {
         'phone',
         <input
           placeholder="Phone (optional)"
+          autoComplete="tel"
           {...register('phone')}
-          className="w-full rounded-xl border px-3 py-2"
+          className={inputClass}
+          style={inputStyle}
         />,
       )}
 
@@ -119,8 +133,10 @@ export default function CheckoutForm({ onValidChange, initialValues }: Props) {
         'address1',
         <input
           placeholder="Address line 1"
+          autoComplete="address-line1"
           {...register('address1')}
-          className="w-full rounded-xl border px-3 py-2"
+          className={inputClass}
+          style={inputStyle}
         />,
       )}
 
@@ -128,34 +144,42 @@ export default function CheckoutForm({ onValidChange, initialValues }: Props) {
         'address2',
         <input
           placeholder="Address line 2 (optional)"
+          autoComplete="address-line2"
           {...register('address2')}
-          className="w-full rounded-xl border px-3 py-2"
+          className={inputClass}
+          style={inputStyle}
         />,
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {field(
           'city',
           <input
             placeholder="City/Municipality"
+            autoComplete="address-level2"
             {...register('city')}
-            className="w-full rounded-xl border px-3 py-2"
+            className={inputClass}
+            style={inputStyle}
           />,
         )}
         {field(
           'state',
           <input
             placeholder="Province/State"
+            autoComplete="address-level1"
             {...register('state')}
-            className="w-full rounded-xl border px-3 py-2"
+            className={inputClass}
+            style={inputStyle}
           />,
         )}
         {field(
           'postalCode',
           <input
             placeholder="Postal code"
+            autoComplete="postal-code"
             {...register('postalCode')}
-            className="w-full rounded-xl border px-3 py-2"
+            className={inputClass}
+            style={inputStyle}
           />,
         )}
       </div>
@@ -164,8 +188,10 @@ export default function CheckoutForm({ onValidChange, initialValues }: Props) {
         'country',
         <input
           placeholder="Country (e.g., PH)"
+          autoComplete="country"
           {...register('country')}
-          className="w-full rounded-xl border px-3 py-2"
+          className={inputClass}
+          style={inputStyle}
         />,
       )}
 
@@ -182,7 +208,7 @@ export default function CheckoutForm({ onValidChange, initialValues }: Props) {
       <button
         type="button"
         onClick={() => reset()}
-        className="text-xs opacity-70 underline justify-self-start"
+        className="justify-self-start text-xs underline opacity-70"
       >
         Reset form
       </button>
