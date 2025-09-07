@@ -9,7 +9,7 @@ import { formatPrice } from '@/lib/format';
 import { loadPayPalSDK } from '@/lib/paypalClient';
 import CheckoutForm, { type CheckoutFormValues } from '@/components/CheckoutForm';
 
-/* ---- Minimal PayPal types (aligned with paypalClient.ts) ---- */
+/* ---- Minimal PayPal types ---- */
 type PPAmount = { value?: string; currency_code?: string };
 type PPName = { given_name?: string; surname?: string };
 type PPPayer = { email_address?: string; name?: PPName };
@@ -32,13 +32,70 @@ type PayPalButtonsInstance = {
 
 const CURRENCY = (process.env.NEXT_PUBLIC_CURRENCY ?? 'USD').toUpperCase();
 
+const safe = (v?: string | null) => (v && v.trim() ? v.trim() : undefined);
+
+function isUSZip(s?: string | null) {
+  if (!s) return false;
+  return /^\d{5}(-\d{4})?$/.test(s.trim());
+}
+
+/** Normalize human input to ISO-2 country code PayPal accepts */
+function normalizeCountryCode(input?: string | null): string | null {
+  if (!input) return null;
+  const s = input.trim().toUpperCase();
+  if (s.length === 2) return s;
+  const map: Record<string, string> = {
+    USA: 'US',
+    'UNITED STATES': 'US',
+    'UNITED STATES OF AMERICA': 'US',
+    PHL: 'PH',
+    PHILIPPINES: 'PH',
+    UK: 'GB',
+    GBR: 'GB',
+    'UNITED KINGDOM': 'GB',
+    ENGLAND: 'GB',
+    SCOTLAND: 'GB',
+    WALES: 'GB',
+    CANADA: 'CA',
+    AUS: 'AU',
+    AUSTRALIA: 'AU',
+  };
+  return map[s] ?? null;
+}
+
+/** Build a PayPal shipping object only when it's valid for the selected country */
+function buildShipping(fv: CheckoutFormValues | null) {
+  if (!fv) return undefined;
+  const cc = normalizeCountryCode(fv.country);
+  if (!cc) return undefined;
+
+  // For US, require 2-letter state + valid ZIP; otherwise omit shipping (PayPal will ask inside)
+  if (cc === 'US') {
+    if (!fv.state || fv.state.length !== 2 || !isUSZip(fv.postalCode)) {
+      console.warn('[checkout] Omitting shipping: invalid US state/ZIP', fv.state, fv.postalCode);
+      return undefined;
+    }
+  }
+
+  return {
+    name: { full_name: `${safe(fv.firstName) ?? ''} ${safe(fv.lastName) ?? ''}`.trim() || undefined },
+    address: {
+      address_line_1: safe(fv.address1),
+      address_line_2: safe(fv.address2),
+      admin_area_2: safe(fv.city),  // city
+      admin_area_1: safe(fv.state), // state/province (2-letter for US)
+      postal_code: safe(fv.postalCode),
+      country_code: cc,
+    },
+  };
+}
+
 export default function CheckoutPage() {
   const items = useCart((s) => s.items);
   const clear = useCart((s) => s.clear);
   const paypalRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
 
-  // 🆕 track form validity and values
   const [formValues, setFormValues] = useState<CheckoutFormValues | null>(null);
 
   const subtotal = useMemo(() => items.reduce((s, i) => s + i.price * i.qty, 0), [items]);
@@ -63,38 +120,39 @@ export default function CheckoutPage() {
       walletContainer.innerHTML = '';
       cardContainer.innerHTML = '';
 
-      // 🆕 include formValues into order data
-      const createOrder = (_data: unknown, actions: { order: PayPalOrderActions }) =>
-        actions.order.create({
+      const createOrder = async (_data: unknown, actions: { order: PayPalOrderActions }) => {
+        const fv = formValues;
+        const shippingObj = buildShipping(fv);
+
+        const purchaseUnit: any = {
+          description: `Kami Kulture order (${items.length} item${items.length > 1 ? 's' : ''})`,
+          amount: { currency_code: CURRENCY, value: total.toFixed(2) },
+          ...(shippingObj ? { shipping: shippingObj } : {}),
+        };
+
+        const payload: any = {
           intent: 'CAPTURE',
-          purchase_units: [
-            {
-              description: `Kami Kulture order (${items.length} item${items.length > 1 ? 's' : ''})`,
-              amount: { currency_code: CURRENCY, value: total.toFixed(2) },
-              shipping: formValues
-                ? {
-                    address: {
-                      address_line_1: formValues.address1,
-                      address_line_2: formValues.address2 || undefined,
-                      admin_area_2: formValues.city,
-                      admin_area_1: formValues.state || undefined,
-                      postal_code: formValues.postalCode,
-                      country_code: formValues.country.toUpperCase(),
-                    },
-                  }
-                : undefined,
-            },
-          ],
-          payer: formValues
+          purchase_units: [purchaseUnit],
+          ...(fv
             ? {
-                email_address: formValues.email,
-                name: {
-                  given_name: formValues.firstName,
-                  surname: formValues.lastName,
+                payer: {
+                  email_address: safe(fv.email),
+                  name: { given_name: safe(fv.firstName), surname: safe(fv.lastName) },
                 },
               }
-            : undefined,
-        });
+            : {}),
+        };
+
+        try {
+          // Helpful for debugging any future address issues
+          // console.debug('[paypal] create payload', payload);
+          return await actions.order.create(payload);
+        } catch (err) {
+          console.error('[paypal] actions.order.create failed', err, payload);
+          alert('Unable to start PayPal. Please check your address (country/state/postal) and try again.');
+          throw err;
+        }
+      };
 
       const onApprove = async (data: { orderID: string }, actions: { order: PayPalOrderActions }) => {
         const detailsUnknown = await actions.order.capture();
@@ -119,7 +177,6 @@ export default function CheckoutPage() {
           image: i.image,
         }));
 
-        // 🆕 send formValues along to your capture API
         const res = await fetch('/api/orders/capture', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -130,7 +187,7 @@ export default function CheckoutPage() {
             shipping,
             tax,
             payer: { email: payerEmail, name: payerName },
-            customer: formValues, // include raw form values
+            customer: formValues ?? undefined,
             paypalRaw: detailsUnknown,
           }),
         });
@@ -153,6 +210,7 @@ export default function CheckoutPage() {
         alert('PayPal error. Please try again.');
       };
 
+      // Wallet button
       walletButtons = paypal.Buttons({
         fundingSource: paypal.FUNDING.PAYPAL,
         style: { shape: 'pill', label: 'paypal', layout: 'vertical' },
@@ -162,6 +220,7 @@ export default function CheckoutPage() {
       }) as PayPalButtonsInstance;
       walletButtons.render(walletContainer);
 
+      // Card button
       cardButtons = paypal.Buttons({
         fundingSource: paypal.FUNDING.CARD,
         style: { layout: 'vertical', shape: 'pill' },
@@ -182,7 +241,7 @@ export default function CheckoutPage() {
       try { walletButtons?.close?.(); } catch {}
       try { cardButtons?.close?.(); } catch {}
     };
-  }, [items, subtotal, total, clear, formValues]); // 🆕 add formValues to deps
+  }, [items, subtotal, total, clear, formValues]);
 
   if (items.length === 0) {
     return (
