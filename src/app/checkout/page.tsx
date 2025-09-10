@@ -28,71 +28,14 @@ type PayPalButtonsInstance = {
   isEligible?: () => boolean;
   close?: () => void;
 };
-
-/** Types for create-order payload (enough for our use) */
-type PayPalShipping = {
-  name?: { full_name?: string };
-  address: {
-    address_line_1?: string;
-    address_line_2?: string;
-    admin_area_1?: string; // state/province
-    admin_area_2?: string; // city
-    postal_code?: string;
-    country_code: string;   // ISO-2
-  };
-};
-
-type PayPalCreateOrderPayload = {
-  intent: 'CAPTURE' | 'AUTHORIZE';
-  purchase_units: Array<{
-    description?: string;
-    amount: { currency_code: string; value: string };
-    shipping?: PayPalShipping;
-  }>;
-  payer?: {
-    email_address?: string;
-    name?: { given_name?: string; surname?: string };
-  };
-  application_context?: {
-    shipping_preference?: 'GET_FROM_FILE' | 'SET_PROVIDED_ADDRESS' | 'NO_SHIPPING';
-  };
-};
 /* -------------------------------- */
 
 const CURRENCY = (process.env.NEXT_PUBLIC_CURRENCY ?? 'USD').toUpperCase();
-
 const safe = (v?: string | null) => (v && v.trim() ? v.trim() : undefined);
 
-function isUSZip(s?: string | null) {
-  if (!s) return false;
-  return /^\d{5}(-\d{4})?$/.test(s.trim());
-}
-
-/** Build a PayPal shipping object only when it's valid for the selected country */
-function buildShipping(fv: NormalizedCheckout | null): PayPalShipping | undefined {
-  if (!fv) return undefined;
-  const cc = fv.country.toUpperCase();
-
-  // For US, require 2-letter state + valid ZIP
-  if (cc === 'US') {
-    if (!fv.state || fv.state.length !== 2 || !isUSZip(fv.postalCode)) {
-      console.warn('[checkout] Omitting shipping: invalid US state/ZIP', fv.state, fv.postalCode);
-      return undefined;
-    }
-  }
-
-  return {
-    name: { full_name: `${safe(fv.firstName) ?? ''} ${safe(fv.lastName) ?? ''}`.trim() || undefined },
-    address: {
-      address_line_1: safe(fv.address1),
-      address_line_2: safe(fv.address2),
-      admin_area_2: safe(fv.city),   // city
-      admin_area_1: safe(fv.state),  // state/province (2-letter for US)
-      postal_code: safe(fv.postalCode),
-      country_code: cc,              // already ISO-2
-    },
-  };
-}
+// Toggle these back on one-by-one after baseline works
+const SEND_PAYER = false;
+const SEND_SHIPPING = false;
 
 export default function CheckoutPage() {
   const items = useCart((s) => s.items);
@@ -100,7 +43,6 @@ export default function CheckoutPage() {
   const paypalRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
 
-  // Use normalized values from the form
   const [formValues, setFormValues] = useState<NormalizedCheckout | null>(null);
 
   const subtotal = useMemo(() => items.reduce((s, i) => s + i.price * i.qty, 0), [items]);
@@ -115,7 +57,7 @@ export default function CheckoutPage() {
     let cardButtons: PayPalButtonsInstance | null = null;
 
     const renderButtons = async () => {
-      const paypal = await loadPayPalSDK(); // ← load once here
+      const paypal = await loadPayPalSDK();
       if (cancelled) return;
 
       const walletContainer = paypalRef.current;
@@ -126,42 +68,47 @@ export default function CheckoutPage() {
       cardContainer.innerHTML = '';
 
       const createOrder = async (_data: unknown, actions: { order: PayPalOrderActions }) => {
-        const fv = formValues;
-        const shippingObj = buildShipping(fv);
-
-        const purchaseUnit: PayPalCreateOrderPayload['purchase_units'][number] = {
-          description: `Kami Kulture order (${items.length} item${items.length > 1 ? 's' : ''})`,
+        const purchaseUnit: any = {
           amount: { currency_code: CURRENCY, value: total.toFixed(2) },
-          ...(shippingObj ? { shipping: shippingObj } : {}),
-        };
-
-        const payload: PayPalCreateOrderPayload = {
-          intent: 'CAPTURE',
-          purchase_units: [purchaseUnit],
-          ...(fv
+          ...(SEND_SHIPPING && formValues
             ? {
-                payer: {
-                  email_address: safe(fv.email),
-                  name: { given_name: safe(fv.firstName), surname: safe(fv.lastName) },
+                shipping: {
+                  name: { full_name: `${safe(formValues.firstName) ?? ''} ${safe(formValues.lastName) ?? ''}`.trim() || undefined },
+                  address: {
+                    address_line_1: safe(formValues.address1),
+                    address_line_2: safe(formValues.address2),
+                    admin_area_2: safe(formValues.city),
+                    admin_area_1: safe(formValues.state),
+                    postal_code: safe(formValues.postalCode),
+                    country_code: formValues.country.toUpperCase(),
+                  },
                 },
               }
             : {}),
-          ...(shippingObj ? { application_context: { shipping_preference: 'SET_PROVIDED_ADDRESS' } } : {}),
         };
 
-        try {
-          return await actions.order.create(payload);
-        } catch (err) {
-          console.error('[paypal] actions.order.create failed', err, payload);
-          alert('Unable to start PayPal. Please check your address (country/state/postal) and try again.');
-          throw err;
-        }
+        const payload: any = {
+          intent: 'CAPTURE',
+          purchase_units: [purchaseUnit],
+          ...(SEND_PAYER && formValues
+            ? {
+                payer: {
+                  email_address: safe(formValues.email),
+                  name: { given_name: safe(formValues.firstName), surname: safe(formValues.lastName) },
+                },
+              }
+            : {}),
+        };
+
+        console.log('[paypal] createOrder payload →', payload);
+        const id = await actions.order.create(payload);
+        console.log('[paypal] orderID →', id);
+        return id;
       };
 
-      const onApprove = async (data: { orderID: string }, actions: { order: PayPalOrderActions }) => {
+      const onApprove = async (_data: { orderID: string }, actions: { order: PayPalOrderActions }) => {
         const detailsUnknown = await actions.order.capture();
         const details = detailsUnknown as PPOrder;
-        const orderID = data.orderID || details.id || '';
 
         const pu0 = details.purchase_units?.[0];
         const cap0 = pu0?.payments?.captures?.[0];
@@ -185,7 +132,7 @@ export default function CheckoutPage() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            paypalOrderId: orderID,
+            paypalOrderId: details.id,
             cart: lines,
             currency,
             shipping,
@@ -196,12 +143,8 @@ export default function CheckoutPage() {
           }),
         });
 
-        type CaptureResponse = { ok: boolean; orderId?: string; error?: string };
-        const json: CaptureResponse = await res.json().catch(() => ({ ok: false }));
-
-        if (!res.ok || !json.ok) {
-          throw new Error(json.error || `Capture API failed (${res.status})`);
-        }
+        const json: { ok: boolean; orderId?: string; error?: string } = await res.json().catch(() => ({ ok: false }));
+        if (!res.ok || !json.ok) throw new Error(json.error || `Capture API failed (${res.status})`);
 
         clear();
         const qp = new URLSearchParams({ orderID: json.orderId ?? '' });
@@ -214,24 +157,26 @@ export default function CheckoutPage() {
         alert('PayPal error. Please try again.');
       };
 
-      // Wallet button (reuse the paypal var loaded above)
-      walletButtons = paypal.Buttons({
+      // Wallet button (no onClick; wrapper already gates clicks when form is invalid)
+      const walletOpts: any = {
         fundingSource: paypal.FUNDING.PAYPAL,
         style: { shape: 'pill', label: 'paypal', layout: 'vertical' },
         createOrder,
         onApprove,
         onError,
-      }) as PayPalButtonsInstance;
+      };
+      walletButtons = (paypal.Buttons as any)(walletOpts) as PayPalButtonsInstance;
       walletButtons.render(walletContainer);
 
       // Card button
-      cardButtons = paypal.Buttons({
+      const cardOpts: any = {
         fundingSource: paypal.FUNDING.CARD,
         style: { layout: 'vertical', shape: 'pill' },
         createOrder,
         onApprove,
         onError,
-      }) as PayPalButtonsInstance;
+      };
+      cardButtons = (paypal.Buttons as any)(cardOpts) as PayPalButtonsInstance;
 
       if (cardButtons.isEligible?.()) {
         cardButtons.render(cardContainer);
