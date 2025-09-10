@@ -7,7 +7,7 @@ import Image from 'next/image';
 import { useCart } from '@/lib/cartStore';
 import { formatPrice } from '@/lib/format';
 import { loadPayPalSDK } from '@/lib/paypalClient';
-import CheckoutForm, { type CheckoutFormValues } from '@/components/CheckoutForm';
+import CheckoutForm, { type NormalizedCheckout } from '@/components/CheckoutForm';
 
 /* ---- Minimal PayPal types ---- */
 type PPAmount = { value?: string; currency_code?: string };
@@ -68,37 +68,12 @@ function isUSZip(s?: string | null) {
   return /^\d{5}(-\d{4})?$/.test(s.trim());
 }
 
-/** Normalize human input to ISO-2 country code PayPal accepts */
-function normalizeCountryCode(input?: string | null): string | null {
-  if (!input) return null;
-  const s = input.trim().toUpperCase();
-  if (s.length === 2) return s;
-  const map: Record<string, string> = {
-    USA: 'US',
-    'UNITED STATES': 'US',
-    'UNITED STATES OF AMERICA': 'US',
-    PHL: 'PH',
-    PHILIPPINES: 'PH',
-    UK: 'GB',
-    GBR: 'GB',
-    'UNITED KINGDOM': 'GB',
-    ENGLAND: 'GB',
-    SCOTLAND: 'GB',
-    WALES: 'GB',
-    CANADA: 'CA',
-    AUS: 'AU',
-    AUSTRALIA: 'AU',
-  };
-  return map[s] ?? null;
-}
-
 /** Build a PayPal shipping object only when it's valid for the selected country */
-function buildShipping(fv: CheckoutFormValues | null): PayPalShipping | undefined {
+function buildShipping(fv: NormalizedCheckout | null): PayPalShipping | undefined {
   if (!fv) return undefined;
-  const cc = normalizeCountryCode(fv.country);
-  if (!cc) return undefined;
+  const cc = fv.country.toUpperCase();
 
-  // For US, require 2-letter state + valid ZIP; otherwise omit shipping
+  // For US, require 2-letter state + valid ZIP
   if (cc === 'US') {
     if (!fv.state || fv.state.length !== 2 || !isUSZip(fv.postalCode)) {
       console.warn('[checkout] Omitting shipping: invalid US state/ZIP', fv.state, fv.postalCode);
@@ -111,10 +86,10 @@ function buildShipping(fv: CheckoutFormValues | null): PayPalShipping | undefine
     address: {
       address_line_1: safe(fv.address1),
       address_line_2: safe(fv.address2),
-      admin_area_2: safe(fv.city),  // city
-      admin_area_1: safe(fv.state), // state/province (2-letter for US)
+      admin_area_2: safe(fv.city),   // city
+      admin_area_1: safe(fv.state),  // state/province (2-letter for US)
       postal_code: safe(fv.postalCode),
-      country_code: cc,
+      country_code: cc,              // already ISO-2
     },
   };
 }
@@ -125,7 +100,8 @@ export default function CheckoutPage() {
   const paypalRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
 
-  const [formValues, setFormValues] = useState<CheckoutFormValues | null>(null);
+  // Use normalized values from the form
+  const [formValues, setFormValues] = useState<NormalizedCheckout | null>(null);
 
   const subtotal = useMemo(() => items.reduce((s, i) => s + i.price * i.qty, 0), [items]);
   const shipping = 0;
@@ -139,7 +115,7 @@ export default function CheckoutPage() {
     let cardButtons: PayPalButtonsInstance | null = null;
 
     const renderButtons = async () => {
-      const paypal = await loadPayPalSDK();
+      const paypal = await loadPayPalSDK(); // ← load once here
       if (cancelled) return;
 
       const walletContainer = paypalRef.current;
@@ -238,7 +214,7 @@ export default function CheckoutPage() {
         alert('PayPal error. Please try again.');
       };
 
-      // Wallet button
+      // Wallet button (reuse the paypal var loaded above)
       walletButtons = paypal.Buttons({
         fundingSource: paypal.FUNDING.PAYPAL,
         style: { shape: 'pill', label: 'paypal', layout: 'vertical' },

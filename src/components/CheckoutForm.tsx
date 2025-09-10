@@ -7,6 +7,9 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useEffect } from 'react';
 import type { ReactNode } from 'react';
 
+// ───────────────────────────────────────────────────────────────────────────────
+// Validation schema
+// ───────────────────────────────────────────────────────────────────────────────
 const Schema = z.object({
   email: z.string().email('Enter a valid email'),
   firstName: z.string().min(1, 'Required'),
@@ -15,70 +18,73 @@ const Schema = z.object({
   address1: z.string().min(1, 'Required'),
   address2: z.string().optional(),
   city: z.string().min(1, 'Required'),
-  state: z.string().optional(),
+  state: z.string().min(1, 'Required'),            // keep required; UI enforces dropdown for US
   postalCode: z.string().min(3, 'Required'),
-  country: z.string().min(2, 'Required'), // still a string, but we render a <select>
+  country: z.string().length(2, 'Use 2-letter code'), // ISO-2
+}).superRefine((v, ctx) => {
+  const country = v.country.toUpperCase();
+  if (country === 'US') {
+    if (!/^[A-Z]{2}$/.test(v.state))
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['state'], message: 'Use 2-letter state code (e.g., CA)' });
+    if (!/^\d{5}(-\d{4})?$/.test(v.postalCode))
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['postalCode'], message: 'Enter a 5-digit ZIP' });
+    if (!/^[\p{L} .'-]{2,}$/u.test(v.city))
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['city'], message: 'Enter a valid city' });
+  }
 });
 
 export type CheckoutFormValues = z.infer<typeof Schema>;
 
+// What the parent (and PayPal) expects
+export type NormalizedCheckout = {
+  email: string;
+  firstName: string;
+  lastName: string;
+  phone?: string;
+  address1: string;
+  address2?: string;
+  city: string;         // admin_area_2
+  state: string;        // admin_area_1 (2-letter for US)
+  postalCode: string;   // postal_code
+  country: string;      // ISO-2 uppercase
+};
+
 type Props = {
-  /** Optional: get values when the form becomes valid (for future wiring) */
-  onValidChange?: (values: CheckoutFormValues | null) => void;
+  /** Emits PayPal-ready values when the form is valid; null otherwise */
+  onValidChange?: (values: NormalizedCheckout | null) => void;
   /** Optional: initial values (e.g., from profile/autofill) */
   initialValues?: Partial<CheckoutFormValues>;
 };
 
-// ✅ Force readable text on dark theme + Chrome Autofill
+// ───────────────────────────────────────────────────────────────────────────────
+// Styling
+// ───────────────────────────────────────────────────────────────────────────────
 const inputClass =
   'w-full rounded-xl border px-3 py-2 bg-white text-black placeholder:text-neutral-500 caret-black';
-const inputStyle: React.CSSProperties = {
-  WebkitTextFillColor: '#000', // fixes white text with Chrome autofill
-};
+const inputStyle: React.CSSProperties = { WebkitTextFillColor: '#000' };
 
-/** A practical country list (ISO-2 codes as values). Add more anytime. */
+// ───────────────────────────────────────────────────────────────────────────────
+// Reference lists
+// ───────────────────────────────────────────────────────────────────────────────
 const COUNTRIES: { code: string; name: string }[] = [
-  { code: 'PH', name: 'Philippines' },
-  { code: 'US', name: 'United States' },
-  { code: 'CA', name: 'Canada' },
-  { code: 'GB', name: 'United Kingdom' },
-  { code: 'AU', name: 'Australia' },
-  { code: 'NZ', name: 'New Zealand' },
-  { code: 'SG', name: 'Singapore' },
-  { code: 'JP', name: 'Japan' },
-  { code: 'KR', name: 'South Korea' },
-  { code: 'HK', name: 'Hong Kong' },
-  { code: 'TW', name: 'Taiwan' },
-  { code: 'MY', name: 'Malaysia' },
-  { code: 'TH', name: 'Thailand' },
-  { code: 'VN', name: 'Vietnam' },
-  { code: 'ID', name: 'Indonesia' },
-  { code: 'AE', name: 'United Arab Emirates' },
-  { code: 'DE', name: 'Germany' },
-  { code: 'FR', name: 'France' },
-  { code: 'ES', name: 'Spain' },
-  { code: 'IT', name: 'Italy' },
-  { code: 'NL', name: 'Netherlands' },
-  { code: 'SE', name: 'Sweden' },
-  { code: 'NO', name: 'Norway' },
-  { code: 'DK', name: 'Denmark' },
-  { code: 'FI', name: 'Finland' },
-  { code: 'IE', name: 'Ireland' },
-  { code: 'PT', name: 'Portugal' },
-  { code: 'GR', name: 'Greece' },
-  { code: 'PL', name: 'Poland' },
-  { code: 'CZ', name: 'Czechia' },
-  { code: 'HU', name: 'Hungary' },
-  { code: 'RO', name: 'Romania' },
-  { code: 'TR', name: 'Turkey' },
-  { code: 'IL', name: 'Israel' },
-  { code: 'SA', name: 'Saudi Arabia' },
-  { code: 'ZA', name: 'South Africa' },
-  { code: 'BR', name: 'Brazil' },
-  { code: 'MX', name: 'Mexico' },
+  { code: 'PH', name: 'Philippines' }, { code: 'US', name: 'United States' },
+  { code: 'CA', name: 'Canada' }, { code: 'GB', name: 'United Kingdom' },
+  { code: 'AU', name: 'Australia' }, { code: 'NZ', name: 'New Zealand' },
+  { code: 'SG', name: 'Singapore' }, { code: 'JP', name: 'Japan' },
+  { code: 'KR', name: 'South Korea' }, { code: 'HK', name: 'Hong Kong' },
+  { code: 'TW', name: 'Taiwan' }, { code: 'MY', name: 'Malaysia' },
+  { code: 'TH', name: 'Thailand' }, { code: 'VN', name: 'Vietnam' },
+  { code: 'ID', name: 'Indonesia' }, { code: 'AE', name: 'United Arab Emirates' },
+  { code: 'DE', name: 'Germany' }, { code: 'FR', name: 'France' }, { code: 'ES', name: 'Spain' },
+  { code: 'IT', name: 'Italy' }, { code: 'NL', name: 'Netherlands' }, { code: 'SE', name: 'Sweden' },
+  { code: 'NO', name: 'Norway' }, { code: 'DK', name: 'Denmark' }, { code: 'FI', name: 'Finland' },
+  { code: 'IE', name: 'Ireland' }, { code: 'PT', name: 'Portugal' }, { code: 'GR', name: 'Greece' },
+  { code: 'PL', name: 'Poland' }, { code: 'CZ', name: 'Czechia' }, { code: 'HU', name: 'Hungary' },
+  { code: 'RO', name: 'Romania' }, { code: 'TR', name: 'Turkey' }, { code: 'IL', name: 'Israel' },
+  { code: 'SA', name: 'Saudi Arabia' }, { code: 'ZA', name: 'South Africa' },
+  { code: 'BR', name: 'Brazil' }, { code: 'MX', name: 'Mexico' },
 ];
 
-/** US states (shown when country == 'US') */
 const US_STATES: { code: string; name: string }[] = [
   { code: 'AL', name: 'Alabama' }, { code: 'AK', name: 'Alaska' }, { code: 'AZ', name: 'Arizona' },
   { code: 'AR', name: 'Arkansas' }, { code: 'CA', name: 'California' }, { code: 'CO', name: 'Colorado' },
@@ -98,6 +104,22 @@ const US_STATES: { code: string; name: string }[] = [
   { code: 'VT', name: 'Vermont' }, { code: 'VA', name: 'Virginia' }, { code: 'WA', name: 'Washington' },
   { code: 'WV', name: 'West Virginia' }, { code: 'WI', name: 'Wisconsin' }, { code: 'WY', name: 'Wyoming' },
 ];
+
+// ───────────────────────────────────────────────────────────────────────────────
+// Utilities
+// ───────────────────────────────────────────────────────────────────────────────
+const normalize = (v: CheckoutFormValues): NormalizedCheckout => ({
+  email: v.email.trim(),
+  firstName: v.firstName.trim(),
+  lastName: v.lastName.trim(),
+  phone: v.phone?.trim() || undefined,
+  address1: v.address1.trim(),
+  address2: v.address2?.trim() || undefined,
+  city: v.city.trim(),
+  state: v.country.toUpperCase() === 'US' ? v.state.toUpperCase() : v.state.trim(),
+  postalCode: v.postalCode.trim(),
+  country: v.country.toUpperCase(),
+});
 
 export default function CheckoutForm({ onValidChange, initialValues }: Props) {
   const {
@@ -124,15 +146,17 @@ export default function CheckoutForm({ onValidChange, initialValues }: Props) {
     },
   });
 
-  // Emit values upward only when valid
   const values = watch();
   const country = watch('country');
+
+  // Emit PayPal-ready values whenever valid
   useEffect(() => {
-    onValidChange?.(isValid ? values : null);
+    onValidChange?.(isValid ? normalize(values) : null);
   }, [isValid, values, onValidChange]);
 
   function onSubmit(data: CheckoutFormValues) {
-    console.log('CheckoutForm submit:', data);
+    // Keep submit for local testing; parent will still receive normalized values via onValidChange
+    console.log('CheckoutForm submit:', normalize(data));
   }
 
   const field = (name: keyof CheckoutFormValues, input: ReactNode) => (
@@ -226,10 +250,7 @@ export default function CheckoutForm({ onValidChange, initialValues }: Props) {
           />,
         )}
 
-        {/* State/Province:
-            - If US selected, show dropdown of states with 2-letter codes
-            - Otherwise, keep as free text (PayPal only *requires* US states) */}
-        {country === 'US'
+        {country.toUpperCase() === 'US'
           ? field(
               'state',
               <select
@@ -243,7 +264,9 @@ export default function CheckoutForm({ onValidChange, initialValues }: Props) {
                   Select state
                 </option>
                 {US_STATES.map((s) => (
-                  <option key={s.code} value={s.code}>{s.name}</option>
+                  <option key={s.code} value={s.code}>
+                    {s.name}
+                  </option>
                 ))}
               </select>,
             )
@@ -270,7 +293,6 @@ export default function CheckoutForm({ onValidChange, initialValues }: Props) {
         )}
       </div>
 
-      {/* Country dropdown – values are ISO-2 codes PayPal accepts */}
       {field(
         'country',
         <select
@@ -288,7 +310,6 @@ export default function CheckoutForm({ onValidChange, initialValues }: Props) {
         </select>,
       )}
 
-      {/* Keep the submit button for local validation only */}
       <button
         type="submit"
         className="rounded-xl border px-4 py-2 disabled:opacity-50"
@@ -297,7 +318,6 @@ export default function CheckoutForm({ onValidChange, initialValues }: Props) {
         Save details
       </button>
 
-      {/* Helper row for quick dev testing */}
       <button
         type="button"
         onClick={() => reset()}
