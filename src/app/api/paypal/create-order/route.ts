@@ -5,13 +5,22 @@ export const runtime = 'nodejs';
 const PP_BASE =
   process.env.PAYPAL_ENV === 'live' || process.env.PAYPAL_ENV === 'production'
     ? 'https://api-m.paypal.com'
-    : 'https://api.sandbox.paypal.com';
+    : 'https://api-m.sandbox.paypal.com';
+
+// Accept either PAYPAL_CLIENT_SECRET or PAYPAL_SECRET
+function getSecrets() {
+  const id = process.env.PAYPAL_CLIENT_ID || process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID;
+  const secret = process.env.PAYPAL_CLIENT_SECRET || process.env.PAYPAL_SECRET;
+  if (!id || !secret) {
+    throw new Error(
+      'Missing PayPal credentials: set PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET (or PAYPAL_SECRET).'
+    );
+  }
+  return { id, secret };
+}
 
 async function getAccessToken(): Promise<string> {
-  const id = process.env.PAYPAL_CLIENT_ID!;
-  const secret = process.env.PAYPAL_CLIENT_SECRET!;
-  if (!id || !secret) throw new Error('Missing PayPal credentials');
-
+  const { id, secret } = getSecrets();
   const basic = Buffer.from(`${id}:${secret}`).toString('base64');
 
   const res = await fetch(`${PP_BASE}/v1/oauth2/token`, {
@@ -24,75 +33,112 @@ async function getAccessToken(): Promise<string> {
     cache: 'no-store',
   });
 
-  const json = (await res.json()) as { access_token?: string };
-  if (!res.ok || !json.access_token) {
-    throw new Error('Failed to fetch PayPal access token');
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`PayPal token failed: ${res.status} ${text}`);
   }
+  const json = (await res.json()) as { access_token: string };
   return json.access_token;
 }
 
-/* ---------- helpers to parse the request body safely ---------- */
+/* ---------------------------- Request typing ---------------------------- */
 
-type CreateBody = {
-  title?: string;
-  product?: string;
-  qty?: number;
+type CreateOrderRequest = {
+  // minimal mode
+  value?: number | string;
   currency?: string;
-  amount?: number | string;
+
+  // optional detailed cart
+  items?: Array<{
+    name: string;
+    sku?: string;
+    unit_amount: { currency_code: string; value: string | number };
+    quantity: string | number;
+    category?: 'PHYSICAL_GOODS' | 'DIGITAL_GOODS';
+  }>;
+
+  // optional shipping/payer (can be added later once baseline works)
+  shipping?: {
+    name?: { full_name?: string };
+    address: {
+      address_line_1?: string;
+      address_line_2?: string;
+      admin_area_1?: string;
+      admin_area_2?: string;
+      postal_code?: string;
+      country_code: string; // ISO-2
+    };
+  };
+  payer?: {
+    email_address?: string;
+    name?: { given_name?: string; surname?: string };
+  };
 };
 
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null;
+function to2(v: number) {
+  return v.toFixed(2);
 }
 
-async function readBody(req: NextRequest): Promise<CreateBody> {
-  try {
-    const raw: unknown = await req.json();
-    if (!isRecord(raw)) return {};
-    const out: CreateBody = {};
-
-    if (typeof raw.title === 'string') out.title = raw.title;
-    if (typeof raw.product === 'string') out.product = raw.product;
-    if (typeof raw.currency === 'string') out.currency = raw.currency;
-
-    if (typeof raw.qty === 'number') out.qty = raw.qty;
-    else if (typeof raw.qty === 'string') {
-      const n = Number(raw.qty);
-      if (!Number.isNaN(n)) out.qty = n;
-    }
-
-    if (typeof raw.amount === 'number' || typeof raw.amount === 'string') {
-      out.amount = raw.amount;
-    }
-
-    return out;
-  } catch {
-    return {};
+function parseNumber(n: string | number | undefined): number | undefined {
+  if (typeof n === 'number') return n;
+  if (typeof n === 'string') {
+    const x = Number(n);
+    return Number.isFinite(x) ? x : undefined;
   }
+  return undefined;
 }
 
-/* ------------------------------ route ------------------------------ */
+/* -------------------------------- Route -------------------------------- */
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await readBody(req);
+    const body = (await req.json().catch(() => ({}))) as Partial<CreateOrderRequest>;
+    const currency = (body.currency ?? 'USD').toUpperCase();
 
-    const title = body.title ?? 'Kami Tee';
-    const sku = body.product ?? 'kami-tee';
-    const qty = body.qty && body.qty > 0 ? body.qty : 1;
-    const currency = body.currency ?? 'USD';
+    // Build purchase unit (either from items[] or from value)
+    let amountValue: string;
+    let breakdown: { item_total?: { currency_code: string; value: string } } | undefined;
+    let items = body.items;
 
-    const unitNum =
-      typeof body.amount === 'number'
-        ? body.amount
-        : typeof body.amount === 'string'
-        ? Number(body.amount)
-        : 29;
-
-    const unit = Number.isFinite(unitNum) ? unitNum : 29;
-    const total = (unit * qty).toFixed(2);
+    if (items && items.length > 0) {
+      // normalize quantities and amounts, compute item_total
+      let sum = 0;
+      items = items.map((it) => {
+        const qty = parseNumber(it.quantity) ?? 1;
+        const unit = parseNumber(it.unit_amount?.value) ?? 0;
+        sum += qty * unit;
+        return {
+          ...it,
+          quantity: String(qty),
+          unit_amount: { currency_code: currency, value: to2(unit) },
+        };
+      });
+      amountValue = to2(sum);
+      breakdown = { item_total: { currency_code: currency, value: amountValue } };
+    } else {
+      const val = parseNumber(body.value) ?? 0;
+      amountValue = to2(val);
+    }
 
     const token = await getAccessToken();
+
+    const payload = {
+      intent: 'CAPTURE' as const,
+      purchase_units: [
+        {
+          ...(items && items.length > 0 ? { items } : {}),
+          amount: {
+            currency_code: currency,
+            value: amountValue,
+            ...(breakdown ? { breakdown } : {}),
+          },
+          ...(body.shipping ? { shipping: body.shipping } : {}),
+        },
+      ],
+      ...(body.payer ? { payer: body.payer } : {}),
+      // If you want to force using your provided address later:
+      // application_context: { shipping_preference: 'SET_PROVIDED_ADDRESS' },
+    };
 
     const res = await fetch(`${PP_BASE}/v2/checkout/orders`, {
       method: 'POST',
@@ -100,39 +146,21 @@ export async function POST(req: NextRequest) {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        intent: 'CAPTURE',
-        purchase_units: [
-          {
-            items: [
-              {
-                name: title,
-                sku,
-                unit_amount: { currency_code: currency, value: unit.toFixed(2) },
-                quantity: String(qty),
-              },
-            ],
-            amount: {
-              currency_code: currency,
-              value: total,
-              breakdown: {
-                item_total: { currency_code: currency, value: total },
-              },
-            },
-          },
-        ],
-      }),
+      body: JSON.stringify(payload),
     });
 
     const json = await res.json();
     if (!res.ok) {
-      console.error('PAYPAL_CREATE_FAIL', json);
-      return NextResponse.json({ ok: false, error: 'CREATE_FAILED' }, { status: 400 });
+      console.error('PAYPAL_CREATE_FAIL', { status: res.status, json, payload });
+      return NextResponse.json(
+        { ok: false, error: 'CREATE_FAILED', detail: json },
+        { status: 400 }
+      );
     }
 
     return NextResponse.json({ ok: true, id: json.id }, { status: 200 });
   } catch (e) {
-    console.error('/api/paypal/create-order', e);
+    console.error('/api/paypal/create-order error', e);
     return NextResponse.json({ ok: false, error: 'CREATE_FAILED' }, { status: 500 });
   }
 }

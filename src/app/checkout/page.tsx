@@ -47,43 +47,9 @@ type PayPalSDK = {
   Buttons: (opts: PayPalButtonOptions) => PayPalButtonsInstance;
   FUNDING: { PAYPAL: string; CARD: string };
 };
-
-type PayPalShipping = {
-  name?: { full_name?: string };
-  address: {
-    address_line_1?: string;
-    address_line_2?: string;
-    admin_area_1?: string; // state/province
-    admin_area_2?: string; // city
-    postal_code?: string;
-    country_code: string;   // ISO-2
-  };
-};
-
-type PurchaseUnitPayload = {
-  amount: { currency_code: string; value: string };
-  shipping?: PayPalShipping;
-};
-
-type PayPalCreateOrderPayload = {
-  intent: 'CAPTURE' | 'AUTHORIZE';
-  purchase_units: PurchaseUnitPayload[];
-  payer?: {
-    email_address?: string;
-    name?: { given_name?: string; surname?: string };
-  };
-  application_context?: {
-    shipping_preference?: 'GET_FROM_FILE' | 'SET_PROVIDED_ADDRESS' | 'NO_SHIPPING';
-  };
-};
 /* ------------------------------------------------------------------- */
 
 const CURRENCY = (process.env.NEXT_PUBLIC_CURRENCY ?? 'USD').toUpperCase();
-const safe = (v?: string | null) => (v && v.trim() ? v.trim() : undefined);
-
-// Progressive toggle (start false to prove baseline; then turn on)
-const SEND_PAYER = false;
-const SEND_SHIPPING = false;
 
 export default function CheckoutPage() {
   const items = useCart((s) => s.items);
@@ -105,7 +71,7 @@ export default function CheckoutPage() {
     let cardButtons: PayPalButtonsInstance | null = null;
 
     const renderButtons = async () => {
-      const paypal = (await loadPayPalSDK()) as unknown as PayPalSDK; // typed
+      const paypal = (await loadPayPalSDK()) as unknown as PayPalSDK;
       if (cancelled) return;
 
       const walletContainer = paypalRef.current;
@@ -115,49 +81,27 @@ export default function CheckoutPage() {
       walletContainer.innerHTML = '';
       cardContainer.innerHTML = '';
 
-      const createOrder = async (_data: unknown, actions: { order: PayPalOrderActions }) => {
-        const purchaseUnit: PurchaseUnitPayload = {
-          amount: { currency_code: CURRENCY, value: total.toFixed(2) },
-          ...(SEND_SHIPPING && formValues
-            ? {
-                shipping: {
-                  name: {
-                    full_name:
-                      `${safe(formValues.firstName) ?? ''} ${safe(formValues.lastName) ?? ''}`.trim() ||
-                      undefined,
-                  },
-                  address: {
-                    address_line_1: safe(formValues.address1),
-                    address_line_2: safe(formValues.address2),
-                    admin_area_2: safe(formValues.city),
-                    admin_area_1: safe(formValues.state),
-                    postal_code: safe(formValues.postalCode),
-                    country_code: formValues.country.toUpperCase(),
-                  },
-                },
-              }
-            : {}),
-        };
-
-        const payload: PayPalCreateOrderPayload = {
-          intent: 'CAPTURE',
-          purchase_units: [purchaseUnit],
-          ...(SEND_PAYER && formValues
-            ? {
-                payer: {
-                  email_address: safe(formValues.email),
-                  name: {
-                    given_name: safe(formValues.firstName),
-                    surname: safe(formValues.lastName),
-                  },
-                },
-              }
-            : {}),
-        };
-
-        // actions.order.create accepts unknown, so payload type is fine
-        const id = await actions.order.create(payload);
-        return id;
+      // ⬇️ Minimal server-driven createOrder (calls /api/paypal/create-order)
+      const createOrder = async (_data: unknown, _actions: { order: PayPalOrderActions }) => {
+        try {
+          const res = await fetch('/api/paypal/create-order', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ value: total.toFixed(2), currency: CURRENCY }),
+          });
+          const data: { ok?: boolean; id?: string; error?: string } = await res.json();
+          if (!res.ok || !data?.id) {
+            // eslint-disable-next-line no-console
+            console.error('create-order API failed:', data);
+            throw new Error(data?.error || `HTTP ${res.status}`);
+          }
+          return data.id;
+        } catch (e) {
+          // eslint-disable-next-line no-console
+          console.error('[checkout] createOrder error:', e);
+          alert('Unable to start PayPal checkout. Please try again.');
+          throw e;
+        }
       };
 
       const onApprove = async (_data: { orderID: string }, actions: { order: PayPalOrderActions }) => {
@@ -209,7 +153,6 @@ export default function CheckoutPage() {
       };
 
       const onError = (err: unknown) => {
-        // Keep this for debugging while in sandbox
         // eslint-disable-next-line no-console
         console.error('PayPal onError', err);
         alert('PayPal error. Please try again.');
