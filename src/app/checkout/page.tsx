@@ -35,9 +35,14 @@ type PayPalButtonStyle = {
   layout?: 'vertical' | 'horizontal';
 };
 
+// ⭐ add proper typing for onClick
+type PayPalOnClickActions = { resolve: () => void; reject: () => void };
+type PayPalOnClick = (data: unknown, actions: PayPalOnClickActions) => void;
+
 type PayPalButtonOptions = {
   fundingSource?: string;
   style?: PayPalButtonStyle;
+  onClick?: PayPalOnClick;
   createOrder: (data: unknown, actions: { order: PayPalOrderActions }) => Promise<string>;
   onApprove: (data: { orderID: string }, actions: { order: PayPalOrderActions }) => Promise<void>;
   onError?: (err: unknown) => void;
@@ -58,6 +63,12 @@ export default function CheckoutPage() {
   const cardRef = useRef<HTMLDivElement>(null);
 
   const [formValues, setFormValues] = useState<NormalizedCheckout | null>(null);
+
+  // Keep a ref so we don't re-render Buttons when the form changes
+  const formRef = useRef<NormalizedCheckout | null>(null);
+  useEffect(() => {
+    formRef.current = formValues;
+  }, [formValues]);
 
   const subtotal = useMemo(() => items.reduce((s, i) => s + i.price * i.qty, 0), [items]);
   const shipping = 0;
@@ -81,27 +92,20 @@ export default function CheckoutPage() {
       walletContainer.innerHTML = '';
       cardContainer.innerHTML = '';
 
-      // ⬇️ Minimal server-driven createOrder (calls /api/paypal/create-order)
+      // ✅ Minimal server-driven createOrder
       const createOrder = async (_data: unknown, _actions: { order: PayPalOrderActions }) => {
-        try {
-          const res = await fetch('/api/paypal/create-order', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ value: total.toFixed(2), currency: CURRENCY }),
-          });
-          const data: { ok?: boolean; id?: string; error?: string } = await res.json();
-          if (!res.ok || !data?.id) {
-            // eslint-disable-next-line no-console
-            console.error('create-order API failed:', data);
-            throw new Error(data?.error || `HTTP ${res.status}`);
-          }
-          return data.id;
-        } catch (e) {
+        const res = await fetch('/api/paypal/create-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ value: total.toFixed(2), currency: CURRENCY }),
+        });
+        const data: { ok?: boolean; id?: string; error?: string } = await res.json();
+        if (!res.ok || !data?.id) {
           // eslint-disable-next-line no-console
-          console.error('[checkout] createOrder error:', e);
-          alert('Unable to start PayPal checkout. Please try again.');
-          throw e;
+          console.error('create-order API failed:', data);
+          throw new Error(data?.error || `HTTP ${res.status}`);
         }
+        return data.id;
       };
 
       const onApprove = async (_data: { orderID: string }, actions: { order: PayPalOrderActions }) => {
@@ -136,7 +140,7 @@ export default function CheckoutPage() {
             shipping,
             tax,
             payer: { email: payerEmail, name: payerName },
-            customer: formValues ?? undefined,
+            customer: formRef.current ?? undefined,
             paypalRaw: detailsUnknown,
           }),
         });
@@ -158,26 +162,32 @@ export default function CheckoutPage() {
         alert('PayPal error. Please try again.');
       };
 
+      // Gate clicks with onClick instead of re-rendering buttons on form change
+      const onClick: PayPalOnClick = (_data, actions) => {
+        if (!formRef.current) return actions.reject();
+        return actions.resolve();
+      };
+
       // Wallet button
-      const walletOpts: PayPalButtonOptions = {
+      walletButtons = paypal.Buttons({
         fundingSource: paypal.FUNDING.PAYPAL,
         style: { shape: 'pill', label: 'paypal', layout: 'vertical' },
+        onClick,
         createOrder,
         onApprove,
         onError,
-      };
-      walletButtons = paypal.Buttons(walletOpts);
+      });
       walletButtons.render(walletContainer);
 
       // Card button
-      const cardOpts: PayPalButtonOptions = {
+      cardButtons = paypal.Buttons({
         fundingSource: paypal.FUNDING.CARD,
         style: { layout: 'vertical', shape: 'pill' },
+        onClick,
         createOrder,
         onApprove,
         onError,
-      };
-      cardButtons = paypal.Buttons(cardOpts);
+      });
       if (cardButtons.isEligible?.()) {
         cardButtons.render(cardContainer);
       }
@@ -190,7 +200,9 @@ export default function CheckoutPage() {
       try { walletButtons?.close?.(); } catch {}
       try { cardButtons?.close?.(); } catch {}
     };
-  }, [items, subtotal, total, clear, formValues]);
+
+    // ⛔ DO NOT depend on formValues here; keep buttons stable
+  }, [items, subtotal, total, clear]);
 
   if (items.length === 0) {
     return (
