@@ -35,7 +35,7 @@ type PayPalButtonStyle = {
   layout?: 'vertical' | 'horizontal';
 };
 
-// ⭐ add proper typing for onClick
+// Proper typing for onClick
 type PayPalOnClickActions = { resolve: () => void; reject: () => void };
 type PayPalOnClick = (data: unknown, actions: PayPalOnClickActions) => void;
 
@@ -92,12 +92,65 @@ export default function CheckoutPage() {
       walletContainer.innerHTML = '';
       cardContainer.innerHTML = '';
 
-      // ✅ Minimal server-driven createOrder
+      // ---- Create order via server with items + payer + shipping ----
+      type CreateOrderBody = {
+        currency: string;
+        items: Array<{
+          name: string;
+          sku?: string;
+          unit_amount: { currency_code: string; value: number };
+          quantity: number;
+          category?: 'PHYSICAL_GOODS' | 'DIGITAL_GOODS';
+        }>;
+        payer?: { email_address?: string; name?: { given_name?: string; surname?: string } };
+        shipping?: {
+          name?: { full_name?: string };
+          address: {
+            address_line_1?: string;
+            address_line_2?: string;
+            admin_area_1?: string;
+            admin_area_2?: string;
+            postal_code?: string;
+            country_code: string;
+          };
+        };
+      };
+
       const createOrder = async (_data: unknown, _actions: { order: PayPalOrderActions }) => {
+        const fv = formRef.current;
+
+        const body: CreateOrderBody = {
+          currency: CURRENCY,
+          items: items.map((i) => ({
+            name: i.title,
+            sku: i.sku,
+            unit_amount: { currency_code: CURRENCY, value: i.price },
+            quantity: i.qty,
+            category: 'PHYSICAL_GOODS',
+          })),
+          ...(fv && {
+            payer: {
+              email_address: fv.email,
+              name: { given_name: fv.firstName, surname: fv.lastName },
+            },
+            shipping: {
+              name: { full_name: `${fv.firstName} ${fv.lastName}` },
+              address: {
+                address_line_1: fv.address1 || undefined,
+                address_line_2: fv.address2 || undefined,
+                admin_area_2: fv.city || undefined,
+                admin_area_1: fv.state || undefined, // 2-letter for US
+                postal_code: fv.postalCode || undefined,
+                country_code: fv.country.toUpperCase(),
+              },
+            },
+          }),
+        };
+
         const res = await fetch('/api/paypal/create-order', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ value: total.toFixed(2), currency: CURRENCY }),
+          body: JSON.stringify(body),
         });
         const data: { ok?: boolean; id?: string; error?: string } = await res.json();
         if (!res.ok || !data?.id) {
@@ -201,7 +254,7 @@ export default function CheckoutPage() {
       try { cardButtons?.close?.(); } catch {}
     };
 
-    // ⛔ DO NOT depend on formValues here; keep buttons stable
+    // Keep buttons stable: don't depend on formValues here
   }, [items, subtotal, total, clear]);
 
   if (items.length === 0) {

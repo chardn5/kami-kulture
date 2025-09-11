@@ -10,8 +10,7 @@ type CartLine = {
   sku: string;
   title: string;
   qty: number;
-  // client may send cents or major units (we normalize below)
-  price: number;
+  price: number;          // may be cents or major units (normalized below)
   size?: string;
   image?: string;
 };
@@ -27,7 +26,7 @@ type Customer = {
   city: string;
   state?: string;
   postalCode: string;
-  country: string; // e.g., "PH"
+  country: string; // ISO-2
 };
 
 type Body = {
@@ -38,26 +37,49 @@ type Body = {
   tax?: number;
   payer?: { email?: string; name?: string };
   paypalRaw?: unknown;
-  customer?: Customer; // from the form (optional for backward-compat)
+  customer?: Customer; // optional
 };
 
 /** ---------------- PayPal minimal types (server) ---------------- */
-type PPName = { given_name?: string; surname?: string };
+type PPName = { given_name?: string; surname?: string; full_name?: string };
 type PPPayer = { email_address?: string; name?: PPName };
 type PPCapture = { id?: string };
 type PPPayments = { captures?: PPCapture[] };
 type PPAmt = { value?: string; currency_code?: string };
-type PPPurchaseUnit = { amount?: PPAmt; payments?: PPPayments };
+
+type PPShippingAddr = {
+  address_line_1?: string;
+  address_line_2?: string;
+  admin_area_1?: string;
+  admin_area_2?: string;
+  postal_code?: string;
+  country_code?: string;
+};
+
+type PPShipping = { name?: { full_name?: string }; address?: PPShippingAddr };
+
+type PPPurchaseUnit = {
+  amount?: PPAmt;
+  payments?: PPPayments;
+  shipping?: PPShipping;
+};
+
 type PPOrder = { id?: string; payer?: PPPayer; purchase_units?: PPPurchaseUnit[] };
 
-/** ---------------- PayPal helpers (optional) ---------------- */
-async function getPayPalAccessToken(): Promise<{ token: string; base: string } | null> {
-  const cid = process.env.PAYPAL_CLIENT_ID;
-  const secret = process.env.PAYPAL_SECRET;
-  if (!cid || !secret) return null;
+/** ---------------- PayPal helpers ---------------- */
+function paypalBase() {
+  return process.env.PAYPAL_ENV === 'live' || process.env.PAYPAL_ENV === 'production'
+    ? 'https://api-m.paypal.com'
+    : 'https://api-m.sandbox.paypal.com';
+}
 
-  const creds = Buffer.from(`${cid}:${secret}`).toString('base64');
-  const base = process.env.PAYPAL_BASE_URL || 'https://api-m.sandbox.paypal.com';
+async function getPayPalAccessToken(): Promise<{ token: string; base: string } | null> {
+  const id = process.env.PAYPAL_CLIENT_ID || process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID;
+  const secret = process.env.PAYPAL_CLIENT_SECRET || process.env.PAYPAL_SECRET;
+  if (!id || !secret) return null;
+
+  const creds = Buffer.from(`${id}:${secret}`).toString('base64');
+  const base = paypalBase();
 
   const res = await fetch(`${base}/v1/oauth2/token`, {
     method: 'POST',
@@ -115,6 +137,14 @@ function bad(msg: string, status = 400) {
   return NextResponse.json({ ok: false, error: msg }, { status });
 }
 
+function splitName(full?: string | null): { first: string | null; last: string | null } {
+  if (!full) return { first: null, last: null };
+  const parts = full.trim().split(/\s+/);
+  const first = parts.shift() ?? null;
+  const last = parts.length ? parts.join(' ') : null;
+  return { first, last };
+}
+
 /** ---------------------------- POST ---------------------------- */
 export async function POST(req: NextRequest) {
   let body: Body;
@@ -142,11 +172,15 @@ export async function POST(req: NextRequest) {
   const subtotal = normalizedLines.reduce((s, l) => s + l.price * l.qty, 0);
   const total = subtotal + shipping + tax;
 
-  // -------- Optional PayPal verification --------
-  let payerEmail = body.payer?.email;
-  let payerName = body.payer?.name;
+  // -------- Optional PayPal verification & shipping fallback --------
+  let payerEmail = body.payer?.email ?? undefined;
+  let payerName = body.payer?.name ?? undefined;
   let captureId: string | undefined;
   let paypalRaw: unknown = body.paypalRaw;
+
+  // Fields we may fill from PayPal if form wasn't supplied
+  let ppShip: PPShippingAddr | undefined;
+  let ppFullName: string | undefined;
 
   if (body.paypalOrderId) {
     const creds = await getPayPalAccessToken();
@@ -168,6 +202,10 @@ export async function POST(req: NextRequest) {
         const cap = pu?.payments?.captures?.[0];
         captureId = cap?.id ?? body.paypalOrderId;
 
+        // shipping snapshot from PayPal (fallback if form not present)
+        if (pu?.shipping?.address) ppShip = pu.shipping.address;
+        if (pu?.shipping?.name?.full_name) ppFullName = pu.shipping.name.full_name;
+
         if (typeof apiTotal === 'number') {
           const delta = Math.abs(apiTotal - total);
           if (delta > 0.02) {
@@ -177,6 +215,7 @@ export async function POST(req: NextRequest) {
         }
       } catch (e) {
         console.warn('[paypal] verify skipped/failed, continuing with client payload', e);
+        captureId = body.paypalOrderId;
       }
     } else {
       captureId = body.paypalOrderId;
@@ -201,8 +240,21 @@ export async function POST(req: NextRequest) {
     customerId = cust.id;
   }
 
-  // Prefer the shipping/customer block from the form if available
+  // Prefer the shipping/customer block from the form if available; otherwise fall back to PayPal shipping
   const c = body.customer;
+  const ppNameParts = splitName(ppFullName);
+
+  const shipFirstName = c?.firstName ?? ppNameParts.first ?? null;
+  const shipLastName  = c?.lastName ?? ppNameParts.last ?? null;
+  const shipEmail     = c?.email ?? payerEmail ?? null;
+  const shipPhone     = c?.phone ?? null;
+
+  const shipAddress1  = c?.address1 ?? ppShip?.address_line_1 ?? null;
+  const shipAddress2  = c?.address2 ?? ppShip?.address_line_2 ?? null;
+  const shipCity      = c?.city ?? ppShip?.admin_area_2 ?? null;
+  const shipState     = c?.state ?? ppShip?.admin_area_1 ?? null;
+  const shipPostal    = c?.postalCode ?? ppShip?.postal_code ?? null;
+  const shipCountry   = c?.country ?? ppShip?.country_code ?? null;
 
   const order = await prisma.order.create({
     data: {
@@ -218,17 +270,17 @@ export async function POST(req: NextRequest) {
       payerName: payerName ?? null,
       captureId: captureId ?? null,
 
-      // Denormalized shipping/customer snapshot fields
-      shipFirstName: c?.firstName ?? null,
-      shipLastName:  c?.lastName ?? null,
-      shipEmail:     c?.email ?? payerEmail ?? null,
-      shipPhone:     c?.phone ?? null,
-      shipAddress1:  c?.address1 ?? null,
-      shipAddress2:  c?.address2 ?? null,
-      shipCity:      c?.city ?? null,
-      shipState:     c?.state ?? null,
-      shipPostalCode:c?.postalCode ?? null,
-      shipCountry:   c?.country ?? null,
+      // Denormalized shipping/customer snapshot fields (now includes address1/2 fallbacks)
+      shipFirstName,
+      shipLastName,
+      shipEmail,
+      shipPhone,
+      shipAddress1: shipAddress1,
+      shipAddress2: shipAddress2,
+      shipCity:     shipCity,
+      shipState:    shipState,
+      shipPostalCode: shipPostal,
+      shipCountry:  shipCountry,
 
       // legacy single-product columns (kept nullable)
       productTitle: null,
@@ -261,7 +313,6 @@ export async function POST(req: NextRequest) {
 
   // -------- Emails (best-effort; non-blocking) --------
   try {
-    // Flatten items with Decimal -> number conversion via .toNumber()
     const lineItems = order.items.map((i) => ({
       title: i.title,
       qty: i.qty,
@@ -271,7 +322,6 @@ export async function POST(req: NextRequest) {
       image: i.image ?? undefined,
     }));
 
-    // Convert monetary fields safely with .toNumber()
     const amounts = {
       subtotal: order.amountSubtotal ? order.amountSubtotal.toNumber() : 0,
       shipping: order.amountShipping ? order.amountShipping.toNumber() : 0,

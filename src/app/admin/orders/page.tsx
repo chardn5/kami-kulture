@@ -122,7 +122,7 @@ export default async function AdminOrders({
       <form className="mb-4">
         <input
           name="q"
-          defaultValue={q}  // fixed: removed accidental "app"
+          defaultValue={q}
           placeholder="Search id, email, title, SKU, customer name, city…"
           autoComplete="off"
           className="w-full md:w-96 rounded border border-white/20 bg-white px-3 py-2
@@ -146,9 +146,9 @@ export default async function AdminOrders({
                 <Link href={sortHref(baseQS, 'status_desc')}>Status</Link>
               </th>
               <th className="py-2 pr-4">Order ID</th>
-              <th className="py-2 pr-4">Customer</th>    {/* NEW */}
+              <th className="py-2 pr-4">Customer</th>
               <th className="py-2 pr-4">Email</th>
-              <th className="py-2 pr-4">Ship to</th>     {/* NEW */}
+              <th className="py-2 pr-4">Ship to</th>
               <th className="py-2 pr-4">Item(s)</th>
               <th className="py-2 pr-4">SKU/Size</th>
             </tr>
@@ -164,39 +164,70 @@ export default async function AdminOrders({
 
               const email = o.shipEmail ?? o.payerEmail ?? o.buyerEmail ?? '—';
 
-              const shipLine =
-                [o.shipCity, o.shipState, o.shipPostalCode, o.shipCountry]
-                  .filter(Boolean)
-                  .join(', ') || '—';
-
-              const first = o.items[0];
-              const extra = o.items.length > 1 ? ` +${o.items.length - 1} more` : '';
-              const itemLabel =
-                first
-                  ? `${first.title} x${first.qty}${extra}`
-                  : (o.productTitle ?? '—');
-
-              const skuSize =
-                first
-                  ? `${first.sku ?? '—'}${first.size ? ` / ${first.size}` : ''}${extra ? ' (multiple)' : ''}`
-                  : `${o.sku ?? '—'}${o.selectedSize ? ` / ${o.selectedSize}` : ''}`;
+              // ✅ Build full address: line1, line2, city/state/zip, country
+              const addressParts: string[] = [];
+              if (o.shipAddress1) addressParts.push(o.shipAddress1);
+              if (o.shipAddress2) addressParts.push(o.shipAddress2);
+              const cityStateZip = [o.shipCity, o.shipState, o.shipPostalCode].filter(Boolean).join(', ');
+              if (cityStateZip) addressParts.push(cityStateZip);
+              if (o.shipCountry) addressParts.push(o.shipCountry);
 
               return (
-                <tr key={o.id} className="border-b">
+                <tr key={o.id} className="border-b align-top">
                   <td className="py-2 pr-4">{idx + 1}</td>
                   <td className="py-2 pr-4">
                     {o.createdAt.toISOString().slice(0, 19).replace('T', ' ')}
                   </td>
                   <td className="py-2 pr-4">
-                    {o.currency ?? 'USD'} {amountNum.toFixed(2)}
+                    {(o.currency ?? 'USD')} {amountNum.toFixed(2)}
                   </td>
                   <td className="py-2 pr-4">{o.status}</td>
                   <td className="py-2 pr-4 font-mono">{o.id}</td>
                   <td className="py-2 pr-4 whitespace-nowrap">{name}</td>
                   <td className="py-2 pr-4 whitespace-nowrap">{email}</td>
-                  <td className="py-2 pr-4 whitespace-nowrap">{shipLine}</td>
-                  <td className="py-2 pr-4">{itemLabel}</td>
-                  <td className="py-2 pr-4">{skuSize}</td>
+
+                  {/* ✅ Multi-line ship-to with line1/line2 */}
+                  <td className="py-2 pr-4">
+                    <div className="max-w-xs space-y-0.5">
+                      {addressParts.length > 0
+                        ? addressParts.map((line, i) => (
+                            <div key={i} className="truncate">{line}</div>
+                          ))
+                        : <span>—</span>}
+                    </div>
+                  </td>
+
+                  {/* ✅ List ALL items */}
+                  <td className="py-2 pr-4">
+                    {o.items.length > 0 ? (
+                      <ul className="space-y-0.5">
+                        {o.items.map((it, i) => (
+                          <li key={`${it.sku ?? it.title}-${i}`} className="truncate">
+                            {it.title} x{it.qty}{it.size ? ` / ${it.size}` : ''}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <span>{o.productTitle ?? '—'}</span>
+                    )}
+                  </td>
+
+                  {/* ✅ Matching SKU/Size listing */}
+                  <td className="py-2 pr-4">
+                    {o.items.length > 0 ? (
+                      <ul className="space-y-0.5">
+                        {o.items.map((it, i) => (
+                          <li key={`${it.sku ?? it.title}-sku-${i}`} className="truncate">
+                            {(it.sku ?? '—')}{it.size ? ` / ${it.size}` : ''}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <span>
+                        {(o.sku ?? '—')}{o.selectedSize ? ` / ${o.selectedSize}` : ''}
+                      </span>
+                    )}
+                  </td>
                 </tr>
               );
             })}
