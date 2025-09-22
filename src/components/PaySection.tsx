@@ -11,6 +11,8 @@ type PaySectionProps = {
   selectedSize?: string;
   productSlug?: string;
   sku?: string;
+  /** If true, hides the small sandbox label (default true in prod). */
+  hideSandboxNote?: boolean;
 };
 
 /* -------- Minimal PayPal SDK & response types -------- */
@@ -46,6 +48,8 @@ type PayPalButtonsInstance = {
 /* ---------------------------------------------------------------- */
 
 const CURRENCY = (process.env.NEXT_PUBLIC_CURRENCY ?? 'USD').toUpperCase();
+// Assume sandbox unless explicitly set to "live"
+const IS_SANDBOX = (process.env.NEXT_PUBLIC_PAYPAL_ENV ?? 'sandbox') !== 'live';
 
 function getErrorMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
@@ -59,6 +63,7 @@ export default function PaySection({
   selectedSize,
   productSlug,
   sku,
+  hideSandboxNote = true, // hide by default so no “PayPal Sandbox active.” label
 }: PaySectionProps) {
   const paypalRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -95,9 +100,12 @@ export default function PaySection({
         const createOrder = (_data: unknown, actions: { order: PayPalOrderActions }) => {
           const { amount, productTitle, selectedSize, productSlug, sku } = latest.current;
           const description = `${productTitle}${selectedSize ? ` - Size: ${selectedSize}` : ''}`;
-          const customId = [sku ?? '', selectedSize ?? '', productSlug ?? '', Math.random().toString(36).slice(2, 8)]
-            .filter(Boolean)
-            .join('|');
+          const customId = [
+            sku ?? '',
+            selectedSize ?? '',
+            productSlug ?? '',
+            Math.random().toString(36).slice(2, 8),
+          ].filter(Boolean).join('|');
 
           return actions.order.create({
             intent: 'CAPTURE',
@@ -114,7 +122,6 @@ export default function PaySection({
         const onApprove = async (data: { orderID: string }, actions: { order: PayPalOrderActions }) => {
           const { amount, productTitle, selectedSize, productSlug, sku } = latest.current;
           try {
-            // capture() is typed as unknown in the loader; narrow to what we use here
             const detailsUnknown = await actions.order.capture();
             const details = detailsUnknown as PayPalOrderDetails;
             const orderID = data.orderID || details.id || '';
@@ -223,7 +230,10 @@ export default function PaySection({
       <div ref={paypalRef} />
       <div ref={cardRef} />
 
-      <p className="text-xs text-neutral-500">PayPal Sandbox active.</p>
+      {/* Hide the sandbox note unless you explicitly want it */}
+      {!hideSandboxNote && IS_SANDBOX && (
+        <p className="text-xs text-neutral-500">PayPal Sandbox active.</p>
+      )}
     </div>
   );
 }

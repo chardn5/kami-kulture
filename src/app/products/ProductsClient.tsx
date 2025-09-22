@@ -1,9 +1,8 @@
+// /src/app/products/ProductsClient.tsx
 'use client';
 
 import { useMemo, useState } from 'react';
-import Image from 'next/image';
-import Link from 'next/link';
-import { formatPrice } from '@/lib/format';
+import ProductCard from '@/components/ProductCard';
 
 type Product = {
   slug: string;
@@ -36,11 +35,14 @@ export default function ProductsClient({ initialProducts, categories }: Props) {
   const [category, setCategory] = useState<string>('all');
   const [sort, setSort] = useState<SortKey>('newest');
 
+  const hasCategories = (categories?.length ?? 0) > 0;
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
 
-    let list = initialProducts.filter(p => {
-      const inCat = category === 'all' || (p.tags?.includes(category) ?? false);
+    let list = initialProducts.filter((p) => {
+      const inCat =
+        category === 'all' || (p.tags?.map((t) => t.toLowerCase()).includes(category.toLowerCase()) ?? false);
       if (!q) return inCat;
       const hay = `${p.title} ${p.description ?? ''}`.toLowerCase();
       return inCat && hay.includes(q);
@@ -68,11 +70,11 @@ export default function ProductsClient({ initialProducts, categories }: Props) {
           if (ra !== rb) return ra - rb; // low → high
           return a.title.localeCompare(b.title);
         }
+        case 'newest':
         default: {
-          // newest first (fallback stable)
           const da = a.createdAt ? new Date(a.createdAt).getTime() : 0;
           const db = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-          if (db !== da) return db - da;
+          if (db !== da) return db - da; // newest first
           return a.title.localeCompare(b.title);
         }
       }
@@ -81,49 +83,107 @@ export default function ProductsClient({ initialProducts, categories }: Props) {
     return list;
   }, [initialProducts, query, category, sort]);
 
-  const hasCategories = categories.length > 0;
+  const active = {
+    query: query.trim() !== '',
+    category: category !== 'all',
+    sort: sort !== 'newest',
+  };
 
-  // Shared select classes: dark bg + white text (override global base), accessible focus
+  // High-contrast input/select styles
+  const inputCls =
+    'w-full rounded-lg border bg-white/10 text-white placeholder-white/60 ' +
+    'border-white/15 focus:border-white/25 px-10 py-2.5 ' +
+    'focus:outline-none focus:ring-2 focus:ring-sky-400/60';
   const selectCls =
-    'rounded-xl bg-neutral-950 px-3 py-2 text-sm text-white ' +
-    'ring-1 ring-white/10 focus:outline-none focus:ring-2 focus:ring-emerald-400';
+    'w-full appearance-none rounded-lg border bg-white/10 text-white ' +
+    'border-white/15 focus:border-white/25 px-3 py-2.5 pr-9 ' +
+    'focus:outline-none focus:ring-2 focus:ring-sky-400/60';
 
   return (
-    <div className="space-y-6">
-      {/* Controls */}
-      <div className="flex flex-col gap-3 rounded-2xl bg-neutral-900/70 p-4 ring-1 ring-white/10 md:flex-row md:items-center md:justify-between">
-        <div className="flex flex-1 items-center gap-3">
-          <label htmlFor="q" className="sr-only">Search products</label>
+    <main className="mx-auto max-w-6xl px-4 py-8">
+      {/* Header */}
+      <div className="mb-6">
+        <h1 className="text-2xl md:text-3xl font-bold">All Products</h1>
+        <p className="mt-1 text-sm text-white/60">
+          {filtered.length} result{filtered.length === 1 ? '' : 's'}
+          {active.query ? <> for “{query}”</> : null}
+          {active.category ? <> in {category}</> : null}
+        </p>
+      </div>
+
+      {/* Filters */}
+      <div className="mb-6 grid grid-cols-1 gap-3 md:grid-cols-12">
+        {/* Search */}
+        <label className="md:col-span-5 relative block">
+          <span className="sr-only">Search products</span>
           <input
-            id="q"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search designs…"
-            className="w-full rounded-xl bg-neutral-950 px-3 py-2 text-sm text-white ring-1 ring-white/10 placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-emerald-400 md:max-w-sm"
+            placeholder="Search by title or description…"
+            className={inputCls}
           />
-
-          {hasCategories && (
-            <>
-              <label htmlFor="cat" className="sr-only">Category</label>
-              <select
-                id="cat"
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className={selectCls}
-                // Safari sometimes ignores text color on native controls
-                style={{ WebkitTextFillColor: '#fff' }}
-              >
-                <option value="all">All</option>
-                {categories.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-            </>
+          {/* search icon */}
+          <svg
+            aria-hidden="true"
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/70"
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+          >
+            <path
+              fill="currentColor"
+              d="M10 2a8 8 0 0 1 6.32 12.9l5.39 5.39-1.41 1.41-5.39-5.39A8 8 0 1 1 10 2m0 2a6 6 0 1 0 0 12A6 6 0 0 0 10 4z"
+            />
+          </svg>
+          {query && (
+            <button
+              type="button"
+              onClick={() => setQuery('')}
+              aria-label="Clear search"
+              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md px-1.5 py-0.5 text-white/70 hover:text-white hover:bg-white/10"
+            >
+              ✕
+            </button>
           )}
+        </label>
+
+        {/* Category */}
+        <div className="md:col-span-4 relative">
+          <label className="sr-only" htmlFor="cat">
+            Category
+          </label>
+          <select
+            id="cat"
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            className={selectCls}
+            // Safari sometimes ignores text color on native controls
+            style={{ WebkitTextFillColor: '#fff' }}
+          >
+            <option value="all">All</option>
+            {categories.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+          {/* chevron */}
+          <svg
+            aria-hidden="true"
+            className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-white/70"
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+          >
+            <path fill="currentColor" d="M7 10l5 5 5-5z" />
+          </svg>
         </div>
 
-        <div className="flex items-center gap-2 md:justify-end">
-          <label htmlFor="sort" className="sr-only">Sort</label>
+        {/* Sort */}
+        <div className="md:col-span-3 relative">
+          <label className="sr-only" htmlFor="sort">
+            Sort
+          </label>
           <select
             id="sort"
             value={sort}
@@ -132,116 +192,134 @@ export default function ProductsClient({ initialProducts, categories }: Props) {
             style={{ WebkitTextFillColor: '#fff' }}
           >
             <option value="newest">Newest</option>
-            <option value="alpha-asc">Alphabetical: A → Z</option>
-            <option value="alpha-desc">Alphabetical: Z → A</option>
+            <option value="alpha-asc">Name: A → Z</option>
+            <option value="alpha-desc">Name: Z → A</option>
             <option value="price-asc">Price: Low → High</option>
             <option value="price-desc">Price: High → Low</option>
             <option value="rating-desc">Rating: High → Low</option>
             <option value="rating-asc">Rating: Low → High</option>
           </select>
+          {/* chevron */}
+          <svg
+            aria-hidden="true"
+            className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-white/70"
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+          >
+            <path fill="currentColor" d="M7 10l5 5 5-5z" />
+          </svg>
         </div>
       </div>
 
-      {/* Results header */}
-      <div className="flex items-center justify-between text-sm text-neutral-400">
-        <span>{filtered.length} result{filtered.length === 1 ? '' : 's'}</span>
-        {(query || category !== 'all' || sort !== 'newest') && (
+      {/* Active filter pills + reset */}
+      {(active.query || active.category || active.sort) && (
+        <div className="mb-6 flex flex-wrap items-center gap-2 text-sm">
+          {active.query && (
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-white/80">
+              “{query}”
+              <button
+                className="rounded-md px-1 py-0.5 hover:bg-white/10"
+                onClick={() => setQuery('')}
+                aria-label="Remove search filter"
+                title="Remove search"
+              >
+                ✕
+              </button>
+            </span>
+          )}
+          {active.category && (
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-white/80">
+              {category}
+              <button
+                className="rounded-md px-1 py-0.5 hover:bg-white/10"
+                onClick={() => setCategory('all')}
+                aria-label="Clear category"
+                title="Clear category"
+              >
+                ✕
+              </button>
+            </span>
+          )}
+          {active.sort && (
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-white/80">
+              {labelForSort(sort)}
+              <button
+                className="rounded-md px-1 py-0.5 hover:bg-white/10"
+                onClick={() => setSort('newest')}
+                aria-label="Reset sort"
+                title="Reset sort"
+              >
+                ✕
+              </button>
+            </span>
+          )}
+
           <button
-            onClick={() => { setQuery(''); setCategory('all'); setSort('newest'); }}
-            className="rounded-lg px-2 py-1 text-neutral-300 underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-emerald-400"
+            className="ml-1 rounded-lg border border-white/15 px-3 py-1.5 text-white/80 hover:text-white hover:bg-white/10"
+            onClick={() => {
+              setQuery('');
+              setCategory('all');
+              setSort('newest');
+            }}
           >
-            Reset
+            Reset all
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Grid */}
-      {filtered.length === 0 ? (
-        <EmptyState />
-      ) : (
-        <ul className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+      {filtered.length > 0 ? (
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((p) => (
-            <li key={p.slug} className="group rounded-2xl bg-neutral-900/70 p-3 ring-1 ring-white/10">
-              <Link
-                href={`/products/${p.slug}`}
-                className="block focus:outline-none focus:ring-2 focus:ring-emerald-400 rounded-xl"
-              >
-                <div className="relative mb-2 aspect-square w-full overflow-hidden rounded-lg">
-                  <Image
-                    src={p.images?.[0] ?? '/placeholder.jpg'}
-                    alt={p.title}
-                    fill
-                    sizes="(max-width:768px) 50vw, (max-width:1024px) 33vw, 25vw"
-                    className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-                  />
-                </div>
-                <p className="truncate text-sm text-white">{p.title}</p>
-                <p className="text-xs text-neutral-400">{formatPrice(p.price)}</p>
-
-                {typeof p.rating === 'number' && (
-                  <div className="mt-1 flex items-center gap-1" aria-label={`Rated ${p.rating} out of 5`}>
-                    <Stars rating={p.rating} />
-                    <span className="text-[11px] text-neutral-500">({p.ratingCount ?? 0})</span>
-                  </div>
-                )}
-              </Link>
-            </li>
+            <ProductCard key={p.slug} product={p as any} />
           ))}
-        </ul>
+        </div>
+      ) : (
+        <EmptyState
+          onClear={() => {
+            setQuery('');
+            setCategory('all');
+            setSort('newest');
+          }}
+        />
       )}
-    </div>
+    </main>
   );
 }
 
-function EmptyState() {
-  return (
-    <div className="rounded-2xl border border-dashed border-white/10 p-10 text-center text-neutral-400">
-      <p className="text-sm">No products match your filters.</p>
-      <p className="text-xs">Try clearing the search or choosing a different tag.</p>
-    </div>
-  );
-}
-
-/** Accessible 5-star display with half-star support */
-function Stars({ rating }: { rating: number }) {
-  const full = Math.floor(rating);
-  const half = rating - full >= 0.5;
-  const empty = 5 - full - (half ? 1 : 0);
-
-  return (
-    <span className="inline-flex items-center">
-      {Array.from({ length: full }).map((_, i) => (
-        <Star key={`f${i}`} type="full" />
-      ))}
-      {half && <Star type="half" />}
-      {Array.from({ length: empty }).map((_, i) => (
-        <Star key={`e${i}`} type="empty" />
-      ))}
-    </span>
-  );
-}
-
-function Star({ type }: { type: 'full' | 'half' | 'empty' }) {
-  if (type === 'half') {
-    return (
-      <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" className="shrink-0">
-        <defs>
-          <linearGradient id="half">
-            <stop offset="50%" stopColor="currentColor" />
-            <stop offset="50%" stopColor="transparent" />
-          </linearGradient>
-        </defs>
-        <path fill="url(#half)" stroke="currentColor" d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>
-      </svg>
-    );
+function labelForSort(key: SortKey) {
+  switch (key) {
+    case 'price-asc':
+      return 'Price: Low → High';
+    case 'price-desc':
+      return 'Price: High → Low';
+    case 'alpha-asc':
+      return 'Name: A → Z';
+    case 'alpha-desc':
+      return 'Name: Z → A';
+    case 'rating-desc':
+      return 'Rating: High → Low';
+    case 'rating-asc':
+      return 'Rating: Low → High';
+    default:
+      return 'Newest';
   }
+}
+
+function EmptyState({ onClear }: { onClear: () => void }) {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" className="shrink-0">
-      <path
-        fill={type === 'full' ? 'currentColor' : 'none'}
-        stroke="currentColor"
-        d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"
-      />
-    </svg>
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-8 text-center">
+      <h3 className="text-lg font-semibold">No products found</h3>
+      <p className="mt-2 text-sm text-white/70">
+        Try clearing filters or using a different search.
+      </p>
+      <button
+        onClick={onClear}
+        className="mt-4 inline-flex items-center justify-center rounded-lg border border-white/15 px-4 py-2 text-sm text-white/90 hover:bg-white/10"
+      >
+        Reset filters
+      </button>
+    </div>
   );
 }
