@@ -2,11 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ---------- Core theme & color-scheme ---------- */
-/* Force native form controls (incl. <select> popups) to render dark */
-:root, html { color-scheme: dark; }
-
-/* Design tokens */
+/* ---------- Design tokens ---------- */
 :root {
   --kk-bg: #0b0f19;                     /* deep navy/black */
   --kk-grid: rgba(255,255,255,0.06);    /* grid line color */
@@ -20,15 +16,10 @@ html, body {
 }
 
 /* ---------- Brand helpers ---------- */
-.brand-title {
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-.text-shadow-strong {
-  text-shadow: 0 2px 0 rgba(0,0,0,.6);
-}
+.brand-title { text-transform: uppercase; letter-spacing: 0.06em; }
+.text-shadow-strong { text-shadow: 0 2px 0 rgba(0,0,0,.6); }
 
-/* Wordmark styles */
+/* Wordmark */
 .wordmark {
   font-family: var(--font-brand, Bebas Neue), ui-sans-serif, system-ui;
   text-transform: uppercase;
@@ -38,21 +29,14 @@ html, body {
   font-style: normal;
   font-size: clamp(40px, 8vw, 110px);
 }
-.wordmark .w1 { /* "KAMI" */ color:#fff; text-shadow:0 2px 0 rgba(0,0,0,.6); }
-.wordmark .w2 { /* "KULTURE" */ color:var(--kk-accent); text-shadow:0 2px 0 rgba(0,0,0,.6); }
+.wordmark .w1 { color:#fff; text-shadow:0 2px 0 rgba(0,0,0,.6); }
+.wordmark .w2 { color:var(--kk-accent); text-shadow:0 2px 0 rgba(0,0,0,.6); }
 
 /* ---------- Optional grid + spotlight background ---------- */
 /* Attach the .kk-grid class to <body> to enable */
-.kk-grid {
-  background: var(--kk-bg);
-  min-height: 100dvh;
-}
-.kk-grid::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
+.kk-grid { background: var(--kk-bg); min-height: 100dvh; }
+.kk-grid::before{
+  content:""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
   background-image:
     linear-gradient(to right, var(--kk-grid) 1px, transparent 1px),
     linear-gradient(to bottom, var(--kk-grid) 1px, transparent 1px);
@@ -60,22 +44,15 @@ html, body {
   -webkit-mask-image: radial-gradient(ellipse at 50% 35%, rgba(0,0,0,1) 0%, rgba(0,0,0,.75) 55%, rgba(0,0,0,0) 85%);
           mask-image: radial-gradient(ellipse at 50% 35%, rgba(0,0,0,1) 0%, rgba(0,0,0,.75) 55%, rgba(0,0,0,0) 85%);
 }
-.kk-grid::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
+.kk-grid::after{
+  content:""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
   background: radial-gradient(640px circle at 50% 25%, var(--kk-spot), transparent 70%);
 }
-@media (max-width: 640px) {
-  .kk-grid::before { background-size: 32px 32px; }
-}
+@media (max-width: 640px){ .kk-grid::before{ background-size: 32px 32px; } }
 
-/* ---------- Global form inputs (dark) ---------- */
+/* ---------- Global form inputs (dark look) ---------- */
+/* NOTE: we DO NOT set color-scheme globally to avoid affecting PayPal iframes. */
 @layer base {
-  select, input, textarea, button { color-scheme: dark; }
-
   input[type="text"],
   input[type="email"],
   input[type="number"],

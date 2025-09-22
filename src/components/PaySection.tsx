@@ -219,7 +219,7 @@ export default function PaySection({
     };
   }, []);
 
-  return (
+    return (
     <div className="space-y-2">
       {selectedSize && (
         <p className="text-sm text-neutral-300">
@@ -227,8 +227,9 @@ export default function PaySection({
         </p>
       )}
 
-      <div ref={paypalRef} />
-      <div ref={cardRef} />
+      {/* Force light color-scheme so PayPal renders its intended styling */}
+      <div ref={paypalRef} style={{ colorScheme: 'light' }} />
+      <div ref={cardRef} style={{ colorScheme: 'light' }} />
 
       {/* Hide the sandbox note unless you explicitly want it */}
       {!hideSandboxNote && IS_SANDBOX && (
@@ -236,4 +237,5 @@ export default function PaySection({
       )}
     </div>
   );
+
 }
