@@ -2,10 +2,24 @@
 @tailwind components;
 @tailwind utilities;
 
-/* your dark background stays below */
-:root { --kk-bg:#0b0f19; --kk-grid:rgba(255,255,255,.06); --kk-spot:rgba(56,189,248,.12); }
-html,body{ background:var(--kk-bg); min-height:100dvh; }
-/* brand headline helpers */
+/* ---------- Core theme & color-scheme ---------- */
+/* Force native form controls (incl. <select> popups) to render dark */
+:root, html { color-scheme: dark; }
+
+/* Design tokens */
+:root {
+  --kk-bg: #0b0f19;                     /* deep navy/black */
+  --kk-grid: rgba(255,255,255,0.06);    /* grid line color */
+  --kk-spot: rgba(56,189,248,0.12);     /* blue spotlight */
+  --kk-accent: #00C7FF;                 /* wordmark accent */
+}
+
+html, body {
+  background: var(--kk-bg);
+  min-height: 100dvh;
+}
+
+/* ---------- Brand helpers ---------- */
 .brand-title {
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -14,45 +28,27 @@ html,body{ background:var(--kk-bg); min-height:100dvh; }
   text-shadow: 0 2px 0 rgba(0,0,0,.6);
 }
 
-:root {
-  --kk-accent: #00C7FF; /* tweak if you want a different blue */
-}
-
 /* Wordmark styles */
 .wordmark {
   font-family: var(--font-brand, Bebas Neue), ui-sans-serif, system-ui;
   text-transform: uppercase;
-  letter-spacing: 0.04em;         /* tight, condensed feel */
+  letter-spacing: 0.04em;
   line-height: .9;
-  font-weight: 400;               /* Bebas Neue is 400-only */
+  font-weight: 400;
   font-style: normal;
   font-size: clamp(40px, 8vw, 110px);
 }
-.wordmark .w1 {                   /* "KAMI" */
-  color: #fff;
-  text-shadow: 0 2px 0 rgba(0,0,0,.6);
-}
-.wordmark .w2 {                   /* "KULTURE" */
-  color: var(--kk-accent);
-  text-shadow: 0 2px 0 rgba(0,0,0,.6);
-}
+.wordmark .w1 { /* "KAMI" */ color:#fff; text-shadow:0 2px 0 rgba(0,0,0,.6); }
+.wordmark .w2 { /* "KULTURE" */ color:var(--kk-accent); text-shadow:0 2px 0 rgba(0,0,0,.6); }
 
-/* === Dark grid background + spotlight (apply with .kk-grid on <body>) === */
-:root{
-  --kk-bg: #0b0f19;                      /* deep navy/black */
-  --kk-grid: rgba(255,255,255,0.06);     /* grid line color */
-  --kk-spot: rgba(56,189,248,0.12);      /* blue spotlight */
-}
-
-/* Attach this class to <body> */
-.kk-grid{
+/* ---------- Optional grid + spotlight background ---------- */
+/* Attach the .kk-grid class to <body> to enable */
+.kk-grid {
   background: var(--kk-bg);
   min-height: 100dvh;
 }
-
-/* Grid */
-.kk-grid::before{
-  content:"";
+.kk-grid::before {
+  content: "";
   position: fixed;
   inset: 0;
   z-index: -1;
@@ -60,29 +56,26 @@ html,body{ background:var(--kk-bg); min-height:100dvh; }
   background-image:
     linear-gradient(to right, var(--kk-grid) 1px, transparent 1px),
     linear-gradient(to bottom, var(--kk-grid) 1px, transparent 1px);
-  background-size: 40px 40px;            /* grid density; try 48px or 32px */
-  /* vignette so lines fade toward the edges */
+  background-size: 40px 40px;
   -webkit-mask-image: radial-gradient(ellipse at 50% 35%, rgba(0,0,0,1) 0%, rgba(0,0,0,.75) 55%, rgba(0,0,0,0) 85%);
           mask-image: radial-gradient(ellipse at 50% 35%, rgba(0,0,0,1) 0%, rgba(0,0,0,.75) 55%, rgba(0,0,0,0) 85%);
 }
-
-/* Soft blue spotlight */
-.kk-grid::after{
-  content:"";
+.kk-grid::after {
+  content: "";
   position: fixed;
   inset: 0;
   z-index: -1;
   pointer-events: none;
   background: radial-gradient(640px circle at 50% 25%, var(--kk-spot), transparent 70%);
 }
-
-/* Smaller screens: slightly denser grid */
-@media (max-width: 640px){
-  .kk-grid::before{ background-size: 32px 32px; }
+@media (max-width: 640px) {
+  .kk-grid::before { background-size: 32px 32px; }
 }
 
-/* === Global form inputs for dark theme === */
+/* ---------- Global form inputs (dark) ---------- */
 @layer base {
+  select, input, textarea, button { color-scheme: dark; }
+
   input[type="text"],
   input[type="email"],
   input[type="number"],
@@ -90,14 +83,14 @@ html,body{ background:var(--kk-bg); min-height:100dvh; }
   input[type="search"],
   textarea,
   select {
-    @apply bg-white text-black placeholder:text-neutral-500 caret-black
-           border border-white/20 rounded-md px-3 py-2;
+    @apply bg-white/10 text-white placeholder:text-white/60 caret-white
+           border border-white/15 rounded-lg px-3 py-2.5;
   }
 
   input:focus,
   textarea:focus,
   select:focus {
-    @apply outline-none ring-2 ring-emerald-500 border-transparent;
+    @apply outline-none ring-2 ring-sky-400/60 border-transparent;
   }
 
   input:disabled,
@@ -111,7 +104,7 @@ html,body{ background:var(--kk-bg); min-height:100dvh; }
 input:-webkit-autofill,
 input:-webkit-autofill:hover,
 input:-webkit-autofill:focus {
-  -webkit-text-fill-color: #111 !important;
-  -webkit-box-shadow: 0 0 0 1000px #fff inset !important;
+  -webkit-text-fill-color: #fff !important;
+  -webkit-box-shadow: 0 0 0 1000px rgba(255,255,255,0.05) inset !important;
   transition: background-color 9999s ease-out;
 }
