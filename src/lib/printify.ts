@@ -3,9 +3,12 @@
 
 const PRINTIFY_BASE = 'https://api.printify.com/v1';
 
-const API_TOKEN = process.env.PRINTIFY_API_TOKEN;
-if (!API_TOKEN) {
-  throw new Error('Missing PRINTIFY_API_TOKEN in environment.');
+function getApiToken(): string {
+  const token = process.env.PRINTIFY_API_TOKEN;
+  if (!token) {
+    throw new Error('Missing PRINTIFY_API_TOKEN in environment.');
+  }
+  return token;
 }
 
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE';
@@ -24,7 +27,7 @@ async function callPrintify<T>(
   const res = await fetch(url.toString(), {
     method: opts.method ?? 'GET',
     headers: {
-      Authorization: `Bearer ${API_TOKEN}`,
+      Authorization: `Bearer ${getApiToken()}`,
       'Content-Type': 'application/json',
     },
     // Only include body for non-GET

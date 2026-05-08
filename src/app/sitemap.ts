@@ -1,9 +1,12 @@
 import type { MetadataRoute } from 'next';
-import { products } from '@/data/products';
+import { getCatalogProducts } from '@/lib/catalog';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://kamikulture.com';
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export const dynamic = 'force-dynamic';
+
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const products = await getCatalogProducts();
   const items = products.map((p) => ({
     url: `${SITE_URL}/products/${p.slug}`,
     changeFrequency: 'weekly' as const,

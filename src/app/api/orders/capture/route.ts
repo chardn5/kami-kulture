@@ -3,6 +3,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { sendOrderReceipt, notifyAdminNewOrder } from '@/lib/email';
+import {
+  createOrder as createPrintifyOrder,
+  getEnvShopId,
+  type PrintifyAddress,
+  type PrintifyOrderLineItem,
+} from '@/lib/printify';
 
 export const runtime = 'nodejs';
 
@@ -12,7 +18,10 @@ type CartLine = {
   qty: number;
   price: number;          // may be cents or major units (normalized below)
   size?: string;
+  color?: string;
   image?: string;
+  printifyProductId?: string;
+  printifyVariantId?: number;
 };
 
 // Customer payload from CheckoutForm
@@ -145,6 +154,115 @@ function splitName(full?: string | null): { first: string | null; last: string |
   return { first, last };
 }
 
+type NormalizedLine = CartLine & {
+  qty: number;
+  price: number;
+};
+
+type ShippingSnapshot = {
+  firstName: string | null;
+  lastName: string | null;
+  email: string | null;
+  phone: string | null;
+  address1: string | null;
+  address2: string | null;
+  city: string | null;
+  state: string | null;
+  postalCode: string | null;
+  country: string | null;
+};
+
+function isPrintifyAutoSubmitEnabled() {
+  return ['1', 'true', 'yes'].includes((process.env.PRINTIFY_AUTO_SUBMIT ?? '').toLowerCase());
+}
+
+function printifyShippingMethod() {
+  const parsed = Number(process.env.PRINTIFY_SHIPPING_METHOD ?? 1);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+}
+
+function buildPrintifyAddress(snapshot: ShippingSnapshot): PrintifyAddress {
+  const missing = [
+    ['first_name', snapshot.firstName],
+    ['last_name', snapshot.lastName],
+    ['email', snapshot.email],
+    ['address1', snapshot.address1],
+    ['city', snapshot.city],
+    ['zip', snapshot.postalCode],
+    ['country', snapshot.country],
+  ].filter(([, value]) => !value);
+
+  if (missing.length) {
+    throw new Error(`PRINTIFY_ADDRESS_INCOMPLETE:${missing.map(([key]) => key).join(',')}`);
+  }
+
+  return {
+    first_name: snapshot.firstName!,
+    last_name: snapshot.lastName!,
+    email: snapshot.email!,
+    phone: snapshot.phone ?? undefined,
+    address1: snapshot.address1!,
+    address2: snapshot.address2 ?? undefined,
+    city: snapshot.city!,
+    region: snapshot.state ?? undefined,
+    zip: snapshot.postalCode!,
+    country: snapshot.country!.toUpperCase(),
+  };
+}
+
+async function resolvePrintifyLineItems(lines: NormalizedLine[]): Promise<PrintifyOrderLineItem[]> {
+  const items: PrintifyOrderLineItem[] = [];
+
+  for (const line of lines) {
+    if (line.printifyProductId && typeof line.printifyVariantId === 'number') {
+      items.push({
+        product_id: line.printifyProductId,
+        variant_id: line.printifyVariantId,
+        quantity: line.qty,
+      });
+      continue;
+    }
+
+    const variant = await prisma.productVariant.findFirst({
+      where: { sku: line.sku },
+      select: {
+        variantId: true,
+        product: { select: { printifyId: true } },
+      },
+    });
+
+    if (!variant) {
+      throw new Error(`PRINTIFY_VARIANT_NOT_FOUND:${line.sku}`);
+    }
+
+    items.push({
+      product_id: variant.product.printifyId,
+      variant_id: variant.variantId,
+      quantity: line.qty,
+    });
+  }
+
+  return items;
+}
+
+async function submitPrintifyFulfillment(params: {
+  orderId: string;
+  lines: NormalizedLine[];
+  shipping: ShippingSnapshot;
+}) {
+  const lineItems = await resolvePrintifyLineItems(params.lines);
+  const address = buildPrintifyAddress(params.shipping);
+
+  return createPrintifyOrder(getEnvShopId(), {
+    external_id: params.orderId,
+    label: `Kami Kulture ${params.orderId}`,
+    line_items: lineItems,
+    shipping_method: printifyShippingMethod(),
+    send_shipping_notification: process.env.PRINTIFY_SEND_SHIPPING_NOTIFICATION === '1',
+    address_to: address,
+  });
+}
+
 /** ---------------------------- POST ---------------------------- */
 export async function POST(req: NextRequest) {
   let body: Body;
@@ -163,18 +281,26 @@ export async function POST(req: NextRequest) {
   const tax = typeof body.tax === 'number' ? body.tax : 0;
 
   // Normalize line items
-  const normalizedLines = body.cart.map((l) => ({
-    ...l,
-    price: toMajorUnits(Number(l.price) || 0),
-    qty: Number(l.qty) || 1,
-  }));
+  const normalizedLines: NormalizedLine[] = body.cart.map((l) => {
+    const printifyVariantId = Number(l.printifyVariantId);
+    return {
+      ...l,
+      sku: String(l.sku ?? ''),
+      title: String(l.title ?? 'Product'),
+      price: toMajorUnits(Number(l.price) || 0),
+      qty: Math.max(1, Number(l.qty) || 1),
+      printifyVariantId: Number.isFinite(printifyVariantId) ? printifyVariantId : undefined,
+    };
+  });
 
   const subtotal = normalizedLines.reduce((s, l) => s + l.price * l.qty, 0);
   const total = subtotal + shipping + tax;
 
   // -------- Optional PayPal verification & shipping fallback --------
-  let payerEmail = body.payer?.email ?? undefined;
-  let payerName = body.payer?.name ?? undefined;
+  let payerEmail = body.payer?.email ?? body.customer?.email ?? undefined;
+  let payerName =
+    body.payer?.name ??
+    (body.customer ? `${body.customer.firstName} ${body.customer.lastName}`.trim() : undefined);
   let captureId: string | undefined;
   let paypalRaw: unknown = body.paypalRaw;
 
@@ -256,6 +382,25 @@ export async function POST(req: NextRequest) {
   const shipPostal    = c?.postalCode ?? ppShip?.postal_code ?? null;
   const shipCountry   = c?.country ?? ppShip?.country_code ?? null;
 
+  const shippingSnapshot: ShippingSnapshot = {
+    firstName: shipFirstName,
+    lastName: shipLastName,
+    email: shipEmail,
+    phone: shipPhone,
+    address1: shipAddress1,
+    address2: shipAddress2,
+    city: shipCity,
+    state: shipState,
+    postalCode: shipPostal,
+    country: shipCountry,
+  };
+
+  const rawPayload = {
+    raw: (paypalRaw ?? null) as Prisma.InputJsonValue,
+    customer: (c ?? null) as Prisma.InputJsonValue,
+    printifyAutoSubmit: isPrintifyAutoSubmitEnabled(),
+  };
+
   const order = await prisma.order.create({
     data: {
       id: orderId,
@@ -289,10 +434,7 @@ export async function POST(req: NextRequest) {
       sku: null,
 
       // Keep full payloads for auditing
-      raw: {
-        raw: (paypalRaw ?? null) as Prisma.InputJsonValue,
-        customer: (c ?? null) as Prisma.InputJsonValue,
-      } as Prisma.InputJsonValue,
+      raw: rawPayload as Prisma.InputJsonValue,
 
       buyerEmail: payerEmail ?? null,
       customerId,
@@ -302,6 +444,9 @@ export async function POST(req: NextRequest) {
           sku: String(l.sku),
           title: String(l.title),
           size: l.size ?? null,
+          color: l.color ?? null,
+          printifyProductId: l.printifyProductId ?? null,
+          printifyVariantId: l.printifyVariantId ?? null,
           unitPrice: dec(l.price), // major units
           qty: l.qty,
           image: l.image ?? null,
@@ -311,6 +456,52 @@ export async function POST(req: NextRequest) {
     include: { items: true },
   });
 
+  let fulfillmentRaw: unknown = null;
+  if (isPrintifyAutoSubmitEnabled()) {
+    try {
+      const printifyOrder = await submitPrintifyFulfillment({
+        orderId: order.id,
+        lines: normalizedLines,
+        shipping: shippingSnapshot,
+      });
+      fulfillmentRaw = { printify: printifyOrder };
+
+      try {
+        await prisma.order.update({
+          where: { seq: order.seq },
+          data: {
+            status: 'FULFILLMENT_SUBMITTED',
+            raw: {
+              ...rawPayload,
+              printify: printifyOrder as Prisma.InputJsonValue,
+            } as Prisma.InputJsonValue,
+          },
+        });
+      } catch (updateError) {
+        console.warn('[printify] fulfillment status update failed', updateError);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'PRINTIFY_SUBMIT_FAILED';
+      fulfillmentRaw = { printifyError: message };
+      console.warn('[printify] fulfillment submit failed', error);
+
+      try {
+        await prisma.order.update({
+          where: { seq: order.seq },
+          data: {
+            status: 'FULFILLMENT_FAILED',
+            raw: {
+              ...rawPayload,
+              printifyError: message,
+            } as Prisma.InputJsonValue,
+          },
+        });
+      } catch (updateError) {
+        console.warn('[printify] fulfillment failure status update failed', updateError);
+      }
+    }
+  }
+
   // -------- Emails (best-effort; non-blocking) --------
   try {
     const lineItems = order.items.map((i) => ({
@@ -318,6 +509,7 @@ export async function POST(req: NextRequest) {
       qty: i.qty,
       unitPrice: i.unitPrice.toNumber(),
       size: i.size ?? undefined,
+      color: i.color ?? undefined,
       sku: i.sku,
       image: i.image ?? undefined,
     }));
@@ -349,7 +541,10 @@ export async function POST(req: NextRequest) {
       currency,
       items: lineItems,
       ...amounts,
-      raw: order,
+      raw: {
+        order,
+        fulfillment: fulfillmentRaw,
+      },
     });
   } catch (e) {
     console.warn('[email] send failed', e);

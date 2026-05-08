@@ -1,11 +1,12 @@
 // /src/app/page.tsx
 import Link from "next/link";
 import ProductCard from "@/components/ProductCard";
-import { products } from "@/data/products";
+import { getCatalogProducts } from "@/lib/catalog";
 
-export const dynamic = "force-static";
+export const dynamic = "force-dynamic";
 
-export default function HomePage() {
+export default async function HomePage() {
+  const products = await getCatalogProducts();
   const featured = products.slice(0, 8);
 
   return (

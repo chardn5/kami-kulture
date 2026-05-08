@@ -96,6 +96,7 @@ export type ReceiptItem = {
   qty: number;
   unitPrice: number; // major units (e.g., 499.00). If you store cents, convert /100 before passing
   size?: string;
+  color?: string;
   sku?: string;
   image?: string;
 };
@@ -114,6 +115,20 @@ export type ReceiptPayload = {
   trackUrl?: string;       // e.g., `${process.env.NEXT_PUBLIC_SITE_URL}/track?order=...`
 };
 
+function itemOptionText(i: Pick<ReceiptItem, 'color' | 'size'>, separator = ', ') {
+  return [
+    i.color ? `Color: ${i.color}` : '',
+    i.size ? `Size: ${i.size}` : '',
+  ].filter(Boolean).join(separator);
+}
+
+function itemOptionHtml(i: Pick<ReceiptItem, 'color' | 'size'>, separator = ', ') {
+  return [
+    i.color ? `Color: ${escapeHtml(i.color)}` : '',
+    i.size ? `Size: ${escapeHtml(i.size)}` : '',
+  ].filter(Boolean).join(separator);
+}
+
 function renderReceiptHTML(p: ReceiptPayload) {
   const currency = p.currency || 'USD';
   const locale = p.locale || (currency === 'PHP' ? 'en-PH' : 'en-US');
@@ -125,7 +140,10 @@ function renderReceiptHTML(p: ReceiptPayload) {
         <td style="padding:8px 0;vertical-align:top">
           <div style="font-weight:600;color:#fff">${escapeHtml(i.title)}</div>
           <div style="font-size:12px;color:#9ca3af">
-            ${i.size ? `Size: ${escapeHtml(i.size)} · ` : ''}${i.sku ? `SKU: ${escapeHtml(i.sku)}` : ''}
+            ${[
+              itemOptionHtml(i, ' / '),
+              i.sku ? `SKU: ${escapeHtml(i.sku)}` : '',
+            ].filter(Boolean).join(' · ')}
           </div>
         </td>
         <td style="padding:8px 0;text-align:center;color:#e5e7eb">${i.qty}</td>
@@ -188,8 +206,10 @@ function renderReceiptText(p: ReceiptPayload) {
 
   const lines = p.items
     .map(
-      (i) =>
-        `- ${i.title}${i.size ? ` (Size: ${i.size})` : ''} x${i.qty} @ ${money(i.unitPrice, currency, locale)}`
+      (i) => {
+        const options = itemOptionText(i);
+        return `- ${i.title}${options ? ` (${options})` : ''} x${i.qty} @ ${money(i.unitPrice, currency, locale)}`;
+      }
     )
     .join('\n');
 
@@ -237,10 +257,18 @@ export async function notifyAdminNewOrder(p: {
 
   const summaryRows =
     p.items?.map(
-      i => `<tr><td style="padding:4px 0;color:#e5e7eb">${escapeHtml(i.title)} ${i.size ? `(${escapeHtml(i.size)})` : ''}</td>
+      i => `<tr><td style="padding:4px 0;color:#e5e7eb">${escapeHtml(i.title)} ${itemOptionHtml(i, ' / ') ? `(${itemOptionHtml(i, ' / ')})` : ''}</td>
         <td style="padding:4px 0;text-align:center;color:#9ca3af">${i.qty}</td>
         <td style="padding:4px 0;text-align:right;color:#9ca3af">${money(i.unitPrice, currency, locale)}</td></tr>`
     ).join('') ?? '';
+
+  const rawJson = p.raw
+    ? JSON.stringify(
+        p.raw,
+        (_key, value) => (typeof value === 'bigint' ? value.toString() : value),
+        2
+      )
+    : '';
 
   const html = `
     <div style="background:#0b0f19;padding:16px;border-radius:12px;color:#e5e7eb;font-family:ui-sans-serif,system-ui">
@@ -267,7 +295,7 @@ export async function notifyAdminNewOrder(p: {
       ${
         p.raw
           ? `<pre style="margin-top:12px;background:#111827;color:#e5e7eb;padding:12px;border-radius:8px;font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size:12px; white-space:pre-wrap;">${escapeHtml(
-              JSON.stringify(p.raw, null, 2)
+              rawJson
             )}</pre>`
           : ''
       }
@@ -277,9 +305,12 @@ export async function notifyAdminNewOrder(p: {
   const text = `New order ${p.orderNumber}
 Customer: ${p.customerEmail ?? 'Unknown'}
 Total: ${money(p.total, currency, locale)}
-${p.items?.map(i => `- ${i.title}${i.size ? ` (${i.size})` : ''} x${i.qty} @ ${money(i.unitPrice, currency, locale)}`).join('\n') ?? ''}
+${p.items?.map(i => {
+  const options = itemOptionText(i);
+  return `- ${i.title}${options ? ` (${options})` : ''} x${i.qty} @ ${money(i.unitPrice, currency, locale)}`;
+}).join('\n') ?? ''}
 
-${p.raw ? `\nRAW:\n${JSON.stringify(p.raw, null, 2)}` : ''}`;
+${p.raw ? `\nRAW:\n${rawJson}` : ''}`;
 
   return sendEmail({
     to,

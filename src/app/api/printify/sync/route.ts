@@ -1,5 +1,5 @@
 // src/app/api/printify/sync/route.ts
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import {
@@ -12,6 +12,49 @@ import {
 export const runtime = 'nodejs';
 
 const LIMIT = 100;
+
+function safeEquals(a: string, b: string) {
+  return a.length === b.length && a === b;
+}
+
+function checkBasicAuth(req: NextRequest) {
+  const auth = req.headers.get('authorization');
+  if (!auth?.startsWith('Basic ')) return false;
+
+  try {
+    const decoded = Buffer.from(auth.split(' ')[1] ?? '', 'base64').toString();
+    const [u, p] = decoded.split(':');
+    const user = process.env.BASIC_AUTH_USER || process.env.ADMIN_USER || '';
+    const pass = process.env.BASIC_AUTH_PASS || process.env.ADMIN_PASSWORD || process.env.ADMIN_PASS || '';
+    return !!user && !!pass && u === user && p === pass;
+  } catch {
+    return false;
+  }
+}
+
+function checkSyncAuth(req: NextRequest) {
+  const secret = process.env.PRINTIFY_SYNC_SECRET;
+  if (secret) {
+    const headerSecret = req.headers.get('x-printify-sync-secret');
+    const bearer = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
+    return safeEquals(headerSecret ?? '', secret) || safeEquals(bearer ?? '', secret);
+  }
+
+  return checkBasicAuth(req);
+}
+
+function unauthorized() {
+  return NextResponse.json(
+    { ok: false, error: 'UNAUTHORIZED' },
+    {
+      status: 401,
+      headers: {
+        'WWW-Authenticate': 'Basic realm="Printify Sync"',
+        'Cache-Control': 'no-store',
+      },
+    }
+  );
+}
 
 async function fetchAllProducts(shopId: number) {
   const all: PrintifyProduct[] = [];
@@ -57,7 +100,9 @@ function deriveColorAndSize(
   return { color, size };
 }
 
-export async function POST() {
+export async function POST(req: NextRequest) {
+  if (!checkSyncAuth(req)) return unauthorized();
+
   try {
     const shopId = getEnvShopId();
     const products = await fetchAllProducts(shopId);

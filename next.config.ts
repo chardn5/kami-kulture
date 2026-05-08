@@ -5,6 +5,7 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       // Add any hosts you actually use:
       { protocol: 'https', hostname: 'images.unsplash.com' },
+      { protocol: 'https', hostname: '**.printify.com' },
       // { protocol: 'https', hostname: 'cdn.yoursite.com' },
     ],
   },

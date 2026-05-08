@@ -180,7 +180,10 @@ export default function CheckoutPage() {
           qty: i.qty,
           price: i.price,
           size: i.size,
+          color: i.color,
           image: i.image,
+          printifyProductId: i.printifyProductId,
+          printifyVariantId: i.printifyVariantId,
         }));
 
         const res = await fetch('/api/orders/capture', {
@@ -205,7 +208,8 @@ export default function CheckoutPage() {
 
         clear();
         const qp = new URLSearchParams({ orderID: json.orderId ?? '' });
-        if (payerEmail) qp.set('email', payerEmail);
+        const emailForLookup = payerEmail ?? formRef.current?.email;
+        if (emailForLookup) qp.set('email', emailForLookup);
         window.location.href = `/thank-you?${qp.toString()}`;
       };
 
@@ -291,14 +295,16 @@ export default function CheckoutPage() {
         {/* Cart items */}
         <ul className="divide-y divide-white/10 rounded-lg border border-white/10">
           {items.map((i) => (
-            <li key={`${i.sku}-${i.size ?? ''}`} className="flex items-center gap-3 p-4">
+            <li key={`${i.sku}-${i.color ?? ''}-${i.size ?? ''}`} className="flex items-center gap-3 p-4">
               <div className="relative h-16 w-16 overflow-hidden rounded bg-neutral-900">
-                {i.image ? <Image src={i.image} alt={i.title} fill className="object-cover" /> : null}
+                {i.image ? <Image src={i.image} alt={i.title} fill className="object-contain" /> : null}
               </div>
               <div className="flex-1">
                 <p className="font-medium">{i.title}</p>
                 <p className="text-xs text-neutral-400">
-                  {i.size ? <>Size: {i.size} · </> : null}SKU: {i.sku}
+                  {[i.color ? `Color: ${i.color}` : '', i.size ? `Size: ${i.size}` : '', `SKU: ${i.sku}`]
+                    .filter(Boolean)
+                    .join(' · ')}
                 </p>
               </div>
               <div className="text-sm text-neutral-300">

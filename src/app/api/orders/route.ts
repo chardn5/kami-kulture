@@ -57,6 +57,19 @@ export async function GET(req: NextRequest) {
       { productSlug: { contains: q } },
       { sku: { contains: q } },
       { selectedSize: { contains: q } },
+      {
+        items: {
+          some: {
+            OR: [
+              { sku: { contains: q } },
+              { title: { contains: q } },
+              { size: { contains: q } },
+              { color: { contains: q } },
+              { printifyProductId: { contains: q } },
+            ],
+          },
+        },
+      },
     ],
   } : {};
 
@@ -140,4 +153,3 @@ export async function POST() {
     { status: 405 },
   );
 }
-

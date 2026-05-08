@@ -1,5 +1,5 @@
 // /src/app/products/page.tsx
-import { products } from '@/data/products';
+import { getCatalogProducts } from '@/lib/catalog';
 import ProductsClient from './ProductsClient';
 
 export const metadata = {
@@ -7,7 +7,10 @@ export const metadata = {
   description: 'Browse Kami Kulture designs and merch.',
 };
 
-export default function ProductsPage() {
+export const dynamic = 'force-dynamic';
+
+export default async function ProductsPage() {
+  const products = await getCatalogProducts();
   // derive categories from product tags
   const categories = Array.from(new Set(products.flatMap(p => p.tags ?? [])));
 

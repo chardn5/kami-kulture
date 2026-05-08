@@ -7,14 +7,17 @@ export type CartItem = {
   price: number;      // cents or PHP minor units if you prefer
   image?: string;
   size?: string;
+  color?: string;
+  printifyProductId?: string;
+  printifyVariantId?: number;
   qty: number;
 };
 
 type CartState = {
   items: CartItem[];
   add: (item: CartItem) => void;
-  remove: (sku: string, size?: string) => void;
-  setQty: (sku: string, size: string | undefined, qty: number) => void;
+  remove: (sku: string, size?: string, color?: string) => void;
+  setQty: (sku: string, size: string | undefined, color: string | undefined, qty: number) => void;
   clear: () => void;
 };
 
@@ -33,17 +36,19 @@ export const useCart = create<CartState>((set, get) => ({
   items: load(),
   add: (item) => {
     const items = [...get().items];
-    const idx = items.findIndex(i => i.sku === item.sku && i.size === item.size);
+    const idx = items.findIndex(i => i.sku === item.sku && i.size === item.size && i.color === item.color);
     if (idx >= 0) items[idx] = { ...items[idx], qty: items[idx].qty + item.qty };
     else items.push(item);
     save(items); set({ items });
   },
-  remove: (sku, size) => {
-    const items = get().items.filter(i => !(i.sku === sku && i.size === size));
+  remove: (sku, size, color) => {
+    const items = get().items.filter(i => !(i.sku === sku && i.size === size && i.color === color));
     save(items); set({ items });
   },
-  setQty: (sku, size, qty) => {
-    const items = get().items.map(i => (i.sku === sku && i.size === size ? { ...i, qty } : i));
+  setQty: (sku, size, color, qty) => {
+    const items = get().items.map(i => (
+      i.sku === sku && i.size === size && i.color === color ? { ...i, qty } : i
+    ));
     save(items); set({ items });
   },
   clear: () => { save([]); set({ items: [] }); },

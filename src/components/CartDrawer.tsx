@@ -53,10 +53,10 @@ export default function CartDrawer({ open, onClose }: Props) {
             <p className="p-4 text-sm text-neutral-400">Your cart is empty.</p>
           ) : (
             items.map((i) => (
-              <div key={`${i.sku}-${i.size ?? ''}`} className="flex gap-3 p-4">
+              <div key={`${i.sku}-${i.color ?? ''}-${i.size ?? ''}`} className="flex gap-3 p-4">
                 <div className="relative h-20 w-20 overflow-hidden rounded bg-neutral-900">
                   {i.image ? (
-                    <Image src={i.image} alt={i.title} fill className="object-cover" />
+                    <Image src={i.image} alt={i.title} fill className="object-contain" />
                   ) : (
                     <div className="h-full w-full" />
                   )}
@@ -65,11 +65,17 @@ export default function CartDrawer({ open, onClose }: Props) {
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-sm font-medium">{i.title}</p>
-                      {i.size && <p className="text-xs text-neutral-400 mt-0.5">Size: {i.size}</p>}
+                      {(i.color || i.size) && (
+                        <p className="text-xs text-neutral-400 mt-0.5">
+                          {[i.color ? `Color: ${i.color}` : '', i.size ? `Size: ${i.size}` : '']
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </p>
+                      )}
                       <p className="text-xs text-neutral-500 mt-0.5">{i.sku}</p>
                     </div>
                     <button
-                      onClick={() => remove(i.sku, i.size)}
+                      onClick={() => remove(i.sku, i.size, i.color)}
                       className="text-xs text-neutral-400 hover:text-red-400"
                     >
                       Remove
@@ -78,9 +84,9 @@ export default function CartDrawer({ open, onClose }: Props) {
 
                   <div className="mt-3 flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <label htmlFor={`qty-${i.sku}-${i.size ?? 'na'}`} className="text-xs text-neutral-400">Qty</label>
+                      <label htmlFor={`qty-${i.sku}-${i.color ?? 'na'}-${i.size ?? 'na'}`} className="text-xs text-neutral-400">Qty</label>
                       <input
-                        id={`qty-${i.sku}-${i.size ?? 'na'}`}
+                        id={`qty-${i.sku}-${i.color ?? 'na'}-${i.size ?? 'na'}`}
                         type="number"
                         inputMode="numeric"
                         min={1}
@@ -88,7 +94,7 @@ export default function CartDrawer({ open, onClose }: Props) {
                         value={i.qty}
                         onChange={(e) => {
                           const v = Math.max(1, Number(e.target.value) || 1);
-                          setQty(i.sku, i.size, v);
+                          setQty(i.sku, i.size, i.color, v);
                         }}
                       />
                     </div>

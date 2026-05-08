@@ -9,8 +9,12 @@ type PaySectionProps = {
   amount: number;          // major units (e.g., 499.00)
   productTitle: string;
   selectedSize?: string;
+  selectedColor?: string;
   productSlug?: string;
   sku?: string;
+  image?: string;
+  printifyProductId?: string;
+  printifyVariantId?: number;
   /** If true, hides the small sandbox label (default true in prod). */
   hideSandboxNote?: boolean;
 };
@@ -61,8 +65,12 @@ export default function PaySection({
   amount,
   productTitle,
   selectedSize,
+  selectedColor,
   productSlug,
   sku,
+  image,
+  printifyProductId,
+  printifyVariantId,
   hideSandboxNote = true, // hide by default so no “PayPal Sandbox active.” label
 }: PaySectionProps) {
   const paypalRef = useRef<HTMLDivElement>(null);
@@ -73,12 +81,36 @@ export default function PaySection({
     amount,
     productTitle,
     selectedSize,
+    selectedColor,
     productSlug,
     sku,
+    image,
+    printifyProductId,
+    printifyVariantId,
   });
   useEffect(() => {
-    latest.current = { amount, productTitle, selectedSize, productSlug, sku };
-  }, [amount, productTitle, selectedSize, productSlug, sku]);
+    latest.current = {
+      amount,
+      productTitle,
+      selectedSize,
+      selectedColor,
+      productSlug,
+      sku,
+      image,
+      printifyProductId,
+      printifyVariantId,
+    };
+  }, [
+    amount,
+    productTitle,
+    selectedSize,
+    selectedColor,
+    productSlug,
+    sku,
+    image,
+    printifyProductId,
+    printifyVariantId,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
@@ -98,10 +130,15 @@ export default function PaySection({
         cardContainer.innerHTML = '';
 
         const createOrder = (_data: unknown, actions: { order: PayPalOrderActions }) => {
-          const { amount, productTitle, selectedSize, productSlug, sku } = latest.current;
-          const description = `${productTitle}${selectedSize ? ` - Size: ${selectedSize}` : ''}`;
+          const { amount, productTitle, selectedSize, selectedColor, productSlug, sku } = latest.current;
+          const options = [
+            selectedColor ? `Color: ${selectedColor}` : '',
+            selectedSize ? `Size: ${selectedSize}` : '',
+          ].filter(Boolean).join(', ');
+          const description = `${productTitle}${options ? ` - ${options}` : ''}`;
           const customId = [
             sku ?? '',
+            selectedColor ?? '',
             selectedSize ?? '',
             productSlug ?? '',
             Math.random().toString(36).slice(2, 8),
@@ -120,7 +157,17 @@ export default function PaySection({
         };
 
         const onApprove = async (data: { orderID: string }, actions: { order: PayPalOrderActions }) => {
-          const { amount, productTitle, selectedSize, productSlug, sku } = latest.current;
+          const {
+            amount,
+            productTitle,
+            selectedSize,
+            selectedColor,
+            productSlug,
+            sku,
+            image,
+            printifyProductId,
+            printifyVariantId,
+          } = latest.current;
           try {
             const detailsUnknown = await actions.order.capture();
             const details = detailsUnknown as PayPalOrderDetails;
@@ -142,7 +189,10 @@ export default function PaySection({
               qty: 1,
               price: value,
               size: selectedSize,
-              image: undefined as string | undefined,
+              color: selectedColor,
+              image,
+              printifyProductId,
+              printifyVariantId,
             };
 
             const res = await fetch('/api/orders/capture', {
@@ -221,9 +271,12 @@ export default function PaySection({
 
     return (
     <div className="space-y-2">
-      {selectedSize && (
+      {(selectedColor || selectedSize) && (
         <p className="text-sm text-neutral-300">
-          Selected size: <span className="font-medium text-white">{selectedSize}</span>
+          Selected:{' '}
+          <span className="font-medium text-white">
+            {[selectedColor, selectedSize].filter(Boolean).join(' / ')}
+          </span>
         </p>
       )}
 

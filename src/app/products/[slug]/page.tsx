@@ -1,15 +1,13 @@
 // /src/app/products/[slug]/page.tsx
 import type { Metadata } from 'next';
-import { products } from '@/data/products';
+import { getCatalogProduct, getCatalogProducts, type CatalogProduct } from '@/lib/catalog';
 import PDPClient from './PDPClient';
 import { notFound } from "next/navigation";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://kamikulture.com';
 const DEFAULT_DESC = 'Anime-inspired designs printed on demand.';
 
-export function generateStaticParams() {
-  return products.map(p => ({ slug: p.slug }));
-}
+export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({
   params,
@@ -17,7 +15,7 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const product = products.find(p => p.slug === slug);
+  const product = await getCatalogProduct(slug);
 
   const title = product ? `${product.title}` : 'Product';
   const description = product?.description ?? DEFAULT_DESC;
@@ -49,23 +47,13 @@ export async function generateMetadata({
   };
 }
 
-type Product = {
-  slug: string;
-  title: string;
-  price: number;
-  description?: string;
-  images?: string[];
-  variants?: { size: 'S' | 'M' | 'L' | 'XL'; sku?: string }[];
-  rating?: number;
-  ratingCount?: number;
-};
-
 export default async function ProductPage({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
+  const products = await getCatalogProducts();
   const product = products.find(p => p.slug === slug);
   if (!product) { notFound(); }
 
@@ -77,20 +65,20 @@ export default async function ProductPage({
   return (
     <>
       <ProductJsonLd product={product} url={canonical} />
-      <PDPClient product={product as Product} recs={recs as Product[]} />
+      <PDPClient product={product} recs={recs} />
     </>
   );
 }
 
 /** ---- JSON-LD (server-rendered) ---- */
-function ProductJsonLd({ product, url }: { product: Product; url: string }) {
+function ProductJsonLd({ product, url }: { product: CatalogProduct; url: string }) {
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Product',
     name: product.title,
     description: product.description || undefined,
-    image: product.images && product.images.length ? product.images : undefined,
-    sku: product.variants?.[0]?.sku || undefined,
+    image: product.images.length ? product.images : undefined,
+    sku: product.variants?.find((variant) => variant.sku)?.sku || undefined,
     brand: { '@type': 'Brand', name: 'Kami Kulture' },
     offers: {
       '@type': 'Offer',

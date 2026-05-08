@@ -75,6 +75,8 @@ export default async function AdminOrders({
                   { title: { contains: q } },
                   { sku:   { contains: q } },
                   { size:  { contains: q } },
+                  { color: { contains: q } },
+                  { printifyProductId: { contains: q } },
                 ],
               },
             },
@@ -88,7 +90,16 @@ export default async function AdminOrders({
     orderBy,
     take: 200,
     include: {
-      items: { select: { title: true, sku: true, size: true, qty: true } },
+      items: {
+        select: {
+          title: true,
+          sku: true,
+          size: true,
+          color: true,
+          printifyVariantId: true,
+          qty: true,
+        },
+      },
     },
   });
 
@@ -203,7 +214,10 @@ export default async function AdminOrders({
                       <ul className="space-y-0.5">
                         {o.items.map((it, i) => (
                           <li key={`${it.sku ?? it.title}-${i}`} className="truncate">
-                            {it.title} x{it.qty}{it.size ? ` / ${it.size}` : ''}
+                            {it.title} x{it.qty}
+                            {[it.color, it.size].filter(Boolean).length
+                              ? ` / ${[it.color, it.size].filter(Boolean).join(' / ')}`
+                              : ''}
                           </li>
                         ))}
                       </ul>
@@ -218,7 +232,11 @@ export default async function AdminOrders({
                       <ul className="space-y-0.5">
                         {o.items.map((it, i) => (
                           <li key={`${it.sku ?? it.title}-sku-${i}`} className="truncate">
-                            {(it.sku ?? '—')}{it.size ? ` / ${it.size}` : ''}
+                            {(it.sku ?? '—')}
+                            {[it.color, it.size].filter(Boolean).length
+                              ? ` / ${[it.color, it.size].filter(Boolean).join(' / ')}`
+                              : ''}
+                            {it.printifyVariantId ? ` / V${it.printifyVariantId}` : ''}
                           </li>
                         ))}
                       </ul>
