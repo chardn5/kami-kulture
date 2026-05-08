@@ -116,7 +116,7 @@ export default function CheckoutPage() {
         };
       };
 
-      const createOrder = async (_data: unknown, _actions: { order: PayPalOrderActions }) => {
+      const createOrder = async () => {
         const fv = formRef.current;
 
         const body: CreateOrderBody = {
@@ -154,16 +154,16 @@ export default function CheckoutPage() {
         });
         const data: { ok?: boolean; id?: string; error?: string } = await res.json();
         if (!res.ok || !data?.id) {
-          // eslint-disable-next-line no-console
           console.error('create-order API failed:', data);
           throw new Error(data?.error || `HTTP ${res.status}`);
         }
         return data.id;
       };
 
-      const onApprove = async (_data: { orderID: string }, actions: { order: PayPalOrderActions }) => {
+      const onApprove = async (data: { orderID: string }, actions: { order: PayPalOrderActions }) => {
         const detailsUnknown = await actions.order.capture();
         const details = detailsUnknown as PPOrder;
+        const paypalOrderId = details.id ?? data.orderID;
 
         const pu0 = details.purchase_units?.[0];
         const cap0 = pu0?.payments?.captures?.[0];
@@ -187,7 +187,7 @@ export default function CheckoutPage() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            paypalOrderId: details.id,
+            paypalOrderId,
             cart: lines,
             currency,
             shipping,
@@ -210,7 +210,6 @@ export default function CheckoutPage() {
       };
 
       const onError = (err: unknown) => {
-        // eslint-disable-next-line no-console
         console.error('PayPal onError', err);
         alert('PayPal error. Please try again.');
       };
