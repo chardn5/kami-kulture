@@ -100,3 +100,80 @@ model Order {
   @@index([customerId])
   @@index([captureId])
 }
+
+/// ===== Printify-synced catalog =====
+model Product {
+  id           String   @id @default(cuid())
+  /// Printify product id (string UUID-ish)
+  printifyId   String   @unique
+  title        String
+  slug         String   @unique
+  description  String?
+  visible      Boolean  @default(true)
+  tags         String[] @default([])
+
+  /// Derived convenience fields
+  priceMinCents Int     @default(0)
+  priceMaxCents Int     @default(0)
+  currency      String  @default("USD")
+
+  /// Optional raw options snapshot from Printify (Color/Size lists)
+  optionsJson  Json?
+
+  /// Timestamps
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  /// Printify timestamps (keep as strings from API)
+  srcCreatedAt String?
+  srcUpdatedAt String?
+
+  images   ProductImage[]
+  variants ProductVariant[]
+
+  @@index([slug])
+  @@index([title])
+  @@index([printifyId])
+}
+
+model ProductImage {
+  id         String  @id @default(cuid())
+  productId  String
+  product    Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  url        String
+  position   Int     @default(0)
+  /// Some images are tied to variants (e.g., color mockups)
+  variantIds Int[]
+
+  createdAt  DateTime @default(now())
+
+  @@index([productId])
+}
+
+model ProductVariant {
+  id          String  @id @default(cuid())
+  productId   String
+  product     Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  /// Printify variant id (numeric) for ordering/fulfillment
+  variantId   Int
+  sku         String  @default("")
+  title       String  // e.g., "Black / L"
+  /// Store both raw and denormalized values
+  optionIndexes Int[] // indexes into optionsJson values
+  color       String?
+  size        String?
+
+  priceCents  Int
+  isEnabled   Boolean  @default(true)
+  isAvailable Boolean  @default(true)
+  grams       Int?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([productId, variantId]) // one Printify variant per product
+  @@index([productId])
+  @@index([sku])
+}
