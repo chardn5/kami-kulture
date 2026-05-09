@@ -1,6 +1,8 @@
 // src/app/api/printify/products/route.ts
 import { NextResponse } from 'next/server';
 import { getEnvShopId, listProducts, PrintifyProduct } from '@/lib/printify';
+import { adminUnauthorized, isAdminRequest } from '@/lib/adminRequestAuth';
+import type { NextRequest } from 'next/server';
 
 export const runtime = 'nodejs';
 
@@ -23,7 +25,9 @@ async function fetchAllProducts(shopId: number) {
   return all;
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  if (!isAdminRequest(req)) return adminUnauthorized('Printify Products');
+
   try {
     const shopId = getEnvShopId();
     const products = await fetchAllProducts(shopId);

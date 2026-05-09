@@ -2,6 +2,34 @@
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import Link from 'next/link';
+import { cookies, headers } from 'next/headers';
+import { redirect } from 'next/navigation';
+
+function decodeBasicAuth(h: string) {
+  if (!h?.startsWith('Basic ')) return null;
+  try {
+    const decoded = Buffer.from(h.split(' ')[1] || '', 'base64').toString('utf8');
+    const separator = decoded.indexOf(':');
+    if (separator === -1) return null;
+    return { user: decoded.slice(0, separator), pass: decoded.slice(separator + 1) };
+  } catch {
+    return null;
+  }
+}
+
+async function requireAdminAccess() {
+  const [hdrs, cookieStore] = await Promise.all([headers(), cookies()]);
+  const adminOk = cookieStore.get('admin_ok')?.value === '1';
+
+  const user = process.env.BASIC_AUTH_USER || process.env.ADMIN_USER || '';
+  const pass = process.env.BASIC_AUTH_PASS || process.env.ADMIN_PASSWORD || process.env.ADMIN_PASS || '';
+  const creds = decodeBasicAuth(hdrs.get('authorization') ?? '');
+  const okAuth = !!user && !!pass && !!creds && creds.user === user && creds.pass === pass;
+
+  if (!(adminOk && okAuth)) {
+    redirect('/admin/sign-in?next=/admin/orders');
+  }
+}
 
 /** Build sort link with current query */
 function sortHref(base: { q: string; sort: string }, key: string) {
@@ -31,6 +59,8 @@ export default async function AdminOrders({
   // Keeping your existing Promise style to avoid breaking changes in your app version
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  await requireAdminAccess();
+
   const sp = await searchParams;
 
   const qRaw = sp.q;
