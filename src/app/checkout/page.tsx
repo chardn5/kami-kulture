@@ -9,15 +9,6 @@ import { formatPrice } from '@/lib/format';
 import { loadPayPalSDK } from '@/lib/paypalClient';
 import CheckoutForm, { type NormalizedCheckout } from '@/components/CheckoutForm';
 
-/* --------------------- Minimal, explicit types --------------------- */
-type PPAmount = { value?: string; currency_code?: string };
-type PPName = { given_name?: string; surname?: string };
-type PPPayer = { email_address?: string; name?: PPName };
-type PPCapture = { id?: string; amount?: PPAmount; status?: string };
-type PPPayments = { captures?: PPCapture[] };
-type PPPurchaseUnit = { amount?: PPAmount; payments?: PPPayments };
-type PPOrder = { id?: string; payer?: PPPayer; purchase_units?: PPPurchaseUnit[] };
-
 type PayPalOrderActions = {
   create: (input: unknown) => Promise<string>;
   capture: () => Promise<unknown>;
@@ -56,6 +47,12 @@ type PayPalSDK = {
 
 const CURRENCY = (process.env.NEXT_PUBLIC_CURRENCY ?? 'USD').toUpperCase();
 const IS_SANDBOX = (process.env.NEXT_PUBLIC_PAYPAL_ENV ?? 'sandbox') !== 'live';
+
+function getErrorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (typeof err === 'string') return err;
+  try { return JSON.stringify(err); } catch { return ''; }
+}
 
 export default function CheckoutPage() {
   useHydrateCart();
@@ -163,20 +160,9 @@ export default function CheckoutPage() {
         return data.id;
       };
 
-      const onApprove = async (data: { orderID: string }, actions: { order: PayPalOrderActions }) => {
-        const detailsUnknown = await actions.order.capture();
-        const details = detailsUnknown as PPOrder;
-        const paypalOrderId = details.id ?? data.orderID;
-
-        const pu0 = details.purchase_units?.[0];
-        const cap0 = pu0?.payments?.captures?.[0];
-        const amtObj: PPAmount | undefined = cap0?.amount ?? pu0?.amount;
-        const currency = (amtObj?.currency_code ?? CURRENCY).toUpperCase();
-        const given = details.payer?.name?.given_name ?? '';
-        const surname = details.payer?.name?.surname ?? '';
-        const payerName = `${given} ${surname}`.trim();
-        const payerEmail = details.payer?.email_address;
-
+      const onApprove = async (data: { orderID: string }) => {
+        const paypalOrderId = data.orderID;
+        if (!paypalOrderId) throw new Error('Missing PayPal order ID');
         const lines = items.map((i) => ({
           sku: i.sku,
           title: i.title,
@@ -195,12 +181,16 @@ export default function CheckoutPage() {
           body: JSON.stringify({
             paypalOrderId,
             cart: lines,
-            currency,
+            currency: CURRENCY,
             shipping,
             tax,
-            payer: { email: payerEmail, name: payerName },
+            payer: formRef.current
+              ? {
+                  email: formRef.current.email,
+                  name: `${formRef.current.firstName} ${formRef.current.lastName}`.trim(),
+                }
+              : undefined,
             customer: formRef.current ?? undefined,
-            paypalRaw: detailsUnknown,
           }),
         });
 
@@ -211,14 +201,15 @@ export default function CheckoutPage() {
 
         clear();
         const qp = new URLSearchParams({ orderID: json.orderId ?? '' });
-        const emailForLookup = payerEmail ?? formRef.current?.email;
+        const emailForLookup = formRef.current?.email;
         if (emailForLookup) qp.set('email', emailForLookup);
         window.location.href = `/thank-you?${qp.toString()}`;
       };
 
       const onError = (err: unknown) => {
         console.error('PayPal onError', err);
-        alert('PayPal error. Please try again.');
+        const msg = getErrorMessage(err);
+        alert(`PayPal error. Please try again.${msg ? `\n\n${msg}` : ''}`);
       };
 
       // Gate clicks with onClick instead of re-rendering buttons on form change

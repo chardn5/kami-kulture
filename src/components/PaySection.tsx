@@ -19,30 +19,6 @@ type PaySectionProps = {
   hideSandboxNote?: boolean;
 };
 
-/* -------- Minimal PayPal SDK & response types -------- */
-type PayPalAmount = { value: string; currency_code?: string };
-type PayPalCapture = { id?: string; amount?: PayPalAmount; status?: string };
-type PayPalPayments = { captures?: PayPalCapture[] };
-type PayPalPurchaseUnit = {
-  custom_id?: string;
-  description?: string;
-  amount?: PayPalAmount;
-  payments?: PayPalPayments;
-};
-type PayPalPayerName = { given_name?: string; surname?: string };
-type PayPalPayer = { email_address?: string; name?: PayPalPayerName };
-type PayPalOrderDetails = {
-  id?: string;
-  payer?: PayPalPayer;
-  purchase_units?: PayPalPurchaseUnit[];
-};
-
-type PayPalOrderActions = {
-  create: (input: unknown) => Promise<string>;
-  /** Must match paypalClient.ts */
-  capture: () => Promise<unknown>;
-};
-
 type PayPalButtonsInstance = {
   render: (container: HTMLElement) => void;
   /** Optional on some SDK builds */
@@ -129,34 +105,36 @@ export default function PaySection({
         walletContainer.innerHTML = '';
         cardContainer.innerHTML = '';
 
-        const createOrder = (_data: unknown, actions: { order: PayPalOrderActions }) => {
+        const createOrder = async () => {
           const { amount, productTitle, selectedSize, selectedColor, productSlug, sku } = latest.current;
           const options = [
             selectedColor ? `Color: ${selectedColor}` : '',
             selectedSize ? `Size: ${selectedSize}` : '',
           ].filter(Boolean).join(', ');
           const description = `${productTitle}${options ? ` - ${options}` : ''}`;
-          const customId = [
-            sku ?? '',
-            selectedColor ?? '',
-            selectedSize ?? '',
-            productSlug ?? '',
-            Math.random().toString(36).slice(2, 8),
-          ].filter(Boolean).join('|');
 
-          return actions.order.create({
-            intent: 'CAPTURE',
-            purchase_units: [
-              {
-                custom_id: customId,
-                description,
-                amount: { currency_code: CURRENCY, value: amount.toFixed(2) },
-              },
-            ],
+          const res = await fetch('/api/paypal/create-order', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              currency: CURRENCY,
+              items: [
+                {
+                  name: description,
+                  sku: sku ?? `${productSlug ?? productTitle}-${selectedSize ?? 'NA'}`,
+                  unit_amount: { currency_code: CURRENCY, value: amount },
+                  quantity: 1,
+                  category: 'PHYSICAL_GOODS',
+                },
+              ],
+            }),
           });
+          const json: { ok?: boolean; id?: string; error?: string } = await res.json();
+          if (!res.ok || !json.id) throw new Error(json.error || `Create order failed (${res.status})`);
+          return json.id;
         };
 
-        const onApprove = async (data: { orderID: string }, actions: { order: PayPalOrderActions }) => {
+        const onApprove = async (data: { orderID: string }) => {
           const {
             amount,
             productTitle,
@@ -169,25 +147,14 @@ export default function PaySection({
             printifyVariantId,
           } = latest.current;
           try {
-            const detailsUnknown = await actions.order.capture();
-            const details = detailsUnknown as PayPalOrderDetails;
-            const orderID = data.orderID || details.id || '';
-
-            const pu0 = details.purchase_units?.[0];
-            const cap0 = pu0?.payments?.captures?.[0];
-            const amtObj: PayPalAmount | undefined = cap0?.amount ?? pu0?.amount;
-            const value = Number(amtObj?.value ?? amount);
-            const currency = (amtObj?.currency_code ?? CURRENCY).toUpperCase();
-            const given = details.payer?.name?.given_name ?? '';
-            const surname = details.payer?.name?.surname ?? '';
-            const payerName = `${given} ${surname}`.trim();
-            const payerEmail = details.payer?.email_address;
+            const orderID = data.orderID;
+            if (!orderID) throw new Error('Missing PayPal order ID');
 
             const line = {
               sku: sku ?? `${productSlug ?? productTitle}-${selectedSize ?? 'NA'}`,
               title: productTitle,
               qty: 1,
-              price: value,
+              price: amount,
               size: selectedSize,
               color: selectedColor,
               image,
@@ -201,11 +168,9 @@ export default function PaySection({
               body: JSON.stringify({
                 paypalOrderId: orderID,
                 cart: [line],
-                currency,
+                currency: CURRENCY,
                 shipping: 0,
                 tax: 0,
-                payer: { email: payerEmail, name: payerName },
-                paypalRaw: detailsUnknown, // keep raw response
               }),
             });
 
@@ -217,7 +182,6 @@ export default function PaySection({
             }
 
             const qp = new URLSearchParams({ orderID: json.orderId ?? '' });
-            if (payerEmail) qp.set('email', payerEmail);
             window.location.href = `/thank-you?${qp.toString()}`;
           } catch (e: unknown) {
             console.error(e);

@@ -120,6 +120,27 @@ async function fetchPayPalOrder(id: string, token: string, base: string): Promis
   return json as PPOrder;
 }
 
+async function capturePayPalOrder(id: string, token: string, base: string): Promise<PPOrder> {
+  const res = await fetch(`${base}/v2/checkout/orders/${id}/capture`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    cache: 'no-store',
+  });
+  const json = (await res.json()) as unknown;
+
+  if (!res.ok) {
+    console.error('[paypal] capture fail', res.status, json);
+    const existing = await fetchPayPalOrder(id, token, base).catch(() => null);
+    if (existing?.purchase_units?.[0]?.payments?.captures?.length) return existing;
+    throw new Error('PAYPAL_CAPTURE_FAILED');
+  }
+
+  return json as PPOrder;
+}
+
 /** ---------------- Util helpers ---------------- */
 function dec(n: number | string | null | undefined) {
   const v = typeof n === 'number' ? n : n ? Number(n) : 0;
@@ -312,7 +333,10 @@ export async function POST(req: NextRequest) {
     const creds = await getPayPalAccessToken();
     if (creds) {
       try {
-        const ppo = await fetchPayPalOrder(body.paypalOrderId, creds.token, creds.base);
+        let ppo = await capturePayPalOrder(body.paypalOrderId, creds.token, creds.base);
+        if (!ppo.purchase_units?.[0]?.payments?.captures?.length) {
+          ppo = await fetchPayPalOrder(body.paypalOrderId, creds.token, creds.base);
+        }
         paypalRaw = paypalRaw ?? ppo;
 
         // payer details
@@ -340,11 +364,12 @@ export async function POST(req: NextRequest) {
           }
         }
       } catch (e) {
-        console.warn('[paypal] verify skipped/failed, continuing with client payload', e);
-        captureId = body.paypalOrderId;
+        console.error('[paypal] capture/verify failed', e);
+        return bad('PAYPAL_CAPTURE_FAILED', 502);
       }
     } else {
-      captureId = body.paypalOrderId;
+      console.error('[paypal] capture skipped: missing credentials');
+      return bad('PAYPAL_CREDENTIALS_MISSING', 500);
     }
   }
 
