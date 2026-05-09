@@ -3,7 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useMemo, useState } from "react";
-import { useCart } from "@/lib/cartStore";
+import { useCart, useHydrateCart } from "@/lib/cartStore";
 import CartDrawer from "@/components/CartDrawer";
 
 const links = [
@@ -17,8 +17,13 @@ export default function Navbar() {
   const [open, setOpen] = useState(false);       // mobile menu
   const [cartOpen, setCartOpen] = useState(false); // cart drawer
 
+  useHydrateCart();
   const items = useCart((s) => s.items);
-  const count = useMemo(() => items.reduce((n, i) => n + i.qty, 0), [items]);
+  const hasHydrated = useCart((s) => s.hasHydrated);
+  const count = useMemo(() => {
+    if (!hasHydrated) return 0;
+    return items.reduce((n, i) => n + i.qty, 0);
+  }, [hasHydrated, items]);
 
   return (
     <>

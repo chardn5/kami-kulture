@@ -3,13 +3,15 @@
 import { useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useCart } from '@/lib/cartStore';
+import { useCart, useHydrateCart } from '@/lib/cartStore';
 import { formatPrice } from '@/lib/format';
 
 type Props = { open: boolean; onClose: () => void };
 
 export default function CartDrawer({ open, onClose }: Props) {
+  useHydrateCart();
   const items = useCart(s => s.items);
+  const hasHydrated = useCart(s => s.hasHydrated);
   const setQty = useCart(s => s.setQty);
   const remove = useCart(s => s.remove);
 
@@ -42,7 +44,9 @@ export default function CartDrawer({ open, onClose }: Props) {
           <div>
             <h2 className="text-lg font-black">Your Cart</h2>
             <p className="text-xs text-[#f7f1df]/54">
-              {items.length} item{items.length === 1 ? '' : 's'} ready for checkout
+              {hasHydrated
+                ? `${items.length} item${items.length === 1 ? '' : 's'} ready for checkout`
+                : 'Cart loading'}
             </p>
           </div>
           <button
@@ -55,7 +59,11 @@ export default function CartDrawer({ open, onClose }: Props) {
         </div>
 
         <div className="flex-1 overflow-auto">
-          {items.length === 0 ? (
+          {!hasHydrated ? (
+            <div className="p-6">
+              <p className="text-sm text-[#f7f1df]/64">Loading your cart...</p>
+            </div>
+          ) : items.length === 0 ? (
             <div className="p-6">
               <p className="text-sm text-[#f7f1df]/64">Your cart is empty.</p>
               <Link

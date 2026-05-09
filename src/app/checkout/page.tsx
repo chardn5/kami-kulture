@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useCart } from '@/lib/cartStore';
+import { useCart, useHydrateCart } from '@/lib/cartStore';
 import { formatPrice } from '@/lib/format';
 import { loadPayPalSDK } from '@/lib/paypalClient';
 import CheckoutForm, { type NormalizedCheckout } from '@/components/CheckoutForm';
@@ -58,7 +58,9 @@ const CURRENCY = (process.env.NEXT_PUBLIC_CURRENCY ?? 'USD').toUpperCase();
 const IS_SANDBOX = (process.env.NEXT_PUBLIC_PAYPAL_ENV ?? 'sandbox') !== 'live';
 
 export default function CheckoutPage() {
+  useHydrateCart();
   const items = useCart((s) => s.items);
+  const hasHydrated = useCart((s) => s.hasHydrated);
   const clear = useCart((s) => s.clear);
   const paypalRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -260,6 +262,18 @@ export default function CheckoutPage() {
 
     // Keep buttons stable: don't depend on formValues here
   }, [items, subtotal, total, clear]);
+
+  if (!hasHydrated) {
+    return (
+      <main className="kk-container py-16">
+        <div className="rounded-lg border border-[#f7f1df]/12 bg-[#171711] p-8">
+          <p className="text-sm font-black uppercase text-[#ff4f5f]">Checkout</p>
+          <h1 className="mt-2 text-3xl font-black">Loading your cart</h1>
+          <p className="mt-2 text-[#f7f1df]/64">Checking your saved items before checkout.</p>
+        </div>
+      </main>
+    );
+  }
 
   if (items.length === 0) {
     return (
