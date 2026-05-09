@@ -1,50 +1,86 @@
 'use client';
 
 import { Suspense, useEffect, useMemo, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Input from '@/components/ui/Input';
 
-const TOTAL = 10;
+type LookupItem = {
+  title: string;
+  qty: number;
+  unitPrice?: string | null;
+  size?: string | null;
+  color?: string | null;
+  sku?: string | null;
+};
 
 type LookupResult =
   | null
   | { found: false }
-  | { found: true; status?: string; amountTotal?: string; currency?: string };
+  | {
+      found: true;
+      status?: string;
+      amountTotal?: string | null;
+      amountSubtotal?: string | null;
+      amountShipping?: string | null;
+      amountTax?: string | null;
+      currency?: string;
+      createdAt?: string;
+      items?: LookupItem[];
+      shipping?: { city?: string | null; state?: string | null; country?: string | null };
+    };
+
+function formatMoney(value?: string | null, currency = 'USD') {
+  const amount = Number(value ?? 0);
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(
+    Number.isFinite(amount) ? amount : 0
+  );
+}
+
+function formatDate(value?: string) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(date);
+}
+
+function statusLabel(status?: string) {
+  if (!status) return 'Paid';
+  return status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase());
+}
 
 function ThankYouInner() {
-  const router = useRouter();
   const search = useSearchParams();
 
-  // Accept both ?order (new) and ?orderID (legacy)
   const orderIdParam = search.get('order') || search.get('orderID') || '';
-
   const emailFromQuery = search.get('email') || '';
+
   const [email, setEmail] = useState('');
-  const [seconds, setSeconds] = useState(TOTAL);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<LookupResult>(null);
   const [lookupAttempted, setLookupAttempted] = useState(false);
+  const [copied, setCopied] = useState(false);
 
-  // Try to auto-fill email from sessionStorage or URL
+  const trackHref = useMemo(() => {
+    const qs = new URLSearchParams();
+    if (orderIdParam) qs.set('orderID', orderIdParam);
+    if (email) qs.set('email', email);
+    const query = qs.toString();
+    return query ? `/track-order?${query}` : '/track-order';
+  }, [email, orderIdParam]);
+
   useEffect(() => {
     const stored = typeof window !== 'undefined' ? sessionStorage.getItem('kk_email') || '' : '';
     const preferred = emailFromQuery || stored;
     if (preferred) setEmail(preferred);
   }, [emailFromQuery]);
 
-  // Countdown redirect
-  useEffect(() => {
-    const t = setInterval(() => setSeconds(s => Math.max(0, s - 1)), 1000);
-    return () => clearInterval(t);
-  }, []);
-  useEffect(() => {
-    if (seconds === 0) router.push('/');
-  }, [seconds, router]);
-
-  const pct = useMemo(() => ((TOTAL - seconds) / TOTAL) * 100, [seconds]);
-
-  // Auto-lookup once when we have orderId + email
   useEffect(() => {
     if (!orderIdParam || !email || lookupAttempted) return;
     (async () => {
@@ -58,7 +94,7 @@ function ThankYouInner() {
         const json = (await res.json()) as LookupResult;
         setResult(json);
       } catch {
-        // ignore
+        setResult(null);
       } finally {
         setLoading(false);
         setLookupAttempted(true);
@@ -69,6 +105,7 @@ function ThankYouInner() {
   async function handleManualLookup(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!orderIdParam || !email) return;
+
     try {
       setLoading(true);
       const res = await fetch('/api/orders/lookup', {
@@ -85,123 +122,183 @@ function ThankYouInner() {
     }
   }
 
+  async function copyOrderId() {
+    if (!orderIdParam || !navigator.clipboard) return;
+    await navigator.clipboard.writeText(orderIdParam);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1600);
+  }
+
+  const verified = result && 'found' in result && result.found ? result : null;
+  const items = verified?.items?.length ? verified.items : [];
+  const currency = verified?.currency || 'USD';
+  const placedAt = formatDate(verified?.createdAt);
+
   return (
-    <main className="kk-container max-w-2xl py-16 text-center">
-      <p className="text-sm font-black uppercase text-[#d6ff57]">Order received</p>
-      <h1 className="mt-2 text-3xl font-black">Thank you</h1>
-
-      <p className="mt-2 text-[#f7f1df]/68">
-        Your payment was received
-        {orderIdParam ? (
-          <>
-            {' - '}Order ID: <span className="font-mono">{orderIdParam}</span>
-            <button
-              onClick={() => navigator.clipboard.writeText(orderIdParam)}
-              className="kk-focus ml-2 inline-flex items-center rounded-md border border-[#f7f1df]/16 px-2 py-1 text-xs hover:bg-[#f7f1df]/8"
-              aria-label="Copy order ID"
-            >
-              Copy
-            </button>
-          </>
-        ) : null}
-        .
-      </p>
-
-      {/* Order details (optional) */}
-      <div className="mt-6">
-        <h2 className="text-lg font-black">Order details</h2>
-
-        {loading && <p className="mt-2 text-sm text-[#f7f1df]/58">Checking your order...</p>}
-
-        {!loading && result && 'found' in result && result.found && (
-          <div className="mt-3 inline-block rounded-lg border border-[#f7f1df]/12 bg-[#171711] px-4 py-3 text-left">
-            {result.status && (
-              <p>
-                <span className="text-[#f7f1df]/58">Status:</span>{' '}
-                <span className="font-semibold text-[#f7f1df]">{result.status}</span>
-              </p>
-            )}
-            {result.amountTotal && (
-              <p>
-                <span className="text-[#f7f1df]/58">Total:</span>{' '}
-                <span className="font-semibold text-[#f7f1df]">
-                  {result.currency} {Number(result.amountTotal).toFixed(2)}
-                </span>
-              </p>
-            )}
-          </div>
-        )}
-
-        {!loading && result && 'found' in result && !result.found && (
-          <p className="mt-2 text-sm text-[#ff4f5f]">We couldn’t verify that order with the email provided.</p>
-        )}
-
-        {/* If auto-lookup didn’t happen (no email) or failed, show a small form */}
-        {!loading && (!lookupAttempted || (result && 'found' in result && !result.found)) && (
-          <form
-            onSubmit={handleManualLookup}
-            className="mx-auto mt-4 flex max-w-md flex-col items-stretch gap-3 text-left"
-          >
-            <Input
-              type="email"
-              label="Email used at checkout"
-              placeholder="name@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-            <button
-              className="kk-focus rounded-md bg-[#f7f1df] px-4 py-2 text-sm font-black text-black disabled:opacity-50"
-              disabled={!orderIdParam || !email || loading}
-              type="submit"
-            >
-              {loading ? 'Checking...' : 'Verify order'}
-            </button>
-          </form>
-        )}
-      </div>
-
-      {/* Progress + actions */}
-      <div className="mt-8">
-        <p className="text-sm text-[#f7f1df]/58" aria-live="polite">
-          Returning to home in <span className="font-semibold text-[#f7f1df]">{seconds}</span> seconds...
+    <main className="kk-container max-w-4xl py-10 sm:py-14">
+      <section className="text-center">
+        <p className="text-sm font-black uppercase text-[#d6ff57]">Order confirmed</p>
+        <h1 className="mt-2 text-4xl font-black sm:text-5xl">Thank you</h1>
+        <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-[#f7f1df]/68 sm:text-base">
+          Your payment was received. Keep this page open, copy your order ID, or jump straight to
+          tracking when you need it.
         </p>
-        <div className="mt-3 h-2 w-full rounded bg-[#f7f1df]/10">
-          <div
-            className="h-full rounded bg-[#d6ff57] transition-[width] duration-1000 ease-linear motion-reduce:transition-none"
-            style={{ width: `${pct}%` }}
-            aria-hidden
-          />
+
+        {orderIdParam ? (
+          <div className="mx-auto mt-6 flex max-w-xl flex-col items-stretch justify-center gap-3 rounded-lg border border-[#f7f1df]/14 bg-[#171711] p-4 text-left sm:flex-row sm:items-center">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-black uppercase text-[#f7f1df]/48">Order ID</p>
+              <p className="mt-1 break-all font-mono text-lg text-[#f7f1df]">{orderIdParam}</p>
+            </div>
+            <button
+              onClick={copyOrderId}
+              className="kk-focus inline-flex h-11 items-center justify-center rounded-md border border-[#f7f1df]/18 px-4 text-sm font-semibold hover:bg-[#f7f1df]/8"
+              type="button"
+            >
+              {copied ? 'Copied' : 'Copy'}
+            </button>
+          </div>
+        ) : null}
+      </section>
+
+      <section className="mt-8 grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+        <div className="rounded-lg border border-[#f7f1df]/14 bg-[#171711] p-5">
+          <div className="flex flex-col gap-3 border-b border-[#f7f1df]/10 pb-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-xl font-black">Receipt summary</h2>
+              {placedAt ? <p className="mt-1 text-sm text-[#f7f1df]/58">Placed {placedAt}</p> : null}
+            </div>
+            <span className="w-fit rounded-md bg-[#d6ff57] px-3 py-1 text-xs font-black uppercase text-black">
+              {verified ? statusLabel(verified.status) : loading ? 'Checking' : 'Received'}
+            </span>
+          </div>
+
+          {loading ? (
+            <p className="py-6 text-sm text-[#f7f1df]/58">Checking your order details...</p>
+          ) : verified ? (
+            <>
+              {items.length > 0 ? (
+                <ul className="divide-y divide-[#f7f1df]/10">
+                  {items.map((item, index) => (
+                    <li key={`${item.sku ?? item.title}-${index}`} className="flex gap-4 py-4">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold text-[#f7f1df]">{item.title}</p>
+                        <p className="mt-1 text-sm text-[#f7f1df]/58">
+                          {[item.color, item.size].filter(Boolean).join(' / ') || 'Standard'} / Qty{' '}
+                          {item.qty}
+                        </p>
+                        {item.sku ? <p className="mt-1 break-all text-xs text-[#f7f1df]/40">SKU {item.sku}</p> : null}
+                      </div>
+                      <p className="shrink-0 text-sm font-semibold text-[#f7f1df]">
+                        {formatMoney(item.unitPrice, currency)}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="py-6 text-sm text-[#f7f1df]/58">Your order is paid and saved.</p>
+              )}
+
+              <div className="space-y-2 border-t border-[#f7f1df]/10 pt-4 text-sm">
+                <div className="flex justify-between gap-4 text-[#f7f1df]/64">
+                  <span>Subtotal</span>
+                  <span>{formatMoney(verified.amountSubtotal ?? verified.amountTotal, currency)}</span>
+                </div>
+                <div className="flex justify-between gap-4 text-[#f7f1df]/64">
+                  <span>Shipping</span>
+                  <span>{formatMoney(verified.amountShipping, currency)}</span>
+                </div>
+                <div className="flex justify-between gap-4 text-[#f7f1df]/64">
+                  <span>Tax</span>
+                  <span>{formatMoney(verified.amountTax, currency)}</span>
+                </div>
+                <div className="flex justify-between gap-4 pt-2 text-lg font-black text-[#f7f1df]">
+                  <span>Total</span>
+                  <span>{formatMoney(verified.amountTotal, currency)}</span>
+                </div>
+              </div>
+            </>
+          ) : result && 'found' in result && !result.found ? (
+            <p className="py-6 text-sm text-[#ff4f5f]">
+              We could not verify that order with the email provided. Try the checkout email exactly
+              as entered.
+            </p>
+          ) : (
+            <p className="py-6 text-sm text-[#f7f1df]/58">
+              Enter your checkout email to unlock the full receipt details.
+            </p>
+          )}
+
+          {!loading && (!lookupAttempted || (result && 'found' in result && !result.found)) ? (
+            <form onSubmit={handleManualLookup} className="mt-2 grid gap-3 border-t border-[#f7f1df]/10 pt-4 sm:grid-cols-[1fr_auto] sm:items-end">
+              <Input
+                type="email"
+                label="Email used at checkout"
+                placeholder="name@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+              <button
+                className="kk-focus inline-flex h-11 items-center justify-center rounded-md bg-[#f7f1df] px-4 text-sm font-black text-black hover:bg-[#d6ff57] disabled:opacity-50"
+                disabled={!orderIdParam || !email || loading}
+                type="submit"
+              >
+                {loading ? 'Checking...' : 'Verify'}
+              </button>
+            </form>
+          ) : null}
         </div>
 
-        <div className="mt-6 flex items-center justify-center gap-3">
-          <Link
-            href="/"
-            className="kk-focus inline-flex items-center rounded-md border border-[#f7f1df]/16 px-4 py-2 text-sm font-semibold hover:bg-[#f7f1df]/8"
-          >
-            Go to homepage now
-          </Link>
-          <Link
-            href="/products"
-            className="kk-focus inline-flex items-center rounded-md border border-[#f7f1df]/16 px-4 py-2 text-sm font-semibold hover:bg-[#f7f1df]/8"
-          >
-            Browse more designs
-          </Link>
-          <Link
-            href="/track-order"
-            className="kk-focus inline-flex items-center rounded-md bg-[#f7f1df] px-4 py-2 text-sm font-black text-black hover:bg-[#d6ff57]"
-          >
-            Track order
-          </Link>
-        </div>
-      </div>
+        <aside className="rounded-lg border border-[#f7f1df]/14 bg-[#171711] p-5">
+          <h2 className="text-xl font-black">What happens next</h2>
+          <ol className="mt-4 space-y-4">
+            {[
+              ['Payment received', 'Your PayPal payment was captured and the order was saved.'],
+              ['Receipt sent', 'A confirmation email with the tracking link was sent to checkout email.'],
+              ['Production queue', 'The order is ready for fulfillment review and Printify processing.'],
+            ].map(([title, body], index) => (
+              <li key={title} className="grid grid-cols-[2rem_1fr] gap-3">
+                <span className="flex h-8 w-8 items-center justify-center rounded-md bg-[#f7f1df] text-sm font-black text-black">
+                  {index + 1}
+                </span>
+                <span>
+                  <span className="block font-semibold text-[#f7f1df]">{title}</span>
+                  <span className="mt-1 block text-sm leading-5 text-[#f7f1df]/58">{body}</span>
+                </span>
+              </li>
+            ))}
+          </ol>
+
+          <div className="mt-6 grid gap-3">
+            <Link
+              href={trackHref}
+              className="kk-focus inline-flex h-11 items-center justify-center rounded-md bg-[#f7f1df] px-4 text-sm font-black text-black hover:bg-[#d6ff57]"
+            >
+              Track order
+            </Link>
+            <Link
+              href="/products"
+              className="kk-focus inline-flex h-11 items-center justify-center rounded-md border border-[#f7f1df]/18 px-4 text-sm font-semibold hover:bg-[#f7f1df]/8"
+            >
+              Browse more designs
+            </Link>
+            <a
+              href="mailto:orders@kamikulture.com"
+              className="kk-focus inline-flex h-11 items-center justify-center rounded-md border border-[#f7f1df]/18 px-4 text-sm font-semibold hover:bg-[#f7f1df]/8"
+            >
+              Contact support
+            </a>
+          </div>
+        </aside>
+      </section>
     </main>
   );
 }
 
 export default function ThankYouPage() {
   return (
-    <Suspense fallback={<main className="kk-container max-w-2xl py-16 text-center">Loading...</main>}>
+    <Suspense fallback={<main className="kk-container max-w-4xl py-14 text-center">Loading...</main>}>
       <ThankYouInner />
     </Suspense>
   );

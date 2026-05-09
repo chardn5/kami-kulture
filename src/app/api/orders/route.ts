@@ -53,10 +53,21 @@ export async function GET(req: NextRequest) {
     OR: [
       { id: { contains: q } },
       { payerEmail: { contains: q } },
+      { buyerEmail: { contains: q } },
       { productTitle: { contains: q } },
       { productSlug: { contains: q } },
       { sku: { contains: q } },
       { selectedSize: { contains: q } },
+      { shipFirstName: { contains: q } },
+      { shipLastName: { contains: q } },
+      { shipEmail: { contains: q } },
+      { shipPhone: { contains: q } },
+      { shipAddress1: { contains: q } },
+      { shipAddress2: { contains: q } },
+      { shipCity: { contains: q } },
+      { shipState: { contains: q } },
+      { shipPostalCode: { contains: q } },
+      { shipCountry: { contains: q } },
       {
         items: {
           some: {
@@ -80,14 +91,43 @@ export async function GET(req: NextRequest) {
     select: {
       id: true,
       createdAt: true,
+      fulfilledAt: true,
       status: true,
       amountTotal: true,
+      amountSubtotal: true,
+      amountShipping: true,
+      amountTax: true,
       currency: true,
       payerEmail: true,
+      payerName: true,
+      buyerEmail: true,
+      captureId: true,
+      shipFirstName: true,
+      shipLastName: true,
+      shipEmail: true,
+      shipPhone: true,
+      shipAddress1: true,
+      shipAddress2: true,
+      shipCity: true,
+      shipState: true,
+      shipPostalCode: true,
+      shipCountry: true,
       productTitle: true,
       productSlug: true,
       selectedSize: true,
       sku: true,
+      items: {
+        select: {
+          title: true,
+          qty: true,
+          sku: true,
+          size: true,
+          color: true,
+          unitPrice: true,
+          printifyProductId: true,
+          printifyVariantId: true,
+        },
+      },
     },
   });
 
@@ -98,10 +138,40 @@ const isStringable = (v: unknown): v is Stringable =>
   typeof (v as { toString: unknown }).toString === 'function';
 
 // Normalize Decimal/BigInt for JSON (no `any`)
-const data = rows.map((r) => ({
-  ...r,
-  amountTotal: isStringable(r.amountTotal) ? r.amountTotal.toString() : String(r.amountTotal),
-}));
+const decimalString = (value: unknown) => isStringable(value) ? value.toString() : value == null ? '' : String(value);
+const data = rows.map((r) => {
+  const customerName =
+    (r.shipFirstName || r.shipLastName)
+      ? `${r.shipFirstName ?? ''} ${r.shipLastName ?? ''}`.trim()
+      : (r.payerName ?? '');
+  const email = r.shipEmail ?? r.payerEmail ?? r.buyerEmail ?? '';
+  const shipTo = [
+    r.shipAddress1,
+    r.shipAddress2,
+    [r.shipCity, r.shipState, r.shipPostalCode].filter(Boolean).join(', '),
+    r.shipCountry,
+  ].filter(Boolean).join(' | ');
+
+  return {
+    ...r,
+    amountTotal: decimalString(r.amountTotal),
+    amountSubtotal: decimalString(r.amountSubtotal),
+    amountShipping: decimalString(r.amountShipping),
+    amountTax: decimalString(r.amountTax),
+    customerName,
+    email,
+    shipTo,
+    itemSummary: r.items.map((item) => {
+      const options = [item.color, item.size].filter(Boolean).join(' / ');
+      const suffix = options ? ` / ${options}` : '';
+      return `${item.title} x${item.qty}${suffix}`;
+    }).join('; '),
+    skuSummary: r.items.map((item) => {
+      const variant = item.printifyVariantId ? `variant:${item.printifyVariantId}` : '';
+      return [item.sku, variant, item.printifyProductId].filter(Boolean).join(' / ');
+    }).join('; '),
+  };
+});
 
 
   // ---- CSV / JSON formats ----
@@ -110,21 +180,27 @@ const pretty = searchParams.has('pretty');
 
 if (format === 'csv') {
   const header = [
-    'id','createdAt','status','amountTotal','currency',
-    'payerEmail','productTitle','productSlug','selectedSize','sku',
+    'id','createdAt','fulfilledAt','status','amountSubtotal','amountShipping','amountTax','amountTotal','currency',
+    'customerName','email','phone','shipTo','items','skus','captureId',
   ].join(',');
 
   const lines = data.map((row) => [
     row.id,
     row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt),
+    row.fulfilledAt instanceof Date ? row.fulfilledAt.toISOString() : '',
     row.status,
+    row.amountSubtotal,
+    row.amountShipping,
+    row.amountTax,
     row.amountTotal,
     row.currency,
-    row.payerEmail ?? '',
-    row.productTitle ?? '',
-    row.productSlug ?? '',
-    row.selectedSize ?? '',
-    row.sku ?? '',
+    row.customerName,
+    row.email,
+    row.shipPhone ?? '',
+    row.shipTo,
+    row.itemSummary || row.productTitle || '',
+    row.skuSummary || row.sku || '',
+    row.captureId ?? '',
   ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(','));
 
 

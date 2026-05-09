@@ -482,6 +482,7 @@ export async function POST(req: NextRequest) {
   });
 
   let fulfillmentRaw: unknown = null;
+  let fulfillmentStatus = isPrintifyAutoSubmitEnabled() ? 'Pending Printify submission' : 'Manual review';
   if (isPrintifyAutoSubmitEnabled()) {
     try {
       const printifyOrder = await submitPrintifyFulfillment({
@@ -490,6 +491,7 @@ export async function POST(req: NextRequest) {
         shipping: shippingSnapshot,
       });
       fulfillmentRaw = { printify: printifyOrder };
+      fulfillmentStatus = 'Submitted to Printify';
 
       try {
         await prisma.order.update({
@@ -508,6 +510,7 @@ export async function POST(req: NextRequest) {
     } catch (error) {
       const message = error instanceof Error ? error.message : 'PRINTIFY_SUBMIT_FAILED';
       fulfillmentRaw = { printifyError: message };
+      fulfillmentStatus = 'Printify submission failed';
       console.warn('[printify] fulfillment submit failed', error);
 
       try {
@@ -556,13 +559,16 @@ export async function POST(req: NextRequest) {
         ...amounts,
         trackUrl: `${
           process.env.NEXT_PUBLIC_SITE_URL ?? 'https://kamikulture.com'
-        }/thank-you?orderID=${order.id}&email=${encodeURIComponent(payerEmail)}`,
+        }/track-order?orderID=${order.id}&email=${encodeURIComponent(payerEmail)}`,
       });
     }
 
     await notifyAdminNewOrder({
       orderNumber: order.id,
       customerEmail: payerEmail ?? undefined,
+      customerName: payerName ?? undefined,
+      fulfillmentStatus,
+      adminUrl: `${process.env.NEXT_PUBLIC_SITE_URL ?? 'https://kamikulture.com'}/admin/orders?q=${encodeURIComponent(order.id)}`,
       currency,
       items: lineItems,
       ...amounts,

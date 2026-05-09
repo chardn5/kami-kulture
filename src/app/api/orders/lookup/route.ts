@@ -13,6 +13,16 @@ function clientIp(req: NextRequest): string {
 
 type LookupBody = { orderID?: string; email?: string };
 
+function decimalToString(value: unknown): string | null {
+  if (value == null) return null;
+  if (typeof value === 'number') return value.toFixed(2);
+  if (typeof value === 'string') return value;
+  if (typeof (value as { toString?: () => string }).toString === 'function') {
+    return (value as { toString: () => string }).toString();
+  }
+  return String(value);
+}
+
 export async function POST(req: NextRequest) {
   const ip = clientIp(req);
 
@@ -28,24 +38,43 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'orderID and email required' }, { status: 400 });
   }
 
-  // Broader match: payerEmail OR buyerEmail OR related Customer.email (case-insensitive)
+  // Broader match: payerEmail OR buyerEmail OR shipEmail OR related Customer.email (case-insensitive)
   const order = await prisma.order.findFirst({
     where: {
       id: orderID,
       OR: [
         { payerEmail: { equals: email, mode: 'insensitive' } },
         { buyerEmail: { equals: email, mode: 'insensitive' } },
+        { shipEmail: { equals: email, mode: 'insensitive' } },
         { customer: { is: { email: { equals: email, mode: 'insensitive' } } } },
       ],
     },
     select: {
       status: true,
       amountTotal: true,
+      amountSubtotal: true,
+      amountShipping: true,
+      amountTax: true,
       currency: true,
       createdAt: true,
+      fulfilledAt: true,
       productTitle: true,
       selectedSize: true,
       sku: true,
+      shipCity: true,
+      shipState: true,
+      shipCountry: true,
+      items: {
+        select: {
+          title: true,
+          qty: true,
+          unitPrice: true,
+          size: true,
+          color: true,
+          sku: true,
+          image: true,
+        },
+      },
     },
   });
 
@@ -53,20 +82,32 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ found: false }, { status: 200 });
   }
 
-  // Prisma Decimal -> string
-  const amountTotal =
-    typeof (order.amountTotal as unknown as { toString?: () => string }).toString === 'function'
-      ? (order.amountTotal as unknown as { toString: () => string }).toString()
-      : String(order.amountTotal);
-
   return NextResponse.json({
     found: true,
     status: order.status,
-    amountTotal,
+    amountTotal: decimalToString(order.amountTotal),
+    amountSubtotal: decimalToString(order.amountSubtotal),
+    amountShipping: decimalToString(order.amountShipping),
+    amountTax: decimalToString(order.amountTax),
     currency: order.currency,
-    createdAt: order.createdAt,
+    createdAt: order.createdAt.toISOString(),
+    fulfilledAt: order.fulfilledAt?.toISOString() ?? null,
     productTitle: order.productTitle,
     selectedSize: order.selectedSize,
     sku: order.sku,
+    shipping: {
+      city: order.shipCity,
+      state: order.shipState,
+      country: order.shipCountry,
+    },
+    items: order.items.map((item) => ({
+      title: item.title,
+      qty: item.qty,
+      unitPrice: decimalToString(item.unitPrice),
+      size: item.size,
+      color: item.color,
+      sku: item.sku,
+      image: item.image,
+    })),
   });
 }
