@@ -270,11 +270,11 @@ export default function PaySection({
   }, []);
 
     return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       {(selectedColor || selectedSize) && (
-        <p className="text-sm text-neutral-300">
+        <p className="text-sm text-[#f7f1df]/68">
           Selected:{' '}
-          <span className="font-medium text-white">
+          <span className="font-semibold text-[#f7f1df]">
             {[selectedColor, selectedSize].filter(Boolean).join(' / ')}
           </span>
         </p>
@@ -286,7 +286,7 @@ export default function PaySection({
 
       {/* Hide the sandbox note unless you explicitly want it */}
       {!hideSandboxNote && IS_SANDBOX && (
-        <p className="text-xs text-neutral-500">PayPal Sandbox active.</p>
+        <p className="text-xs text-[#f7f1df]/42">PayPal Sandbox active.</p>
       )}
     </div>
   );

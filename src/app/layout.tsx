@@ -5,7 +5,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://kamikulture.com";
-const DEFAULT_DESC = "Anime-inspired streetwear — premium prints, fast shipping.";
+const DEFAULT_DESC = "Anime-inspired streetwear - premium prints, fast shipping.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -32,24 +32,24 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0B0F19",
+  themeColor: "#0F0F0C",
 };
 
 // ...imports unchanged
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className="min-h-screen bg-[#0B0F19] text-white antialiased">
+      <body className="kk-grid kk-page-shell min-h-screen text-[#f7f1df] antialiased">
         {/* Skip link */}
         <a
           href="#content"
-          className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:rounded-lg focus:bg-emerald-500 focus:px-3 focus:py-2 focus:text-black"
+          className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[80] focus:rounded-md focus:bg-[#d6ff57] focus:px-3 focus:py-2 focus:text-black"
         >
           Skip to content
         </a>
 
         <Navbar />
-        <main id="content" className="mx-auto max-w-6xl px-4">{children}</main>
+        <main id="content" className="min-h-[calc(100vh-9rem)]">{children}</main>
         <Footer />
       </body>
     </html>

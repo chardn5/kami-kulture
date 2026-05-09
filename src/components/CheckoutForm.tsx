@@ -60,8 +60,8 @@ type Props = {
 // Styling
 // ───────────────────────────────────────────────────────────────────────────────
 const inputClass =
-  'w-full rounded-xl border px-3 py-2 bg-white text-black placeholder:text-neutral-500 caret-black';
-const inputStyle: React.CSSProperties = { WebkitTextFillColor: '#000' };
+  'h-11 w-full rounded-md border border-[#f7f1df]/16 bg-[#0f0f0c] px-3 text-sm text-[#f7f1df] placeholder:text-[#f7f1df]/38 caret-[#f7f1df]';
+const inputStyle: React.CSSProperties = { WebkitTextFillColor: '#f7f1df' };
 
 // ───────────────────────────────────────────────────────────────────────────────
 // Reference lists
@@ -154,16 +154,18 @@ export default function CheckoutForm({ onValidChange, initialValues }: Props) {
     onValidChange?.(isValid ? normalize(values) : null);
   }, [isValid, values, onValidChange]);
 
-  function onSubmit(data: CheckoutFormValues) {
-    // Keep submit for local testing; parent will still receive normalized values via onValidChange
-    console.log('CheckoutForm submit:', normalize(data));
+  function onSubmit() {
+    // Parent receives normalized values through onValidChange.
   }
 
-  const field = (name: keyof CheckoutFormValues, input: ReactNode) => (
+  const field = (name: keyof CheckoutFormValues, label: string, input: ReactNode) => (
     <div className="flex flex-col gap-1">
+      <label htmlFor={`checkout-${name}`} className="text-xs font-black uppercase text-[#f7f1df]/58">
+        {label}
+      </label>
       {input}
       {errors[name]?.message && (
-        <p className="text-xs text-red-600">{String(errors[name]?.message)}</p>
+        <p className="text-xs text-[#ff4f5f]">{String(errors[name]?.message)}</p>
       )}
     </div>
   );
@@ -172,7 +174,9 @@ export default function CheckoutForm({ onValidChange, initialValues }: Props) {
     <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4">
       {field(
         'email',
+        'Email',
         <input
+          id="checkout-email"
           type="email"
           placeholder="Email"
           autoComplete="email"
@@ -185,7 +189,9 @@ export default function CheckoutForm({ onValidChange, initialValues }: Props) {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {field(
           'firstName',
+          'First name',
           <input
+            id="checkout-firstName"
             placeholder="First name"
             autoComplete="given-name"
             {...register('firstName')}
@@ -195,7 +201,9 @@ export default function CheckoutForm({ onValidChange, initialValues }: Props) {
         )}
         {field(
           'lastName',
+          'Last name',
           <input
+            id="checkout-lastName"
             placeholder="Last name"
             autoComplete="family-name"
             {...register('lastName')}
@@ -207,7 +215,9 @@ export default function CheckoutForm({ onValidChange, initialValues }: Props) {
 
       {field(
         'phone',
+        'Phone',
         <input
+          id="checkout-phone"
           placeholder="Phone (optional)"
           autoComplete="tel"
           {...register('phone')}
@@ -218,7 +228,9 @@ export default function CheckoutForm({ onValidChange, initialValues }: Props) {
 
       {field(
         'address1',
+        'Address line 1',
         <input
+          id="checkout-address1"
           placeholder="Address line 1"
           autoComplete="address-line1"
           {...register('address1')}
@@ -229,7 +241,9 @@ export default function CheckoutForm({ onValidChange, initialValues }: Props) {
 
       {field(
         'address2',
+        'Address line 2',
         <input
+          id="checkout-address2"
           placeholder="Address line 2 (optional)"
           autoComplete="address-line2"
           {...register('address2')}
@@ -241,7 +255,9 @@ export default function CheckoutForm({ onValidChange, initialValues }: Props) {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {field(
           'city',
+          'City',
           <input
+            id="checkout-city"
             placeholder="City/Municipality"
             autoComplete="address-level2"
             {...register('city')}
@@ -253,7 +269,9 @@ export default function CheckoutForm({ onValidChange, initialValues }: Props) {
         {country.toUpperCase() === 'US'
           ? field(
               'state',
+              'State',
               <select
+                id="checkout-state"
                 {...register('state')}
                 className={inputClass}
                 style={inputStyle}
@@ -272,7 +290,9 @@ export default function CheckoutForm({ onValidChange, initialValues }: Props) {
             )
           : field(
               'state',
+              'Province or state',
               <input
+                id="checkout-state"
                 placeholder="Province/State"
                 autoComplete="address-level1"
                 {...register('state')}
@@ -283,7 +303,9 @@ export default function CheckoutForm({ onValidChange, initialValues }: Props) {
 
         {field(
           'postalCode',
+          'Postal code',
           <input
+            id="checkout-postalCode"
             placeholder="Postal code"
             autoComplete="postal-code"
             {...register('postalCode')}
@@ -295,7 +317,9 @@ export default function CheckoutForm({ onValidChange, initialValues }: Props) {
 
       {field(
         'country',
+        'Country',
         <select
+          id="checkout-country"
           {...register('country')}
           className={inputClass}
           style={inputStyle}
@@ -311,19 +335,11 @@ export default function CheckoutForm({ onValidChange, initialValues }: Props) {
       )}
 
       <button
-        type="submit"
-        className="rounded-xl border px-4 py-2 disabled:opacity-50"
-        disabled={!isValid}
-      >
-        Save details
-      </button>
-
-      <button
         type="button"
         onClick={() => reset()}
-        className="justify-self-start text-xs underline opacity-70"
+        className="kk-focus justify-self-start rounded-md text-xs font-semibold text-[#f7f1df]/54 hover:text-[#35d7f2]"
       >
-        Reset form
+        Clear form
       </button>
     </form>
   );

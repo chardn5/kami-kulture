@@ -55,6 +55,7 @@ type PayPalSDK = {
 /* ------------------------------------------------------------------- */
 
 const CURRENCY = (process.env.NEXT_PUBLIC_CURRENCY ?? 'USD').toUpperCase();
+const IS_SANDBOX = (process.env.NEXT_PUBLIC_PAYPAL_ENV ?? 'sandbox') !== 'live';
 
 export default function CheckoutPage() {
   const items = useCart((s) => s.items);
@@ -262,13 +263,14 @@ export default function CheckoutPage() {
 
   if (items.length === 0) {
     return (
-      <main className="mx-auto max-w-3xl px-4 py-16">
-        <h1 className="text-2xl font-semibold">Your cart is empty</h1>
-        <p className="mt-2 text-neutral-400">Add something you like and come back to checkout.</p>
-        <div className="mt-6">
+      <main className="kk-container py-16">
+        <div className="rounded-lg border border-[#f7f1df]/12 bg-[#171711] p-8">
+          <p className="text-sm font-black uppercase text-[#ff4f5f]">Checkout</p>
+          <h1 className="mt-2 text-3xl font-black">Your cart is empty</h1>
+          <p className="mt-2 text-[#f7f1df]/64">Add something you like and come back to checkout.</p>
           <Link
             href="/products"
-            className="inline-flex items-center rounded-md border px-4 py-2 text-sm hover:bg-white/5"
+            className="kk-focus mt-6 inline-flex h-11 items-center rounded-md bg-[#f7f1df] px-4 text-sm font-black text-black hover:bg-[#d6ff57]"
           >
             Browse products
           </Link>
@@ -278,72 +280,90 @@ export default function CheckoutPage() {
   }
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-10 space-y-8">
-      <h1 className="text-2xl font-semibold">Checkout</h1>
-
-      {/* Customer details */}
-      <section className="rounded-lg border border-white/10 p-4">
-        <h2 className="mb-4 text-lg font-medium">Customer details</h2>
-        <CheckoutForm onValidChange={setFormValues} />
-        <p className="mt-2 text-xs text-neutral-500">
-          {formValues ? 'Form valid' : 'Form incomplete'}
+    <main className="kk-container py-10">
+      <div className="mb-8">
+        <p className="text-sm font-black uppercase text-[#ff4f5f]">Secure checkout</p>
+        <h1 className="mt-2 text-4xl font-black text-[#f7f1df]">Complete your order</h1>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-[#f7f1df]/62">
+          Add your shipping details, review your items, then choose PayPal or card.
         </p>
-      </section>
+      </div>
 
-      {/* Cart + PayPal */}
-      <section>
-        {/* Cart items */}
-        <ul className="divide-y divide-white/10 rounded-lg border border-white/10">
-          {items.map((i) => (
-            <li key={`${i.sku}-${i.color ?? ''}-${i.size ?? ''}`} className="flex items-center gap-3 p-4">
-              <div className="relative h-16 w-16 overflow-hidden rounded bg-neutral-900">
-                {i.image ? <Image src={i.image} alt={i.title} fill className="object-contain" /> : null}
-              </div>
-              <div className="flex-1">
-                <p className="font-medium">{i.title}</p>
-                <p className="text-xs text-neutral-400">
-                  {[i.color ? `Color: ${i.color}` : '', i.size ? `Size: ${i.size}` : '', `SKU: ${i.sku}`]
-                    .filter(Boolean)
-                    .join(' · ')}
-                </p>
-              </div>
-              <div className="text-sm text-neutral-300">
-                x{i.qty} · {formatPrice(i.price)}
-              </div>
-            </li>
-          ))}
-        </ul>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_390px]">
+        <section className="rounded-lg border border-[#f7f1df]/12 bg-[#171711] p-5">
+          <div className="mb-5 flex items-center justify-between gap-3 border-b border-[#f7f1df]/10 pb-4">
+            <div>
+              <h2 className="text-lg font-black">Shipping details</h2>
+              <p className="mt-1 text-sm text-[#f7f1df]/54">Used for PayPal and Printify fulfillment.</p>
+            </div>
+            <span
+              className={`rounded-md px-2.5 py-1 text-xs font-black ${
+                formValues ? 'bg-[#d6ff57] text-black' : 'bg-[#ff4f5f]/14 text-[#ff4f5f]'
+              }`}
+            >
+              {formValues ? 'Ready' : 'Required'}
+            </span>
+          </div>
+          <CheckoutForm onValidChange={setFormValues} />
+        </section>
 
-        {/* Totals */}
-        <div className="mt-6 space-y-1 text-sm">
-          <div className="flex justify-between text-neutral-400">
-            <span>Subtotal</span>
-            <span>{formatPrice(subtotal)}</span>
-          </div>
-          <div className="flex justify-between text-neutral-400">
-            <span>Shipping</span>
-            <span>{formatPrice(shipping)}</span>
-          </div>
-          <div className="flex justify-between border-t border-white/10 pt-1 font-semibold text-white">
-            <span>Total</span>
-            <span>{formatPrice(total)}</span>
-          </div>
-        </div>
+        <aside className="self-start rounded-lg border border-[#f7f1df]/12 bg-[#11110d] p-5 lg:sticky lg:top-24">
+          <h2 className="text-lg font-black">Order summary</h2>
+          <ul className="mt-4 divide-y divide-[#f7f1df]/10">
+            {items.map((i) => (
+              <li key={`${i.sku}-${i.color ?? ''}-${i.size ?? ''}`} className="flex gap-3 py-4 first:pt-0">
+                <div className="relative h-20 w-16 shrink-0 overflow-hidden rounded-md bg-[#0b0b09]">
+                  {i.image ? <Image src={i.image} alt={i.title} fill className="object-cover" sizes="80px" /> : null}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="line-clamp-2 text-sm font-black">{i.title}</p>
+                  <p className="mt-1 text-xs text-[#f7f1df]/54">
+                    {[i.color ? `Color: ${i.color}` : '', i.size ? `Size: ${i.size}` : '', `SKU: ${i.sku}`]
+                      .filter(Boolean)
+                      .join(' / ')}
+                  </p>
+                  <p className="mt-2 text-xs text-[#f7f1df]/54">
+                    Qty {i.qty} at {formatPrice(i.price)}
+                  </p>
+                </div>
+                <div className="text-sm font-black text-[#35d7f2]">
+                  {formatPrice(i.price * i.qty)}
+                </div>
+              </li>
+            ))}
+          </ul>
 
-        {/* PayPal */}
-        <div
-          className={`mt-6 space-y-2 transition-opacity ${
-            formValues ? 'opacity-100' : 'opacity-40 pointer-events-none'
-          }`}
-        >
-          <div ref={paypalRef} />
-          <div ref={cardRef} />
-          <p className="mt-2 text-xs text-neutral-500">PayPal Sandbox active.</p>
+          <div className="mt-3 space-y-3 border-t border-[#f7f1df]/10 pt-4 text-sm">
+            <div className="flex justify-between text-[#f7f1df]/62">
+              <span>Subtotal</span>
+              <span>{formatPrice(subtotal)}</span>
+            </div>
+            <div className="flex justify-between text-[#f7f1df]/62">
+              <span>Shipping</span>
+              <span>{formatPrice(shipping)}</span>
+            </div>
+            <div className="flex justify-between border-t border-[#f7f1df]/10 pt-3 text-base font-black text-[#f7f1df]">
+              <span>Total</span>
+              <span>{formatPrice(total)}</span>
+            </div>
+          </div>
+
+          <div
+            className={`mt-6 space-y-2 transition-opacity ${
+              formValues ? 'opacity-100' : 'pointer-events-none opacity-40'
+            }`}
+          >
+            <div ref={paypalRef} style={{ colorScheme: 'light' }} />
+            <div ref={cardRef} style={{ colorScheme: 'light' }} />
+          </div>
+          {IS_SANDBOX ? <p className="mt-3 text-xs text-[#f7f1df]/42">PayPal sandbox active.</p> : null}
           {!formValues && (
-            <p className="text-xs text-red-500">Fill in your details to enable payment.</p>
+            <p className="mt-2 text-xs font-semibold text-[#ff4f5f]">
+              Complete shipping details to enable payment.
+            </p>
           )}
-        </div>
-      </section>
+        </aside>
+      </div>
     </main>
   );
 }

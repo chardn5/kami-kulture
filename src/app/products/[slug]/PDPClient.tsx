@@ -10,6 +10,15 @@ import type { CatalogProduct, CatalogVariant } from '@/lib/catalog';
 
 const PaySection = dynamic(() => import('@/components/PaySection'), { ssr: false });
 
+const swatches: Record<string, string> = {
+  black: '#080807',
+  white: '#f4efe2',
+  red: '#d83342',
+  pink: '#f3a2bd',
+  navy: '#263b63',
+  'navy blue': '#263b63',
+};
+
 function uniqueDefined(values: Array<string | undefined>) {
   return Array.from(new Set(values.filter((value): value is string => Boolean(value))));
 }
@@ -27,6 +36,10 @@ function skuPart(value: string) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
+}
+
+function swatchStyle(color: string) {
+  return { backgroundColor: swatches[color.toLowerCase()] ?? '#6f6a5f' };
 }
 
 export default function PDPClient({ product, recs }: { product: CatalogProduct; recs: CatalogProduct[] }) {
@@ -56,7 +69,6 @@ export default function PDPClient({ product, recs }: { product: CatalogProduct; 
   const images = product.images?.length ? product.images : ['/placeholder.jpg'];
   const [mainIdx, setMainIdx] = useState(0);
 
-  // --- CART wiring ---
   const addToCart = useCart(s => s.add);
   const [justAdded, setJustAdded] = useState(false);
 
@@ -117,118 +129,198 @@ export default function PDPClient({ product, recs }: { product: CatalogProduct; 
   }, [justAdded]);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 text-white">
-      {/* --- GALLERY --- */}
-      <div className="grid gap-8 md:grid-cols-2">
-        <section>
-          <div className="relative aspect-square w-full overflow-hidden rounded-2xl bg-neutral-900">
-            <Image src={images[mainIdx]} alt={product.title} fill className="object-contain" />
+    <div className="kk-container py-8 lg:py-12">
+      <nav className="mb-6 flex items-center gap-2 text-sm text-[#f7f1df]/58">
+        <Link href="/products" className="kk-focus rounded-md hover:text-[#35d7f2]">
+          Products
+        </Link>
+        <span>/</span>
+        <span className="line-clamp-1 text-[#f7f1df]/76">{product.title}</span>
+      </nav>
+
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]">
+        <section className="min-w-0">
+          <div className="relative aspect-[4/5] overflow-hidden rounded-lg border border-[#f7f1df]/12 bg-[#171711] md:aspect-square">
+            <Image
+              src={images[mainIdx]}
+              alt={product.title}
+              fill
+              priority
+              sizes="(min-width:1024px) 58vw, 100vw"
+              className="object-cover"
+            />
           </div>
+
           {images.length > 1 && (
-            <div className="flex gap-2 mt-2">
+            <div className="mt-3 grid grid-cols-4 gap-3 sm:grid-cols-6">
               {images.map((src, i) => (
                 <button
-                  key={i}
+                  key={src}
+                  type="button"
                   onClick={() => setMainIdx(i)}
-                  className={`h-16 w-16 relative overflow-hidden rounded ${i === mainIdx ? 'ring-2 ring-emerald-400' : ''}`}
+                  className={`kk-focus relative aspect-square overflow-hidden rounded-md border bg-[#171711] ${
+                    i === mainIdx ? 'border-[#d6ff57]' : 'border-[#f7f1df]/12'
+                  }`}
+                  aria-label={`View image ${i + 1}`}
                 >
-                  <Image src={src} alt="" fill className="object-contain" />
+                  <Image src={src} alt="" fill className="object-cover" sizes="96px" />
                 </button>
               ))}
             </div>
           )}
         </section>
 
-        {/* --- INFO + SIZE + CART + PAY --- */}
-        <section className="space-y-6">
-          <h1 className="text-2xl font-semibold">{product.title}</h1>
-          <p className="text-emerald-300">{formatPrice(activePrice)}</p>
-          <p className="text-sm text-neutral-300">{product.description}</p>
+        <aside className="self-start rounded-lg border border-[#f7f1df]/12 bg-[#171711] p-5 lg:sticky lg:top-24">
+          <p className="text-xs font-black uppercase text-[#ff4f5f]">Printed on demand</p>
+          <h1 className="mt-2 text-3xl font-black leading-tight text-[#f7f1df] md:text-4xl">
+            {product.title}
+          </h1>
+          <p className="mt-4 text-3xl font-black text-[#35d7f2]">{formatPrice(activePrice)}</p>
+          {product.description ? (
+            <p className="mt-4 text-sm leading-6 text-[#f7f1df]/68">{product.description}</p>
+          ) : null}
 
-          <p className="text-sm text-neutral-400">
-            <span className="font-medium text-white">Printed on demand.</span> Please allow 3–7 business days before shipping.
-          </p>
+          <div className="mt-6 space-y-6 border-y border-[#f7f1df]/10 py-6">
+            {colorsFromVariants.length > 0 && (
+              <div>
+                <div className="mb-3 flex items-center justify-between">
+                  <p className="text-sm font-black text-[#f7f1df]">Color</p>
+                  {selectedColor ? <p className="text-sm text-[#f7f1df]/58">{selectedColor}</p> : null}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {colorsFromVariants.map(color => (
+                    <button
+                      key={color}
+                      type="button"
+                      onClick={() => setSelectedColor(color)}
+                      className={`kk-focus inline-flex h-11 items-center gap-2 rounded-md border px-3 text-sm font-semibold ${
+                        selectedColor === color
+                          ? 'border-[#d6ff57] bg-[#d6ff57]/12 text-[#f7f1df]'
+                          : 'border-[#f7f1df]/14 text-[#f7f1df]/72 hover:bg-[#f7f1df]/8'
+                      }`}
+                    >
+                      <span
+                        className="h-4 w-4 rounded-full border border-[#f7f1df]/28"
+                        style={swatchStyle(color)}
+                      />
+                      {color}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
-          {colorsFromVariants.length > 0 && (
             <div>
-              <p className="mb-2 text-sm text-neutral-300">Color</p>
-              <div className="flex flex-wrap gap-2">
-                {colorsFromVariants.map(color => (
+              <div className="mb-3 flex items-center justify-between">
+                <p className="text-sm font-black text-[#f7f1df]">Size</p>
+                <p className="text-sm text-[#f7f1df]/58">{selectedSize}</p>
+              </div>
+              <div className="grid grid-cols-5 gap-2">
+                {sizesFromVariants.map(size => (
                   <button
-                    key={color}
-                    onClick={() => setSelectedColor(color)}
-                    className={`rounded-xl px-4 py-2 text-sm ${
-                      selectedColor === color ? 'bg-emerald-500 text-black' : 'bg-neutral-800'
+                    key={size}
+                    type="button"
+                    onClick={() => setSelectedSize(size)}
+                    className={`kk-focus h-11 rounded-md border text-sm font-black ${
+                      selectedSize === size
+                        ? 'border-[#f7f1df] bg-[#f7f1df] text-black'
+                        : 'border-[#f7f1df]/14 text-[#f7f1df]/72 hover:bg-[#f7f1df]/8'
                     }`}
                   >
-                    {color}
+                    {size}
                   </button>
                 ))}
               </div>
             </div>
-          )}
-
-          {/* Sizes */}
-          <div className="flex gap-2">
-            {sizesFromVariants.map(size => (
-              <button
-                key={size}
-                onClick={() => setSelectedSize(size)}
-                className={`px-4 py-2 rounded-xl text-sm ${selectedSize === size ? 'bg-emerald-500 text-black' : 'bg-neutral-800'}`}
-              >
-                {size}
-              </button>
-            ))}
           </div>
 
-          {/* Add to Cart + feedback */}
-          <div className="flex items-center gap-3">
+          <div className="mt-5 grid gap-3 sm:grid-cols-[1fr_auto]">
             <button
               onClick={handleAddToCart}
-              className="rounded-xl px-4 py-2 bg-white text-black hover:opacity-90 transition"
+              className="kk-focus inline-flex h-12 items-center justify-center rounded-md bg-[#f7f1df] px-5 text-sm font-black text-black transition hover:bg-[#d6ff57]"
               aria-label="Add item to cart"
             >
               Add to Cart
             </button>
-            {justAdded && <span className="text-xs text-emerald-400">Added!</span>}
+            <Link
+              href="/checkout"
+              className="kk-focus inline-flex h-12 items-center justify-center rounded-md border border-[#f7f1df]/18 px-5 text-sm font-semibold text-[#f7f1df] transition hover:bg-[#f7f1df]/8"
+            >
+              Checkout
+            </Link>
           </div>
+          {justAdded && <p className="mt-3 text-sm font-semibold text-[#d6ff57]">Added to cart.</p>}
 
-          {/* OR buy now with PayPal */}
-          <div className="pt-2">
-            <p className="text-xs text-neutral-400 mb-1">or Buy Now</p>
-            <PaySection
-              productTitle={product.title}
-              amount={activePrice}
-              selectedSize={selectedSize}
-              selectedColor={selectedColor || undefined}
-              productSlug={product.slug}
-              sku={activeSku}
-              image={images[0]}
-              printifyProductId={activeVariant?.printifyProductId ?? product.printifyId}
-              printifyVariantId={activeVariant?.variantId}
-            />
-          </div>
-
-          {/* Recs */}
-          {recs.length > 0 && (
-            <div>
-              <h2 className="mb-2 text-sm text-neutral-300">You might also like</h2>
-              <ul className="grid grid-cols-2 gap-4">
-                {recs.map(r => (
-                  <li key={r.slug}>
-                    <Link href={`/products/${r.slug}`} className="block">
-                      <div className="relative aspect-square w-full overflow-hidden rounded-lg">
-                        <Image src={r.images?.[0] ?? '/placeholder.jpg'} alt={r.title} fill className="object-contain" />
-                      </div>
-                      <p className="mt-1 text-sm">{r.title}</p>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+          <div className="mt-6 rounded-md border border-[#f7f1df]/10 bg-[#0f0f0c] p-4">
+            <p className="text-xs font-black uppercase text-[#f7f1df]/54">Buy now</p>
+            <div className="mt-3">
+              <PaySection
+                productTitle={product.title}
+                amount={activePrice}
+                selectedSize={selectedSize}
+                selectedColor={selectedColor || undefined}
+                productSlug={product.slug}
+                sku={activeSku}
+                image={images[0]}
+                printifyProductId={activeVariant?.printifyProductId ?? product.printifyId}
+                printifyVariantId={activeVariant?.variantId}
+              />
             </div>
-          )}
-        </section>
+          </div>
+
+          <div className="mt-5 grid gap-3 text-sm text-[#f7f1df]/70">
+            <div className="flex justify-between border-b border-[#f7f1df]/10 pb-3">
+              <span>Production</span>
+              <span className="font-semibold text-[#f7f1df]">3-7 business days</span>
+            </div>
+            <div className="flex justify-between border-b border-[#f7f1df]/10 pb-3">
+              <span>Fabric</span>
+              <span className="font-semibold text-[#f7f1df]">Soft cotton tee</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Support</span>
+              <span className="font-semibold text-[#f7f1df]">Defect replacements</span>
+            </div>
+          </div>
+        </aside>
       </div>
+
+      {recs.length > 0 && (
+        <section className="mt-16">
+          <div className="mb-5 flex items-end justify-between gap-4">
+            <div>
+              <p className="text-sm font-black uppercase text-[#ff4f5f]">More designs</p>
+              <h2 className="mt-2 text-2xl font-black text-[#f7f1df]">You might also like</h2>
+            </div>
+            <Link href="/products" className="kk-focus rounded-md text-sm font-semibold text-[#35d7f2]">
+              View all
+            </Link>
+          </div>
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {recs.map(r => (
+              <Link
+                key={r.slug}
+                href={`/products/${r.slug}`}
+                className="kk-focus group overflow-hidden rounded-lg border border-[#f7f1df]/12 bg-[#171711] transition hover:border-[#35d7f2]/55"
+              >
+                <div className="relative aspect-[4/5] bg-[#0b0b09]">
+                  <Image
+                    src={r.images?.[0] ?? '/placeholder.jpg'}
+                    alt={r.title}
+                    fill
+                    className="object-cover"
+                    sizes="(min-width:1024px) 33vw, (min-width:640px) 50vw, 100vw"
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-3 p-4">
+                  <p className="line-clamp-1 text-sm font-black text-[#f7f1df]">{r.title}</p>
+                  <p className="text-sm font-black text-[#35d7f2]">{formatPrice(r.price)}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

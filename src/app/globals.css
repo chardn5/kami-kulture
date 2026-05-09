@@ -4,33 +4,39 @@
 
 /* ---------- Design tokens ---------- */
 :root {
-  --kk-bg: #0b0f19;                     /* deep navy/black */
-  --kk-grid: rgba(255,255,255,0.06);    /* grid line color */
-  --kk-spot: rgba(56,189,248,0.12);     /* blue spotlight */
-  --kk-accent: #00C7FF;                 /* wordmark accent */
+  --kk-bg: #0f0f0c;
+  --kk-surface: #171711;
+  --kk-surface-2: #221f19;
+  --kk-ink: #f7f1df;
+  --kk-muted: #b9b09f;
+  --kk-cyan: #35d7f2;
+  --kk-lime: #d6ff57;
+  --kk-red: #ff4f5f;
+  --kk-border: rgba(247, 241, 223, 0.14);
 }
 
 html, body {
   background: var(--kk-bg);
   min-height: 100dvh;
+  color: var(--kk-ink);
 }
 
 /* ---------- Brand helpers ---------- */
-.brand-title { text-transform: uppercase; letter-spacing: 0.06em; }
+.brand-title { text-transform: uppercase; letter-spacing: 0; }
 .text-shadow-strong { text-shadow: 0 2px 0 rgba(0,0,0,.6); }
 
 /* Wordmark */
 .wordmark {
   font-family: var(--font-brand, Bebas Neue), ui-sans-serif, system-ui;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
   line-height: .9;
   font-weight: 400;
   font-style: normal;
-  font-size: clamp(40px, 8vw, 110px);
+  font-size: inherit;
 }
 .wordmark .w1 { color:#fff; text-shadow:0 2px 0 rgba(0,0,0,.6); }
-.wordmark .w2 { color:var(--kk-accent); text-shadow:0 2px 0 rgba(0,0,0,.6); }
+.wordmark .w2 { color:var(--kk-cyan); text-shadow:0 2px 0 rgba(0,0,0,.6); }
 
 /* ---------- Optional grid + spotlight background ---------- */
 /* Attach the .kk-grid class to <body> to enable */
@@ -38,21 +44,44 @@ html, body {
 .kk-grid::before{
   content:""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
   background-image:
-    linear-gradient(to right, var(--kk-grid) 1px, transparent 1px),
-    linear-gradient(to bottom, var(--kk-grid) 1px, transparent 1px);
+    linear-gradient(to right, rgba(247,241,223,0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(247,241,223,0.04) 1px, transparent 1px);
   background-size: 40px 40px;
-  -webkit-mask-image: radial-gradient(ellipse at 50% 35%, rgba(0,0,0,1) 0%, rgba(0,0,0,.75) 55%, rgba(0,0,0,0) 85%);
-          mask-image: radial-gradient(ellipse at 50% 35%, rgba(0,0,0,1) 0%, rgba(0,0,0,.75) 55%, rgba(0,0,0,0) 85%);
-}
-.kk-grid::after{
-  content:""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
-  background: radial-gradient(640px circle at 50% 25%, var(--kk-spot), transparent 70%);
+  opacity: 0.45;
 }
 @media (max-width: 640px){ .kk-grid::before{ background-size: 32px 32px; } }
+
+.kk-page-shell {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.035), transparent 280px),
+    var(--kk-bg);
+}
+
+.kk-container {
+  width: min(100% - 2rem, 72rem);
+  margin-inline: auto;
+}
+
+.kk-surface {
+  border: 1px solid var(--kk-border);
+  background: color-mix(in srgb, var(--kk-surface) 90%, black);
+}
+
+.kk-focus {
+  outline: none;
+}
+
+.kk-focus:focus-visible {
+  box-shadow: 0 0 0 3px rgba(53, 215, 242, 0.55);
+}
 
 /* ---------- Global form inputs (dark look) ---------- */
 /* NOTE: we DO NOT set color-scheme globally to avoid affecting PayPal iframes. */
 @layer base {
+  * {
+    letter-spacing: 0;
+  }
+
   input[type="text"],
   input[type="email"],
   input[type="number"],

@@ -86,17 +86,18 @@ function ThankYouInner() {
   }
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-16 text-center">
-      <h1 className="text-3xl font-bold">Thank you! 🎉</h1>
+    <main className="kk-container max-w-2xl py-16 text-center">
+      <p className="text-sm font-black uppercase text-[#d6ff57]">Order received</p>
+      <h1 className="mt-2 text-3xl font-black">Thank you</h1>
 
-      <p className="mt-2 text-neutral-300">
+      <p className="mt-2 text-[#f7f1df]/68">
         Your payment was received
         {orderIdParam ? (
           <>
-            {' — '}Order ID: <span className="font-mono">{orderIdParam}</span>
+            {' - '}Order ID: <span className="font-mono">{orderIdParam}</span>
             <button
               onClick={() => navigator.clipboard.writeText(orderIdParam)}
-              className="ml-2 inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-white/5"
+              className="kk-focus ml-2 inline-flex items-center rounded-md border border-[#f7f1df]/16 px-2 py-1 text-xs hover:bg-[#f7f1df]/8"
               aria-label="Copy order ID"
             >
               Copy
@@ -108,22 +109,22 @@ function ThankYouInner() {
 
       {/* Order details (optional) */}
       <div className="mt-6">
-        <h2 className="text-lg font-semibold">Order details</h2>
+        <h2 className="text-lg font-black">Order details</h2>
 
-        {loading && <p className="mt-2 text-sm text-neutral-400">Checking your order…</p>}
+        {loading && <p className="mt-2 text-sm text-[#f7f1df]/58">Checking your order...</p>}
 
         {!loading && result && 'found' in result && result.found && (
-          <div className="mt-3 inline-block rounded-md border border-white/10 px-4 py-3 text-left">
+          <div className="mt-3 inline-block rounded-lg border border-[#f7f1df]/12 bg-[#171711] px-4 py-3 text-left">
             {result.status && (
               <p>
-                <span className="text-neutral-400">Status:</span>{' '}
-                <span className="font-semibold text-white">{result.status}</span>
+                <span className="text-[#f7f1df]/58">Status:</span>{' '}
+                <span className="font-semibold text-[#f7f1df]">{result.status}</span>
               </p>
             )}
             {result.amountTotal && (
               <p>
-                <span className="text-neutral-400">Total:</span>{' '}
-                <span className="font-semibold text-white">
+                <span className="text-[#f7f1df]/58">Total:</span>{' '}
+                <span className="font-semibold text-[#f7f1df]">
                   {result.currency} {Number(result.amountTotal).toFixed(2)}
                 </span>
               </p>
@@ -132,7 +133,7 @@ function ThankYouInner() {
         )}
 
         {!loading && result && 'found' in result && !result.found && (
-          <p className="mt-2 text-sm text-red-400">We couldn’t verify that order with the email provided.</p>
+          <p className="mt-2 text-sm text-[#ff4f5f]">We couldn’t verify that order with the email provided.</p>
         )}
 
         {/* If auto-lookup didn’t happen (no email) or failed, show a small form */}
@@ -150,11 +151,11 @@ function ThankYouInner() {
               required
             />
             <button
-              className="rounded bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+              className="kk-focus rounded-md bg-[#f7f1df] px-4 py-2 text-sm font-black text-black disabled:opacity-50"
               disabled={!orderIdParam || !email || loading}
               type="submit"
             >
-              {loading ? 'Checking…' : 'Verify order'}
+              {loading ? 'Checking...' : 'Verify order'}
             </button>
           </form>
         )}
@@ -162,12 +163,12 @@ function ThankYouInner() {
 
       {/* Progress + actions */}
       <div className="mt-8">
-        <p className="text-sm text-neutral-400" aria-live="polite">
-          Returning to home in <span className="font-semibold text-white">{seconds}</span> seconds…
+        <p className="text-sm text-[#f7f1df]/58" aria-live="polite">
+          Returning to home in <span className="font-semibold text-[#f7f1df]">{seconds}</span> seconds...
         </p>
-        <div className="mt-3 h-2 w-full rounded bg-white/10">
+        <div className="mt-3 h-2 w-full rounded bg-[#f7f1df]/10">
           <div
-            className="h-full rounded bg-white transition-[width] duration-1000 ease-linear motion-reduce:transition-none"
+            className="h-full rounded bg-[#d6ff57] transition-[width] duration-1000 ease-linear motion-reduce:transition-none"
             style={{ width: `${pct}%` }}
             aria-hidden
           />
@@ -176,19 +177,19 @@ function ThankYouInner() {
         <div className="mt-6 flex items-center justify-center gap-3">
           <Link
             href="/"
-            className="inline-flex items-center rounded-md border border-white/20 px-4 py-2 text-sm font-medium hover:bg-white/5"
+            className="kk-focus inline-flex items-center rounded-md border border-[#f7f1df]/16 px-4 py-2 text-sm font-semibold hover:bg-[#f7f1df]/8"
           >
             Go to homepage now
           </Link>
           <Link
             href="/products"
-            className="inline-flex items-center rounded-md border border-white/20 px-4 py-2 text-sm font-medium hover:bg-white/5"
+            className="kk-focus inline-flex items-center rounded-md border border-[#f7f1df]/16 px-4 py-2 text-sm font-semibold hover:bg-[#f7f1df]/8"
           >
             Browse more designs
           </Link>
           <Link
             href="/track-order"
-            className="inline-flex items-center rounded-md border border-white/20 px-4 py-2 text-sm font-medium hover:bg-white/5"
+            className="kk-focus inline-flex items-center rounded-md bg-[#f7f1df] px-4 py-2 text-sm font-black text-black hover:bg-[#d6ff57]"
           >
             Track order
           </Link>
@@ -200,7 +201,7 @@ function ThankYouInner() {
 
 export default function ThankYouPage() {
   return (
-    <Suspense fallback={<main className="mx-auto max-w-2xl px-4 py-16 text-center">Loading…</main>}>
+    <Suspense fallback={<main className="kk-container max-w-2xl py-16 text-center">Loading...</main>}>
       <ThankYouInner />
     </Suspense>
   );

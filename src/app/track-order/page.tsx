@@ -48,10 +48,11 @@ export default function TrackOrderPage() {
   }
 
   return (
-    <main className="mx-auto max-w-lg px-4 py-12">
-      <h1 className="text-3xl font-bold">Track Order</h1>
+    <main className="kk-container max-w-lg py-12">
+      <p className="text-sm font-black uppercase text-[#ff4f5f]">Order status</p>
+      <h1 className="mt-2 text-3xl font-black">Track Order</h1>
 
-      <form onSubmit={onSubmit} className="mt-6 space-y-4">
+      <form onSubmit={onSubmit} className="mt-6 space-y-4 rounded-lg border border-[#f7f1df]/12 bg-[#171711] p-5">
         <Input
           label="Order ID"
           placeholder="KK-YYMMDD-ABCDE"
@@ -68,37 +69,37 @@ export default function TrackOrderPage() {
           required
         />
         <button
-          className="rounded-md bg-black px-4 py-2 text-white text-sm font-medium disabled:opacity-50"
+          className="kk-focus rounded-md bg-[#f7f1df] px-4 py-2 text-sm font-black text-black disabled:opacity-50"
           disabled={loading || !orderID || !email}
           type="submit"
         >
-          {loading ? 'Checking…' : 'Check Status'}
+          {loading ? 'Checking...' : 'Check Status'}
         </button>
       </form>
 
-      {err && <p className="mt-4 text-sm text-red-400">{err}</p>}
+      {err && <p className="mt-4 text-sm text-[#ff4f5f]">{err}</p>}
 
       {result && (
-        <div className="mt-6 rounded-md border border-white/10 p-4">
+        <div className="mt-6 rounded-lg border border-[#f7f1df]/12 bg-[#171711] p-4">
           {result.found ? (
             <div>
               {result.status && (
                 <p className="text-sm">
-                  <span className="text-neutral-400">Status:</span>{' '}
-                  <span className="font-semibold text-white">{result.status}</span>
+                  <span className="text-[#f7f1df]/58">Status:</span>{' '}
+                  <span className="font-semibold text-[#f7f1df]">{result.status}</span>
                 </p>
               )}
               {result.amountTotal && (
                 <p className="text-sm mt-1">
-                  <span className="text-neutral-400">Total:</span>{' '}
-                  <span className="font-semibold text-white">
+                  <span className="text-[#f7f1df]/58">Total:</span>{' '}
+                  <span className="font-semibold text-[#f7f1df]">
                     {result.currency} {Number(result.amountTotal).toFixed(2)}
                   </span>
                 </p>
               )}
             </div>
           ) : (
-            <p className="text-sm text-red-400">No match found for that email and order ID.</p>
+            <p className="text-sm text-[#ff4f5f]">No match found for that email and order ID.</p>
           )}
         </div>
       )}
