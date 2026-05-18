@@ -4,6 +4,7 @@ import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Input from '@/components/ui/Input';
+import { getOrderStatusMeta } from '@/lib/orderStatus';
 
 type LookupItem = {
   title: string;
@@ -48,11 +49,6 @@ function formatDate(value?: string) {
     hour: 'numeric',
     minute: '2-digit',
   }).format(date);
-}
-
-function statusLabel(status?: string) {
-  if (!status) return 'Paid';
-  return status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 function ThankYouInner() {
@@ -133,6 +129,7 @@ function ThankYouInner() {
   const items = verified?.items?.length ? verified.items : [];
   const currency = verified?.currency || 'USD';
   const placedAt = formatDate(verified?.createdAt);
+  const statusMeta = getOrderStatusMeta(verified?.status);
 
   return (
     <main className="kk-container max-w-4xl py-10 sm:py-14">
@@ -168,8 +165,10 @@ function ThankYouInner() {
               <h2 className="text-xl font-black">Receipt summary</h2>
               {placedAt ? <p className="mt-1 text-sm text-[#f7f1df]/58">Placed {placedAt}</p> : null}
             </div>
-            <span className="w-fit rounded-md bg-[#d6ff57] px-3 py-1 text-xs font-black uppercase text-black">
-              {verified ? statusLabel(verified.status) : loading ? 'Checking' : 'Received'}
+            <span className={`w-fit rounded-md px-3 py-1 text-xs font-black uppercase ${
+              verified ? statusMeta.badgeClass : 'bg-[#d6ff57] text-black'
+            }`}>
+              {verified ? statusMeta.label : loading ? 'Checking' : 'Received'}
             </span>
           </div>
 
@@ -198,6 +197,9 @@ function ThankYouInner() {
               ) : (
                 <p className="py-6 text-sm text-[#f7f1df]/58">Your order is paid and saved.</p>
               )}
+              <p className="border-t border-[#f7f1df]/10 py-4 text-sm leading-6 text-[#f7f1df]/64">
+                {statusMeta.customerDescription}
+              </p>
 
               <div className="space-y-2 border-t border-[#f7f1df]/10 pt-4 text-sm">
                 <div className="flex justify-between gap-4 text-[#f7f1df]/64">

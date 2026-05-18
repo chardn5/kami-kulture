@@ -4,6 +4,8 @@ import { Prisma } from '@prisma/client';
 import Link from 'next/link';
 import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { getOrderStatusMeta } from '@/lib/orderStatus';
+import OrderStatusControl from './OrderStatusControl';
 
 function decodeBasicAuth(h: string) {
   if (!h?.startsWith('Basic ')) return null;
@@ -64,16 +66,6 @@ function dateTime(value: Date) {
     hour: 'numeric',
     minute: '2-digit',
   }).format(value);
-}
-
-function statusBadgeClass(status: string) {
-  if (status === 'PAID' || status === 'FULFILLMENT_SUBMITTED') {
-    return 'bg-[#d6ff57] text-black';
-  }
-  if (status === 'FULFILLMENT_FAILED') {
-    return 'bg-[#ff4f5f] text-white';
-  }
-  return 'bg-[#f7f1df]/10 text-[#f7f1df]';
 }
 
 export default async function AdminOrders({
@@ -255,6 +247,7 @@ export default async function AdminOrders({
 
       <section className="mt-5 space-y-3">
         {orders.map((order, idx) => {
+          const statusMeta = getOrderStatusMeta(order.status);
           const name =
             (order.shipFirstName || order.shipLastName)
               ? `${order.shipFirstName ?? ''} ${order.shipLastName ?? ''}`.trim()
@@ -276,31 +269,35 @@ export default async function AdminOrders({
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-xs font-black uppercase text-[#f7f1df]/44">#{idx + 1}</span>
-                    <span className={`rounded-md px-2.5 py-1 text-xs font-black uppercase ${statusBadgeClass(order.status)}`}>
-                      {order.status.replace(/_/g, ' ')}
+                    <span className={`rounded-md px-2.5 py-1 text-xs font-black uppercase ${statusMeta.badgeClass}`}>
+                      {statusMeta.label}
                     </span>
                     <span className="text-sm text-[#f7f1df]/52">{dateTime(order.createdAt)}</span>
                   </div>
+                  <p className="mt-1 text-sm text-[#f7f1df]/52">{statusMeta.adminDescription}</p>
                   <p className="mt-2 break-all font-mono text-lg text-[#f7f1df]">{order.id}</p>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <Link
-                    href={`/track-order?${trackParams.toString()}`}
-                    className="kk-focus inline-flex h-9 items-center rounded-md border border-[#f7f1df]/18 px-3 text-sm font-semibold hover:bg-[#f7f1df]/8"
-                  >
-                    Track view
-                  </Link>
-                  {email ? (
-                    <a
-                      href={`mailto:${email}`}
+                <div className="grid gap-3 lg:min-w-[23rem]">
+                  <OrderStatusControl orderId={order.id} currentStatus={order.status} />
+                  <div className="flex flex-wrap gap-2">
+                    <Link
+                      href={`/track-order?${trackParams.toString()}`}
                       className="kk-focus inline-flex h-9 items-center rounded-md border border-[#f7f1df]/18 px-3 text-sm font-semibold hover:bg-[#f7f1df]/8"
                     >
-                      Email
-                    </a>
-                  ) : null}
-                  <span className="inline-flex h-9 items-center rounded-md bg-[#f7f1df] px-3 text-sm font-black text-black">
-                    {money(order.amountTotal, order.currency)}
-                  </span>
+                      Track view
+                    </Link>
+                    {email ? (
+                      <a
+                        href={`mailto:${email}`}
+                        className="kk-focus inline-flex h-9 items-center rounded-md border border-[#f7f1df]/18 px-3 text-sm font-semibold hover:bg-[#f7f1df]/8"
+                      >
+                        Email
+                      </a>
+                    ) : null}
+                    <span className="inline-flex h-9 items-center rounded-md bg-[#f7f1df] px-3 text-sm font-black text-black">
+                      {money(order.amountTotal, order.currency)}
+                    </span>
+                  </div>
                 </div>
               </div>
 

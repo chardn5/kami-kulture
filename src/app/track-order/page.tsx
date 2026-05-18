@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Input from '@/components/ui/Input';
+import { getOrderStatusMeta, ORDER_TRACKING_STEPS } from '@/lib/orderStatus';
 
 type LookupItem = {
   title: string;
@@ -47,11 +48,6 @@ function formatDate(value?: string) {
     hour: 'numeric',
     minute: '2-digit',
   }).format(date);
-}
-
-function statusLabel(status?: string) {
-  if (!status) return 'Paid';
-  return status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 function TrackOrderInner() {
@@ -127,6 +123,7 @@ function TrackOrderInner() {
   const shipTo = found?.shipping
     ? [found.shipping.city, found.shipping.state, found.shipping.country].filter(Boolean).join(', ')
     : '';
+  const statusMeta = getOrderStatusMeta(found?.status);
 
   return (
     <main className="kk-container max-w-5xl py-10 sm:py-14">
@@ -185,27 +182,36 @@ function TrackOrderInner() {
               <div className="flex flex-col gap-3 border-b border-[#f7f1df]/10 pb-4 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <p className="text-xs font-black uppercase text-[#f7f1df]/48">Current status</p>
-                  <h2 className="mt-1 text-2xl font-black">{statusLabel(found.status)}</h2>
+                  <h2 className="mt-1 text-2xl font-black">{statusMeta.label}</h2>
+                  <p className="mt-1 max-w-md text-sm leading-6 text-[#f7f1df]/64">
+                    {statusMeta.customerDescription}
+                  </p>
                   {placedAt ? <p className="mt-1 text-sm text-[#f7f1df]/58">Placed {placedAt}</p> : null}
                   {shipTo ? <p className="mt-1 text-sm text-[#f7f1df]/58">Ship to {shipTo}</p> : null}
                 </div>
-                <div className="rounded-md bg-[#d6ff57] px-3 py-2 text-sm font-black text-black">
+                <div className={`rounded-md px-3 py-2 text-sm font-black ${statusMeta.badgeClass}`}>
                   {formatMoney(found.amountTotal, currency)}
                 </div>
               </div>
 
-              <div className="mt-5 grid gap-4 sm:grid-cols-3">
-                {[
-                  ['Paid', 'Payment captured'],
-                  ['Queued', 'Ready for fulfillment'],
-                  ['Shipped', 'Tracking will appear by email'],
-                ].map(([title, body], index) => (
-                  <div key={title} className="border-l-2 border-[#d6ff57]/55 pl-3">
-                    <p className="text-xs font-black uppercase text-[#f7f1df]/44">Step {index + 1}</p>
-                    <p className="mt-1 font-semibold text-[#f7f1df]">{title}</p>
-                    <p className="mt-1 text-xs leading-5 text-[#f7f1df]/54">{body}</p>
-                  </div>
-                ))}
+              <div className="mt-5 grid gap-4 sm:grid-cols-4">
+                {ORDER_TRACKING_STEPS.map((step, index) => {
+                  const isActive = !statusMeta.isProblem && statusMeta.phase >= step.phase;
+                  return (
+                    <div
+                      key={step.title}
+                      className={`border-l-2 pl-3 ${
+                        isActive ? 'border-[#d6ff57]' : 'border-[#f7f1df]/16'
+                      }`}
+                    >
+                      <p className="text-xs font-black uppercase text-[#f7f1df]/44">Step {index + 1}</p>
+                      <p className={isActive ? 'mt-1 font-semibold text-[#f7f1df]' : 'mt-1 font-semibold text-[#f7f1df]/46'}>
+                        {step.title}
+                      </p>
+                      <p className="mt-1 text-xs leading-5 text-[#f7f1df]/54">{step.body}</p>
+                    </div>
+                  );
+                })}
               </div>
 
               {items.length > 0 ? (
