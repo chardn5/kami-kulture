@@ -1,12 +1,18 @@
 // src/app/admin/sign-in/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-export const runtime = 'edge';
+import {
+  ADMIN_SESSION_COOKIE,
+  ADMIN_SESSION_MAX_AGE_SECONDS,
+  createAdminSessionToken,
+} from '@/lib/adminSession';
+
+export const runtime = 'nodejs';
 
 function ok(req: NextRequest) {
   const auth = req.headers.get('authorization') || '';
   if (!auth.startsWith('Basic ')) return false;
   try {
-    const [u, p] = atob(auth.split(' ')[1] || '').split(':');
+    const [u, p] = Buffer.from(auth.split(' ')[1] || '', 'base64').toString('utf8').split(':');
     const USER = process.env.BASIC_AUTH_USER || process.env.ADMIN_USER || '';
     const PASS = process.env.BASIC_AUTH_PASS || process.env.ADMIN_PASSWORD || process.env.ADMIN_PASS || '';
     return !!USER && !!PASS && u === USER && p === PASS;
@@ -36,6 +42,9 @@ export async function GET(req: NextRequest) {
   // Style A: name/value/options
   res.cookies.set('admin_ok', '1', {
     httpOnly: true, secure: true, sameSite: 'lax', path: '/', maxAge: 60 * 60,
+  });
+  res.cookies.set(ADMIN_SESSION_COOKIE, createAdminSessionToken(), {
+    httpOnly: true, secure: true, sameSite: 'lax', path: '/', maxAge: ADMIN_SESSION_MAX_AGE_SECONDS,
   });
   return res;
 }

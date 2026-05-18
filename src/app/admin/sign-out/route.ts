@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+
 export const runtime = 'edge';
 
 function newRealm() {
@@ -13,6 +14,7 @@ export async function GET(req: NextRequest) {
 
   // clear UI session
   res.cookies.set('admin_ok', '', { path: '/', maxAge: 0 });
+  res.cookies.set('admin_session', '', { path: '/', maxAge: 0 });
 
   // rotate realm so the browser stops auto-sending old creds
   res.cookies.set('admin_realm', newRealm(), {

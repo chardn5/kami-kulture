@@ -15,6 +15,8 @@ export function middleware(req: NextRequest) {
   if (
     pathname.startsWith('/_next/') ||
     pathname.startsWith('/api/') ||
+    pathname.startsWith('/admin/sign-in') ||
+    pathname.startsWith('/admin/sign-out') ||
     pathname === '/favicon.ico' ||
     pathname.startsWith('/assets/') ||
     pathname.startsWith('/public/')
@@ -26,7 +28,8 @@ export function middleware(req: NextRequest) {
 
   // NEW: require the admin_ok cookie for all /admin pages
   const hasSession = req.cookies.get('admin_ok')?.value === '1';
-  if (!hasSession) {
+  const hasSignedSession = !!req.cookies.get('admin_session')?.value;
+  if (!hasSession || !hasSignedSession) {
     // Always go through the sign-in shim; it will 401 (popup) if needed,
     // then set the cookie and bounce back.
     const url = new URL('/admin/sign-in', req.url);
