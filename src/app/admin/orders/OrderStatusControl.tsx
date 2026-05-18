@@ -24,6 +24,17 @@ export default function OrderStatusControl({ orderId, currentStatus }: Props) {
 
   const isDirty = status !== currentStatus;
 
+  async function saveStatus() {
+    const res = await fetch(`/api/admin/orders/${encodeURIComponent(orderId)}/status`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ status }),
+    });
+    const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+    return { res, json };
+  }
+
   async function updateStatus(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!isDirty || isSaving) return;
@@ -33,13 +44,14 @@ export default function OrderStatusControl({ orderId, currentStatus }: Props) {
     setMessage('');
 
     try {
-      const res = await fetch(`/api/admin/orders/${encodeURIComponent(orderId)}/status`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({ status }),
-      });
-      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      let { res, json } = await saveStatus();
+
+      if (res.status === 401) {
+        await fetch('/admin/sign-in?next=/admin/orders', {
+          credentials: 'same-origin',
+        }).catch(() => null);
+        ({ res, json } = await saveStatus());
+      }
 
       if (!res.ok || !json.ok) {
         setError(json.error || 'Status update failed.');

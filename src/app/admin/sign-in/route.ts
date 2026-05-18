@@ -8,6 +8,13 @@ import {
 
 export const runtime = 'nodejs';
 
+function shouldUseSecureCookies(req: NextRequest) {
+  const forwardedProto = req.headers.get('x-forwarded-proto');
+  const protocol = forwardedProto || req.nextUrl.protocol.replace(':', '');
+  const hostname = req.nextUrl.hostname;
+  return protocol === 'https' && hostname !== 'localhost' && hostname !== '127.0.0.1';
+}
+
 function ok(req: NextRequest) {
   const auth = req.headers.get('authorization') || '';
   if (!auth.startsWith('Basic ')) return false;
@@ -23,6 +30,7 @@ export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const next = url.searchParams.get('next') || '/admin/orders';
   const realm = req.cookies.get('admin_realm')?.value || 'Admin Area';
+  const secure = shouldUseSecureCookies(req);
 
   if (!ok(req)) {
     return new NextResponse('Auth required', {
@@ -36,15 +44,15 @@ export async function GET(req: NextRequest) {
  const res = NextResponse.redirect(new URL(next, url.origin));
   if (!req.cookies.get('admin_realm')) {
     res.cookies.set('admin_realm', realm, {
-      httpOnly: true, secure: true, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 24,
+      httpOnly: true, secure, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 24,
     });
   }
   // Style A: name/value/options
   res.cookies.set('admin_ok', '1', {
-    httpOnly: true, secure: true, sameSite: 'lax', path: '/', maxAge: 60 * 60,
+    httpOnly: true, secure, sameSite: 'lax', path: '/', maxAge: 60 * 60,
   });
   res.cookies.set(ADMIN_SESSION_COOKIE, createAdminSessionToken(), {
-    httpOnly: true, secure: true, sameSite: 'lax', path: '/', maxAge: ADMIN_SESSION_MAX_AGE_SECONDS,
+    httpOnly: true, secure, sameSite: 'lax', path: '/', maxAge: ADMIN_SESSION_MAX_AGE_SECONDS,
   });
   return res;
 }

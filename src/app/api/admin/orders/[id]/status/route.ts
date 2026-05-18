@@ -28,7 +28,7 @@ async function hasAdminAccess(req: NextRequest) {
   const creds = decodeBasicAuth(req.headers.get('authorization') ?? '');
   const okAuth = !!user && !!pass && !!creds && creds.user === user && creds.pass === pass;
 
-  return cookieStore.get('admin_ok')?.value === '1' && okAuth;
+  return okAuth;
 }
 
 type Body = {
