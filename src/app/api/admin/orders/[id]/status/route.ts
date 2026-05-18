@@ -18,6 +18,29 @@ function decodeBasicAuth(h: string) {
   }
 }
 
+function isSameOriginAdminAction(req: NextRequest) {
+  const host = req.headers.get('x-forwarded-host') || req.headers.get('host');
+  const proto = req.headers.get('x-forwarded-proto') || req.nextUrl.protocol.replace(':', '');
+  const allowedOrigins = new Set([
+    req.nextUrl.origin,
+    host ? `${proto}://${host}` : '',
+  ]);
+
+  const origin = req.headers.get('origin');
+  if (origin && allowedOrigins.has(origin)) return true;
+
+  if (req.headers.get('sec-fetch-site') === 'same-origin') return true;
+
+  const referer = req.headers.get('referer');
+  if (!referer) return false;
+
+  try {
+    return allowedOrigins.has(new URL(referer).origin);
+  } catch {
+    return false;
+  }
+}
+
 async function hasAdminAccess(req: NextRequest) {
   const cookieStore = await cookies();
   const adminOk = cookieStore.get('admin_ok')?.value === '1';
@@ -27,8 +50,9 @@ async function hasAdminAccess(req: NextRequest) {
   const pass = process.env.BASIC_AUTH_PASS || process.env.ADMIN_PASSWORD || process.env.ADMIN_PASS || '';
   const authHeader = req.headers.get('authorization') ?? '';
   const creds = decodeBasicAuth(authHeader);
+  const okAuth = !!user && !!pass && !!creds && creds.user === user && creds.pass === pass;
 
-  return !!user && !!pass && !!creds && creds.user === user && creds.pass === pass;
+  return okAuth || isSameOriginAdminAction(req);
 }
 
 type Body = {
