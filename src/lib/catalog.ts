@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { products as staticProducts } from '@/data/products';
+import { products as staticProducts, type StaticProduct } from '@/data/products';
 
 export type CatalogVariant = {
   size?: string;
@@ -27,25 +27,7 @@ export type CatalogProduct = {
   variants?: CatalogVariant[];
 };
 
-type StaticProduct = (typeof staticProducts)[number] & {
-  sizes?: string[];
-  colors?: string[];
-};
-
-function centsToMajor(cents: number) {
-  return Math.max(0, cents) / 100;
-}
-
-function stripHtml(input?: string | null) {
-  return (input ?? '')
-    .replace(/<[^>]*>/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function uniqueDefined(values: Array<string | null | undefined>) {
-  return Array.from(new Set(values.filter((value): value is string => Boolean(value))));
-}
+type DbProductForStatic = Awaited<ReturnType<typeof getMappedPrintifyProducts>>[number];
 
 function skuPart(value: string) {
   return value
@@ -54,18 +36,45 @@ function skuPart(value: string) {
     .replace(/^-+|-+$/g, '');
 }
 
-function mapStaticProduct(product: StaticProduct): CatalogProduct {
+function normalizeOption(value?: string | null) {
+  return (value ?? '').trim().toLowerCase();
+}
+
+function findDbVariant(
+  dbProduct: DbProductForStatic | undefined,
+  product: StaticProduct,
+  color: string | undefined,
+  size: string
+) {
+  if (!dbProduct) return undefined;
+
+  const mappedColor = color ? (product.printifyColorMap?.[color] ?? color) : undefined;
+
+  return dbProduct.variants.find(
+    (variant) =>
+      normalizeOption(variant.size) === normalizeOption(size) &&
+      (!mappedColor || normalizeOption(variant.color) === normalizeOption(mappedColor))
+  );
+}
+
+function mapStaticProduct(product: StaticProduct, dbProduct?: DbProductForStatic): CatalogProduct {
   const colors = product.colors ?? [];
   const sizes = product.sizes ?? [];
   const variants = sizes.flatMap((size) => {
     const variantColors = colors.length ? colors : [undefined];
-    return variantColors.map((color) => ({
-      size,
-      color,
-      sku: [product.slug, color ? skuPart(color) : undefined, skuPart(size)].filter(Boolean).join('-'),
-      price: product.price,
-      isAvailable: true,
-    }));
+    return variantColors.map((color) => {
+      const dbVariant = findDbVariant(dbProduct, product, color, size);
+
+      return {
+        size,
+        color,
+        sku: [product.slug, color ? skuPart(color) : undefined, skuPart(size)].filter(Boolean).join('-'),
+        variantId: dbVariant?.variantId,
+        printifyProductId: dbVariant ? product.printifyId : undefined,
+        price: product.price,
+        isAvailable: dbVariant?.isAvailable ?? true,
+      };
+    });
   });
 
   return {
@@ -80,58 +89,37 @@ function mapStaticProduct(product: StaticProduct): CatalogProduct {
     sizes,
     colors,
     variants,
+    printifyId: product.printifyId,
   };
 }
 
-async function getDatabaseCatalogProducts(): Promise<CatalogProduct[]> {
-  const rows = await prisma.product.findMany({
-    where: { visible: true },
+async function getMappedPrintifyProducts() {
+  const ids = staticProducts
+    .map((product) => product.printifyId)
+    .filter((value): value is string => Boolean(value));
+
+  if (!ids.length) return [];
+
+  return prisma.product.findMany({
+    where: { printifyId: { in: ids } },
     include: {
-      images: { orderBy: { position: 'asc' } },
       variants: {
         where: { isEnabled: true, isAvailable: true },
-        orderBy: [{ color: 'asc' }, { size: 'asc' }, { variantId: 'asc' }],
       },
     },
-    orderBy: { createdAt: 'desc' },
-  });
-
-  return rows.map((product) => {
-    const variants = product.variants.map((variant) => ({
-      size: variant.size ?? undefined,
-      color: variant.color ?? undefined,
-      sku: variant.sku || undefined,
-      variantId: variant.variantId,
-      printifyProductId: product.printifyId,
-      price: centsToMajor(variant.priceCents),
-      isAvailable: variant.isAvailable,
-    }));
-
-    return {
-      slug: product.slug,
-      title: product.title,
-      price: centsToMajor(product.priceMinCents),
-      description: stripHtml(product.description),
-      images: product.images.map((image) => image.url),
-      tags: product.tags,
-      createdAt: product.createdAt.toISOString(),
-      printifyId: product.printifyId,
-      sizes: uniqueDefined(variants.map((variant) => variant.size)),
-      colors: uniqueDefined(variants.map((variant) => variant.color)),
-      variants,
-    };
   });
 }
 
 export async function getCatalogProducts(): Promise<CatalogProduct[]> {
   try {
-    const dbProducts = await getDatabaseCatalogProducts();
-    if (dbProducts.length > 0) return dbProducts;
+    const dbProducts = await getMappedPrintifyProducts();
+    const byPrintifyId = new Map(dbProducts.map((product) => [product.printifyId, product]));
+    return staticProducts.map((product) => mapStaticProduct(product, byPrintifyId.get(product.printifyId ?? '')));
   } catch (error) {
     console.warn('[catalog] falling back to static products', error);
   }
 
-  return staticProducts.map(mapStaticProduct);
+  return staticProducts.map((product) => mapStaticProduct(product));
 }
 
 export async function getCatalogProduct(slug: string): Promise<CatalogProduct | null> {

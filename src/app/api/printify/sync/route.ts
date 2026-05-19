@@ -11,7 +11,7 @@ import {
 
 export const runtime = 'nodejs';
 
-const LIMIT = 100;
+const LIMIT = 50;
 
 function safeEquals(a: string, b: string) {
   return a.length === b.length && a === b;

@@ -98,12 +98,19 @@ model Order {
   amountShipping Decimal? @db.Decimal(12, 2)
   amountTax      Decimal? @db.Decimal(12, 2)
 
+  printifyOrderId     String?   @unique
+  printifyStatus      String?
+  printifySubmittedAt DateTime?
+  printifyLastError   String?
+  printifyPayload     Json?
+
   @@index([createdAt])
   @@index([status])
   @@index([payerEmail])
   @@index([productSlug])
   @@index([customerId])
   @@index([captureId])
+  @@index([printifyStatus])
 }
 
 /// ===== Printify-synced catalog =====

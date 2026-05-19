@@ -1,5 +1,21 @@
 // /src/data/products.ts
-export const products = [
+export type StaticProduct = {
+  slug: string;
+  title: string;
+  price: number;
+  images: string[];
+  description?: string;
+  designId?: string;
+  tags?: string[];
+  sizes?: string[];
+  colors?: string[];
+  printifyId?: string;
+  printifyColorMap?: Record<string, string>;
+  rating?: number;
+  ratingCount?: number;
+};
+
+export const products: StaticProduct[] = [
   {
     slug: "powerover9000",
     title: "Power Level Over 9000",
@@ -15,6 +31,10 @@ export const products = [
     tags: ["tee","cotton","unisex"],
     sizes: ["S","M","L","XL","2XL"],
     colors: ["Black", "Navy Blue", "White"],
+    printifyId: "689e27a7e99e06b0d50247c8",
+    printifyColorMap: {
+      "Navy Blue": "Navy"
+    },
     rating: 5.0,
     ratingCount: 10,
   },
@@ -33,6 +53,10 @@ export const products = [
     tags: ["tee","cotton","unisex"],
     sizes: ["S","M","L","XL","2XL"],
     colors: ["White", "Pink", "Red"],
+    printifyId: "689e42051812f0dd880af898",
+    printifyColorMap: {
+      "Pink": "Light Pink"
+    },
     rating: 4.5,
     ratingCount: 10,
   }

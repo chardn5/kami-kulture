@@ -68,6 +68,9 @@ export async function GET(req: NextRequest) {
       { shipState: { contains: q } },
       { shipPostalCode: { contains: q } },
       { shipCountry: { contains: q } },
+      { printifyOrderId: { contains: q } },
+      { printifyStatus: { contains: q } },
+      { printifyLastError: { contains: q } },
       {
         items: {
           some: {
@@ -116,6 +119,10 @@ export async function GET(req: NextRequest) {
       productSlug: true,
       selectedSize: true,
       sku: true,
+      printifyOrderId: true,
+      printifyStatus: true,
+      printifySubmittedAt: true,
+      printifyLastError: true,
       items: {
         select: {
           title: true,
@@ -170,6 +177,7 @@ const data = rows.map((r) => {
       const variant = item.printifyVariantId ? `variant:${item.printifyVariantId}` : '';
       return [item.sku, variant, item.printifyProductId].filter(Boolean).join(' / ');
     }).join('; '),
+    printifySubmittedAt: r.printifySubmittedAt instanceof Date ? r.printifySubmittedAt.toISOString() : '',
   };
 });
 
@@ -181,7 +189,7 @@ const pretty = searchParams.has('pretty');
 if (format === 'csv') {
   const header = [
     'id','createdAt','fulfilledAt','status','amountSubtotal','amountShipping','amountTax','amountTotal','currency',
-    'customerName','email','phone','shipTo','items','skus','captureId',
+    'customerName','email','phone','shipTo','items','skus','captureId','printifyOrderId','printifyStatus','printifySubmittedAt','printifyLastError',
   ].join(',');
 
   const lines = data.map((row) => [
@@ -201,6 +209,10 @@ if (format === 'csv') {
     row.itemSummary || row.productTitle || '',
     row.skuSummary || row.sku || '',
     row.captureId ?? '',
+    row.printifyOrderId ?? '',
+    row.printifyStatus ?? '',
+    row.printifySubmittedAt,
+    row.printifyLastError ?? '',
   ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(','));
 
 

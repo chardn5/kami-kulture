@@ -4,11 +4,12 @@ import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { sendOrderReceipt, notifyAdminNewOrder } from '@/lib/email';
 import {
-  createOrder as createPrintifyOrder,
-  getEnvShopId,
-  type PrintifyAddress,
-  type PrintifyOrderLineItem,
-} from '@/lib/printify';
+  formatPrintifyError,
+  isPrintifyAutoSubmitEnabled,
+  mergeOrderRaw,
+  submitPrintifyFulfillment,
+  type ShippingSnapshot,
+} from '@/lib/printifyFulfillment';
 
 export const runtime = 'nodejs';
 
@@ -179,110 +180,6 @@ type NormalizedLine = CartLine & {
   qty: number;
   price: number;
 };
-
-type ShippingSnapshot = {
-  firstName: string | null;
-  lastName: string | null;
-  email: string | null;
-  phone: string | null;
-  address1: string | null;
-  address2: string | null;
-  city: string | null;
-  state: string | null;
-  postalCode: string | null;
-  country: string | null;
-};
-
-function isPrintifyAutoSubmitEnabled() {
-  return ['1', 'true', 'yes'].includes((process.env.PRINTIFY_AUTO_SUBMIT ?? '').toLowerCase());
-}
-
-function printifyShippingMethod() {
-  const parsed = Number(process.env.PRINTIFY_SHIPPING_METHOD ?? 1);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
-}
-
-function buildPrintifyAddress(snapshot: ShippingSnapshot): PrintifyAddress {
-  const missing = [
-    ['first_name', snapshot.firstName],
-    ['last_name', snapshot.lastName],
-    ['email', snapshot.email],
-    ['address1', snapshot.address1],
-    ['city', snapshot.city],
-    ['zip', snapshot.postalCode],
-    ['country', snapshot.country],
-  ].filter(([, value]) => !value);
-
-  if (missing.length) {
-    throw new Error(`PRINTIFY_ADDRESS_INCOMPLETE:${missing.map(([key]) => key).join(',')}`);
-  }
-
-  return {
-    first_name: snapshot.firstName!,
-    last_name: snapshot.lastName!,
-    email: snapshot.email!,
-    phone: snapshot.phone ?? undefined,
-    address1: snapshot.address1!,
-    address2: snapshot.address2 ?? undefined,
-    city: snapshot.city!,
-    region: snapshot.state ?? undefined,
-    zip: snapshot.postalCode!,
-    country: snapshot.country!.toUpperCase(),
-  };
-}
-
-async function resolvePrintifyLineItems(lines: NormalizedLine[]): Promise<PrintifyOrderLineItem[]> {
-  const items: PrintifyOrderLineItem[] = [];
-
-  for (const line of lines) {
-    if (line.printifyProductId && typeof line.printifyVariantId === 'number') {
-      items.push({
-        product_id: line.printifyProductId,
-        variant_id: line.printifyVariantId,
-        quantity: line.qty,
-      });
-      continue;
-    }
-
-    const variant = await prisma.productVariant.findFirst({
-      where: { sku: line.sku },
-      select: {
-        variantId: true,
-        product: { select: { printifyId: true } },
-      },
-    });
-
-    if (!variant) {
-      throw new Error(`PRINTIFY_VARIANT_NOT_FOUND:${line.sku}`);
-    }
-
-    items.push({
-      product_id: variant.product.printifyId,
-      variant_id: variant.variantId,
-      quantity: line.qty,
-    });
-  }
-
-  return items;
-}
-
-async function submitPrintifyFulfillment(params: {
-  orderId: string;
-  lines: NormalizedLine[];
-  shipping: ShippingSnapshot;
-}) {
-  const lineItems = await resolvePrintifyLineItems(params.lines);
-  const address = buildPrintifyAddress(params.shipping);
-
-  return createPrintifyOrder(getEnvShopId(), {
-    external_id: params.orderId,
-    label: `Kami Kulture ${params.orderId}`,
-    line_items: lineItems,
-    shipping_method: printifyShippingMethod(),
-    send_shipping_notification: process.env.PRINTIFY_SEND_SHIPPING_NOTIFICATION === '1',
-    address_to: address,
-  });
-}
 
 /** ---------------------------- POST ---------------------------- */
 export async function POST(req: NextRequest) {
@@ -485,12 +382,12 @@ export async function POST(req: NextRequest) {
   let fulfillmentStatus = isPrintifyAutoSubmitEnabled() ? 'Pending Printify submission' : 'Manual review';
   if (isPrintifyAutoSubmitEnabled()) {
     try {
-      const printifyOrder = await submitPrintifyFulfillment({
+      const printifyResult = await submitPrintifyFulfillment({
         orderId: order.id,
         lines: normalizedLines,
         shipping: shippingSnapshot,
       });
-      fulfillmentRaw = { printify: printifyOrder };
+      fulfillmentRaw = { printify: printifyResult.response, printifyPayload: printifyResult.payload };
       fulfillmentStatus = 'Submitted to Printify';
 
       try {
@@ -498,17 +395,23 @@ export async function POST(req: NextRequest) {
           where: { seq: order.seq },
           data: {
             status: 'FULFILLMENT_SUBMITTED',
-            raw: {
+            printifyOrderId: printifyResult.response.id,
+            printifyStatus: printifyResult.response.status ?? 'submitted',
+            printifySubmittedAt: new Date(),
+            printifyLastError: null,
+            printifyPayload: printifyResult.payload as Prisma.InputJsonValue,
+            raw: mergeOrderRaw(order.raw as Prisma.JsonValue | null, {
               ...rawPayload,
-              printify: printifyOrder as Prisma.InputJsonValue,
-            } as Prisma.InputJsonValue,
+              printify: printifyResult.response as Prisma.InputJsonValue,
+              printifyPayload: printifyResult.payload as Prisma.InputJsonValue,
+            }),
           },
         });
       } catch (updateError) {
         console.warn('[printify] fulfillment status update failed', updateError);
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'PRINTIFY_SUBMIT_FAILED';
+      const message = formatPrintifyError(error);
       fulfillmentRaw = { printifyError: message };
       fulfillmentStatus = 'Printify submission failed';
       console.warn('[printify] fulfillment submit failed', error);
@@ -518,10 +421,12 @@ export async function POST(req: NextRequest) {
           where: { seq: order.seq },
           data: {
             status: 'FULFILLMENT_FAILED',
-            raw: {
+            printifyStatus: 'failed',
+            printifyLastError: message,
+            raw: mergeOrderRaw(order.raw as Prisma.JsonValue | null, {
               ...rawPayload,
               printifyError: message,
-            } as Prisma.InputJsonValue,
+            }),
           },
         });
       } catch (updateError) {

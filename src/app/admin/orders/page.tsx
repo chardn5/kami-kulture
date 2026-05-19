@@ -5,8 +5,10 @@ import Link from 'next/link';
 import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { ADMIN_SESSION_COOKIE, verifyAdminSessionToken } from '@/lib/adminSession';
+import { getOrderShippingSnapshot, getPrintifyReadiness } from '@/lib/printifyFulfillment';
 import { getOrderStatusMeta } from '@/lib/orderStatus';
 import OrderStatusControl from './OrderStatusControl';
+import PrintifySubmitControl from './PrintifySubmitControl';
 
 function decodeBasicAuth(h: string) {
   if (!h?.startsWith('Basic ')) return null;
@@ -113,6 +115,9 @@ export default async function AdminOrders({
           { shipState:      { contains: q } },
           { shipPostalCode: { contains: q } },
           { shipCountry:    { contains: q } },
+          { printifyOrderId: { contains: q } },
+          { printifyStatus:  { contains: q } },
+          { printifyLastError: { contains: q } },
           {
             items: {
               some: {
@@ -155,6 +160,22 @@ export default async function AdminOrders({
   const submittedCount = orders.filter((order) => order.status === 'FULFILLMENT_SUBMITTED').length;
   const failedCount = orders.filter((order) => order.status === 'FULFILLMENT_FAILED').length;
   const currency = orders[0]?.currency ?? 'USD';
+  const fallbackSkus = Array.from(new Set(
+    orders.flatMap((order) =>
+      order.items
+        .filter((item) => !(item.printifyProductId && typeof item.printifyVariantId === 'number'))
+        .map((item) => item.sku)
+        .filter(Boolean)
+    )
+  ));
+  const resolvableSkus = new Set(
+    fallbackSkus.length
+      ? (await prisma.productVariant.findMany({
+          where: { sku: { in: fallbackSkus } },
+          select: { sku: true },
+        })).map((variant) => variant.sku)
+      : []
+  );
   const baseQS = { q };
   const exportQS = new URLSearchParams();
   if (q) exportQS.set('q', q);
@@ -264,6 +285,19 @@ export default async function AdminOrders({
 
           const trackParams = new URLSearchParams({ orderID: order.id });
           if (email) trackParams.set('email', email);
+          const readiness = getPrintifyReadiness({
+            shipping: getOrderShippingSnapshot(order),
+            resolvableSkus,
+            lines: order.items.map((item) => ({
+              sku: item.sku,
+              title: item.title,
+              qty: item.qty,
+              size: item.size,
+              color: item.color,
+              printifyProductId: item.printifyProductId,
+              printifyVariantId: item.printifyVariantId,
+            })),
+          });
 
           return (
             <article key={order.id} className="rounded-lg border border-[#f7f1df]/12 bg-[#171711] p-4">
@@ -281,6 +315,15 @@ export default async function AdminOrders({
                 </div>
                 <div className="grid gap-3 lg:min-w-[23rem]">
                   <OrderStatusControl orderId={order.id} currentStatus={order.status} />
+                  <PrintifySubmitControl
+                    orderId={order.id}
+                    currentStatus={order.status}
+                    printifyOrderId={order.printifyOrderId}
+                    printifyStatus={order.printifyStatus}
+                    printifySubmittedAt={order.printifySubmittedAt?.toISOString() ?? null}
+                    printifyLastError={order.printifyLastError}
+                    readinessIssues={readiness.issues}
+                  />
                   <div className="flex flex-wrap gap-2">
                     <Link
                       href={`/track-order?${trackParams.toString()}`}
