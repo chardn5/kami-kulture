@@ -155,12 +155,34 @@ export type CreateOrderResponse = {
   // ... more fields
 };
 
+export type PrintifyOrder = CreateOrderResponse & {
+  app_order_id?: string;
+  external_id?: string;
+  label?: string;
+  sent_to_production_at?: string | null;
+  line_items?: Array<{
+    id?: string;
+    product_id?: string;
+    variant_id?: number;
+    quantity?: number;
+    status?: string;
+  }>;
+  total_price?: number;
+  total_shipping?: number;
+  total_tax?: number;
+};
+
 /** Create an order in Printify for fulfillment */
 export async function createOrder(shopId: number | string, payload: CreateOrderPayload) {
   return callPrintify<CreateOrderResponse>(`/shops/${shopId}/orders.json`, {
     method: 'POST',
     body: payload,
   });
+}
+
+/** Get the latest status/details for a Printify order */
+export async function getOrder(shopId: number | string, orderId: string) {
+  return callPrintify<PrintifyOrder>(`/shops/${shopId}/orders/${orderId}.json`);
 }
 
 /** Convenience: read SHOP_ID from env with a safe fallback */

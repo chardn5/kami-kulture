@@ -1,5 +1,12 @@
 import { Prisma } from '@prisma/client';
-import { createOrder as createPrintifyOrder, getEnvShopId, type CreateOrderPayload, type PrintifyAddress, type PrintifyOrderLineItem } from '@/lib/printify';
+import {
+  createOrder as createPrintifyOrder,
+  getEnvShopId,
+  getOrder as getPrintifyOrder,
+  type CreateOrderPayload,
+  type PrintifyAddress,
+  type PrintifyOrderLineItem,
+} from '@/lib/printify';
 import { prisma } from '@/lib/prisma';
 import { products as staticProducts, type StaticProduct } from '@/data/products';
 
@@ -278,8 +285,21 @@ export async function submitPrintifyFulfillment(params: {
   shipping: ShippingSnapshot;
 }) {
   const payload = await buildPrintifyOrderPayload(params);
-  const response = await createPrintifyOrder(getEnvShopId(), payload);
-  return { payload, response };
+  const shopId = getEnvShopId();
+  const created = await createPrintifyOrder(shopId, payload);
+  let response = created;
+
+  try {
+    response = await getPrintifyOrder(shopId, created.id);
+  } catch {
+    // Creation succeeded; keep the create response if the follow-up status read is unavailable.
+  }
+
+  return { payload, response, created };
+}
+
+export async function fetchPrintifyFulfillmentOrder(printifyOrderId: string) {
+  return getPrintifyOrder(getEnvShopId(), printifyOrderId);
 }
 
 export function mergeOrderRaw(raw: Prisma.JsonValue | null, patch: Record<string, Prisma.InputJsonValue>) {

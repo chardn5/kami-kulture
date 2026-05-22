@@ -36,9 +36,9 @@ const ORDER_STATUS_META: Record<OrderStatus, OrderStatusMeta> = {
     badgeClass: 'bg-[#35d7f2] text-black',
   },
   FULFILLMENT_SUBMITTED: {
-    label: 'Sent to Printify',
-    customerDescription: 'The production partner received the order.',
-    adminDescription: 'Order was submitted to Printify.',
+    label: 'In Printify',
+    customerDescription: 'The production partner received the order and is preparing the next step.',
+    adminDescription: 'Printify order exists. Check the Printify fulfillment status below.',
     phase: 2,
     badgeClass: 'bg-[#35d7f2] text-black',
   },

@@ -216,7 +216,7 @@ export default async function AdminOrders({
           ['Orders shown', orders.length.toString()],
           ['Revenue shown', money(revenue, currency)],
           ['Paid', paidCount.toString()],
-          ['Submitted / failed', `${submittedCount} / ${failedCount}`],
+          ['In Printify / failed', `${submittedCount} / ${failedCount}`],
         ].map(([label, value]) => (
           <div key={label} className="rounded-lg border border-[#f7f1df]/12 bg-[#171711] p-4">
             <p className="text-xs font-black uppercase text-[#f7f1df]/44">{label}</p>

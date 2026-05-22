@@ -15,6 +15,13 @@ type Props = {
 
 const SUBMITTABLE_STATUSES = new Set(['PAID', 'IN_PRODUCTION', 'FULFILLMENT_FAILED']);
 
+function formatPrintifyStatus(value?: string | null) {
+  if (!value) return 'Unknown';
+  return value
+    .replace(/[-_]+/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
 function formatDate(value?: string | null) {
   if (!value) return '';
   const date = new Date(value);
@@ -46,21 +53,40 @@ export default function PrintifySubmitControl({
   const canSubmitStatus = SUBMITTABLE_STATUSES.has(currentStatus);
   const isReady = readinessIssues.length === 0;
   const canSubmit = !hasPrintifyOrder && canSubmitStatus && isReady;
+  const displayStatus = formatPrintifyStatus(printifyStatus);
 
-  async function submitOnce() {
+  async function postPrintify(body: { refresh?: boolean } = {}) {
     const res = await fetch(`/api/admin/orders/${encodeURIComponent(orderId)}/printify`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       credentials: 'same-origin',
-      body: JSON.stringify({}),
+      body: JSON.stringify(body),
     });
     const json = (await res.json().catch(() => ({}))) as {
       ok?: boolean;
+      refreshed?: boolean;
       error?: string;
       detail?: string;
       issues?: string[];
-      order?: { printifyOrderId?: string | null };
+      order?: {
+        status?: string;
+        printifyOrderId?: string | null;
+        printifyStatus?: string | null;
+      };
     };
+    return { res, json };
+  }
+
+  async function postWithAuthRetry(body: { refresh?: boolean } = {}) {
+    let { res, json } = await postPrintify(body);
+
+    if (res.status === 401) {
+      await fetch('/admin/sign-in?next=/admin/orders', {
+        credentials: 'same-origin',
+      }).catch(() => null);
+      ({ res, json } = await postPrintify(body));
+    }
+
     return { res, json };
   }
 
@@ -73,14 +99,7 @@ export default function PrintifySubmitControl({
     setMessage('');
 
     try {
-      let { res, json } = await submitOnce();
-
-      if (res.status === 401) {
-        await fetch('/admin/sign-in?next=/admin/orders', {
-          credentials: 'same-origin',
-        }).catch(() => null);
-        ({ res, json } = await submitOnce());
-      }
+      const { res, json } = await postWithAuthRetry();
 
       if (!res.ok || !json.ok) {
         const issueText = json.issues?.length ? ` ${json.issues.join(' ')}` : '';
@@ -97,16 +116,42 @@ export default function PrintifySubmitControl({
     }
   }
 
+  async function refreshStatus() {
+    if (!hasPrintifyOrder || isSaving) return;
+
+    setIsSaving(true);
+    setError('');
+    setMessage('');
+
+    try {
+      const { res, json } = await postWithAuthRetry({ refresh: true });
+
+      if (!res.ok || !json.ok) {
+        setError(json.detail || json.error || 'Printify status refresh failed.');
+        return;
+      }
+
+      setMessage(`Printify status: ${formatPrintifyStatus(json.order?.printifyStatus)}`);
+      startTransition(() => router.refresh());
+    } catch {
+      setError('Network error.');
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   return (
     <form onSubmit={submit} className="grid gap-2 rounded-md border border-[#f7f1df]/10 bg-black/18 p-3">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <p className="text-xs font-black uppercase text-[#f7f1df]/44">Printify fulfillment</p>
           {hasPrintifyOrder ? (
-            <p className="mt-1 break-all text-sm font-semibold text-[#d6ff57]">
-              {printifyOrderId}
-              {printifyStatus ? <span className="text-[#f7f1df]/48"> / {printifyStatus}</span> : null}
-            </p>
+            <div className="mt-1 space-y-1">
+              <p className="break-all text-sm font-semibold text-[#d6ff57]">{printifyOrderId}</p>
+              <p className="text-xs font-semibold text-[#f7f1df]/58">
+                Printify status: <span className="text-[#f7f1df]">{displayStatus}</span>
+              </p>
+            </div>
           ) : isReady ? (
             <p className="mt-1 text-sm text-[#f7f1df]/58">
               {canSubmitStatus ? 'Ready for manual submission.' : `Blocked by status: ${currentStatus}.`}
@@ -116,17 +161,28 @@ export default function PrintifySubmitControl({
           )}
         </div>
 
-        <button
-          className="kk-focus inline-flex h-10 items-center justify-center rounded-md bg-[#d6ff57] px-3 text-sm font-black text-black hover:bg-[#f7f1df] disabled:cursor-not-allowed disabled:opacity-45"
-          disabled={!canSubmit || isSaving || isPending}
-          type="submit"
-        >
-          {isSaving || isPending ? 'Submitting...' : 'Submit to Printify'}
-        </button>
+        {hasPrintifyOrder ? (
+          <button
+            className="kk-focus inline-flex h-10 items-center justify-center rounded-md border border-[#f7f1df]/18 px-3 text-sm font-black text-[#f7f1df] hover:bg-[#f7f1df]/8 disabled:cursor-not-allowed disabled:opacity-45"
+            disabled={isSaving || isPending}
+            onClick={refreshStatus}
+            type="button"
+          >
+            {isSaving || isPending ? 'Refreshing...' : 'Refresh status'}
+          </button>
+        ) : (
+          <button
+            className="kk-focus inline-flex h-10 items-center justify-center rounded-md bg-[#d6ff57] px-3 text-sm font-black text-black hover:bg-[#f7f1df] disabled:cursor-not-allowed disabled:opacity-45"
+            disabled={!canSubmit || isSaving || isPending}
+            type="submit"
+          >
+            {isSaving || isPending ? 'Submitting...' : 'Submit to Printify'}
+          </button>
+        )}
       </div>
 
       {printifySubmittedAt ? (
-        <p className="text-xs font-semibold text-[#f7f1df]/48">Submitted {formatDate(printifySubmittedAt)}</p>
+        <p className="text-xs font-semibold text-[#f7f1df]/48">Created in Printify {formatDate(printifySubmittedAt)}</p>
       ) : null}
 
       {readinessIssues.length ? (

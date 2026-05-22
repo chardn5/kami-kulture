@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { hasAdminApiAccess } from '@/lib/adminApiAuth';
 import {
   buildPrintifyOrderPayload,
+  fetchPrintifyFulfillmentOrder,
   formatPrintifyError,
   getOrderShippingSnapshot,
   getPrintifyReadiness,
@@ -19,7 +20,39 @@ const SUBMITTABLE_STATUSES = new Set(['PAID', 'IN_PRODUCTION', 'FULFILLMENT_FAIL
 
 type Body = {
   dryRun?: boolean;
+  refresh?: boolean;
 };
+
+function localStatusForPrintifyStatus(printifyStatus: string | null | undefined, currentStatus: string) {
+  const normalized = (printifyStatus ?? '').toLowerCase();
+  if (!normalized) return currentStatus;
+
+  if (normalized.includes('delivered')) return 'DELIVERED';
+  if (
+    normalized.includes('shipped') ||
+    normalized.includes('on-the-way') ||
+    normalized.includes('out-for-delivery') ||
+    normalized.includes('ready-to-ship')
+  ) {
+    return 'SHIPPED';
+  }
+  if (normalized.includes('in-production') || normalized.includes('sending-to-production')) {
+    return 'IN_PRODUCTION';
+  }
+  if (
+    normalized.includes('canceled') ||
+    normalized.includes('cancelled') ||
+    normalized.includes('has-issues') ||
+    normalized.includes('payment-not-received')
+  ) {
+    return 'FULFILLMENT_FAILED';
+  }
+  if (normalized.includes('on-hold') || normalized.includes('pending') || normalized.includes('submit-order')) {
+    return 'FULFILLMENT_SUBMITTED';
+  }
+
+  return currentStatus;
+}
 
 function lineItems(order: {
   items: Array<{
@@ -84,6 +117,55 @@ export async function POST(
   }
 
   if (order.printifyOrderId) {
+    if (body.refresh) {
+      try {
+        const printifyOrder = await fetchPrintifyFulfillmentOrder(order.printifyOrderId);
+        const updated = await prisma.order.update({
+          where: { seq: order.seq },
+          data: {
+            status: localStatusForPrintifyStatus(printifyOrder.status, order.status),
+            printifyStatus: printifyOrder.status ?? order.printifyStatus,
+            printifyLastError: null,
+            raw: mergeOrderRaw(order.raw, {
+              printify: printifyOrder as Prisma.InputJsonValue,
+            }),
+          },
+          select: {
+            id: true,
+            status: true,
+            printifyOrderId: true,
+            printifyStatus: true,
+            printifySubmittedAt: true,
+          },
+        });
+
+        return NextResponse.json({
+          ok: true,
+          refreshed: true,
+          order: {
+            ...updated,
+            printifySubmittedAt: updated.printifySubmittedAt?.toISOString() ?? null,
+          },
+        });
+      } catch (error) {
+        const message = formatPrintifyError(error);
+        await prisma.order.update({
+          where: { seq: order.seq },
+          data: {
+            printifyLastError: message,
+            raw: mergeOrderRaw(order.raw, {
+              printifyRefreshError: message,
+            }),
+          },
+        });
+
+        return NextResponse.json(
+          { ok: false, error: 'Printify status refresh failed.', detail: message },
+          { status: 502 }
+        );
+      }
+    }
+
     return NextResponse.json(
       {
         ok: false,
