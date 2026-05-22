@@ -123,6 +123,17 @@ export async function GET(req: NextRequest) {
       printifyStatus: true,
       printifySubmittedAt: true,
       printifyLastError: true,
+      printifyCostSubtotal: true,
+      printifyCostShipping: true,
+      printifyCostTax: true,
+      printifyCostTotal: true,
+      estimatedPaymentFee: true,
+      estimatedProfit: true,
+      trackingCarrier: true,
+      trackingNumber: true,
+      trackingUrl: true,
+      shippedAt: true,
+      deliveredAt: true,
       items: {
         select: {
           title: true,
@@ -178,6 +189,14 @@ const data = rows.map((r) => {
       return [item.sku, variant, item.printifyProductId].filter(Boolean).join(' / ');
     }).join('; '),
     printifySubmittedAt: r.printifySubmittedAt instanceof Date ? r.printifySubmittedAt.toISOString() : '',
+    printifyCostSubtotal: decimalString(r.printifyCostSubtotal),
+    printifyCostShipping: decimalString(r.printifyCostShipping),
+    printifyCostTax: decimalString(r.printifyCostTax),
+    printifyCostTotal: decimalString(r.printifyCostTotal),
+    estimatedPaymentFee: decimalString(r.estimatedPaymentFee),
+    estimatedProfit: decimalString(r.estimatedProfit),
+    shippedAt: r.shippedAt instanceof Date ? r.shippedAt.toISOString() : '',
+    deliveredAt: r.deliveredAt instanceof Date ? r.deliveredAt.toISOString() : '',
   };
 });
 
@@ -190,6 +209,8 @@ if (format === 'csv') {
   const header = [
     'id','createdAt','fulfilledAt','status','amountSubtotal','amountShipping','amountTax','amountTotal','currency',
     'customerName','email','phone','shipTo','items','skus','captureId','printifyOrderId','printifyStatus','printifySubmittedAt','printifyLastError',
+    'printifyCostSubtotal','printifyCostShipping','printifyCostTax','printifyCostTotal','estimatedPaymentFee','estimatedProfit',
+    'trackingCarrier','trackingNumber','trackingUrl','shippedAt','deliveredAt',
   ].join(',');
 
   const lines = data.map((row) => [
@@ -213,6 +234,17 @@ if (format === 'csv') {
     row.printifyStatus ?? '',
     row.printifySubmittedAt,
     row.printifyLastError ?? '',
+    row.printifyCostSubtotal,
+    row.printifyCostShipping,
+    row.printifyCostTax,
+    row.printifyCostTotal,
+    row.estimatedPaymentFee,
+    row.estimatedProfit,
+    row.trackingCarrier ?? '',
+    row.trackingNumber ?? '',
+    row.trackingUrl ?? '',
+    row.shippedAt,
+    row.deliveredAt,
   ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(','));
 
 

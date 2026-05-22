@@ -159,17 +159,35 @@ export type PrintifyOrder = CreateOrderResponse & {
   app_order_id?: string;
   external_id?: string;
   label?: string;
+  fulfilled_at?: string | null;
   sent_to_production_at?: string | null;
   line_items?: Array<{
     id?: string;
     product_id?: string;
     variant_id?: number;
     quantity?: number;
+    cost?: number;
+    shipping_cost?: number;
     status?: string;
+    sent_to_production_at?: string | null;
+    fulfilled_at?: string | null;
+    metadata?: {
+      title?: string;
+      price?: number;
+      variant_label?: string;
+      sku?: string;
+      country?: string;
+    };
   }>;
   total_price?: number;
   total_shipping?: number;
   total_tax?: number;
+  shipments?: Array<{
+    carrier?: string;
+    number?: string;
+    url?: string;
+    delivered_at?: string | null;
+  }>;
 };
 
 /** Create an order in Printify for fulfillment */

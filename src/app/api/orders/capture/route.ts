@@ -10,6 +10,8 @@ import {
   submitPrintifyFulfillment,
   type ShippingSnapshot,
 } from '@/lib/printifyFulfillment';
+import { PRINTIFY_SYNC_ORDER_SELECT, refreshOrderFromPrintify } from '@/lib/printifyOrderSync';
+import { calculateOrderPricing } from '@/lib/pricing';
 
 export const runtime = 'nodejs';
 
@@ -195,9 +197,6 @@ export async function POST(req: NextRequest) {
   }
 
   const currency = (body.currency || process.env.NEXT_PUBLIC_CURRENCY || 'USD').toUpperCase();
-  const shipping = Number(body.shipping ?? 0);
-  const tax = typeof body.tax === 'number' ? body.tax : 0;
-
   // Normalize line items
   const normalizedLines: NormalizedLine[] = body.cart.map((l) => {
     const printifyVariantId = Number(l.printifyVariantId);
@@ -212,6 +211,9 @@ export async function POST(req: NextRequest) {
   });
 
   const subtotal = normalizedLines.reduce((s, l) => s + l.price * l.qty, 0);
+  const pricing = calculateOrderPricing(subtotal, currency);
+  const shipping = pricing.shipping;
+  const tax = pricing.tax;
   const total = subtotal + shipping + tax;
 
   // -------- Optional PayPal verification & shipping fallback --------
@@ -407,6 +409,11 @@ export async function POST(req: NextRequest) {
             }),
           },
         });
+        const syncOrder = await prisma.order.findUnique({
+          where: { seq: order.seq },
+          select: PRINTIFY_SYNC_ORDER_SELECT,
+        });
+        if (syncOrder) await refreshOrderFromPrintify(syncOrder);
       } catch (updateError) {
         console.warn('[printify] fulfillment status update failed', updateError);
       }

@@ -9,6 +9,7 @@ import { getOrderShippingSnapshot, getPrintifyReadiness } from '@/lib/printifyFu
 import { getOrderStatusMeta } from '@/lib/orderStatus';
 import OrderStatusControl from './OrderStatusControl';
 import PrintifySubmitControl from './PrintifySubmitControl';
+import PrintifySyncAllButton from './PrintifySyncAllButton';
 
 function decodeBasicAuth(h: string) {
   if (!h?.startsWith('Basic ')) return null;
@@ -87,6 +88,8 @@ export default async function AdminOrders({
 
   const q = (Array.isArray(qRaw) ? qRaw[0] : qRaw) ?? '';
   const sort = ((Array.isArray(sortRaw) ? sortRaw[0] : sortRaw) ?? 'createdAt_desc').toLowerCase();
+  const paypalMode = (process.env.PAYPAL_ENV || process.env.NEXT_PUBLIC_PAYPAL_ENV || 'sandbox').toLowerCase();
+  const paypalIsLive = paypalMode === 'live' || paypalMode === 'production';
 
   const orderBy: Prisma.OrderOrderByWithRelationInput =
     sort === 'amount_desc' ? { amountTotal: 'desc' } :
@@ -118,6 +121,9 @@ export default async function AdminOrders({
           { printifyOrderId: { contains: q } },
           { printifyStatus:  { contains: q } },
           { printifyLastError: { contains: q } },
+          { trackingCarrier: { contains: q } },
+          { trackingNumber: { contains: q } },
+          { trackingUrl: { contains: q } },
           {
             items: {
               some: {
@@ -156,6 +162,8 @@ export default async function AdminOrders({
   });
 
   const revenue = orders.reduce((sum, order) => sum + toNumber(order.amountTotal), 0);
+  const printifyCosts = orders.reduce((sum, order) => sum + toNumber(order.printifyCostTotal), 0);
+  const estimatedProfit = orders.reduce((sum, order) => sum + toNumber(order.estimatedProfit), 0);
   const paidCount = orders.filter((order) => order.status === 'PAID').length;
   const submittedCount = orders.filter((order) => order.status === 'FULFILLMENT_SUBMITTED').length;
   const failedCount = orders.filter((order) => order.status === 'FULFILLMENT_FAILED').length;
@@ -192,6 +200,9 @@ export default async function AdminOrders({
             Search, review fulfillment status, and export recent order data without fighting a
             cramped table.
           </p>
+          <p className={`mt-2 w-fit rounded-md px-2.5 py-1 text-xs font-black uppercase ${paypalIsLive ? 'bg-[#d6ff57] text-black' : 'bg-[#ff4f5f]/14 text-[#ff4f5f]'}`}>
+            PayPal {paypalIsLive ? 'live' : 'sandbox'}
+          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -202,6 +213,7 @@ export default async function AdminOrders({
           >
             Export CSV
           </a>
+          <PrintifySyncAllButton />
           <Link
             href="/admin/sign-out?next=/"
             className="kk-focus inline-flex h-10 items-center rounded-md border border-[#f7f1df]/18 px-3 text-sm font-semibold hover:bg-[#f7f1df]/8"
@@ -215,8 +227,8 @@ export default async function AdminOrders({
         {[
           ['Orders shown', orders.length.toString()],
           ['Revenue shown', money(revenue, currency)],
-          ['Paid', paidCount.toString()],
-          ['In Printify / failed', `${submittedCount} / ${failedCount}`],
+          ['Printify costs', money(printifyCosts, currency)],
+          ['Est. profit', money(estimatedProfit, currency)],
         ].map(([label, value]) => (
           <div key={label} className="rounded-lg border border-[#f7f1df]/12 bg-[#171711] p-4">
             <p className="text-xs font-black uppercase text-[#f7f1df]/44">{label}</p>
@@ -265,6 +277,11 @@ export default async function AdminOrders({
               </Link>
             );
           })}
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold text-[#f7f1df]/48">
+          <span>Paid: {paidCount}</span>
+          <span>In Printify: {submittedCount}</span>
+          <span>Failed: {failedCount}</span>
         </div>
       </section>
 
@@ -343,6 +360,47 @@ export default async function AdminOrders({
                       {money(order.amountTotal, order.currency)}
                     </span>
                   </div>
+                  {(order.printifyCostTotal || order.estimatedProfit || order.trackingNumber || order.trackingUrl) ? (
+                    <div className="grid gap-2 rounded-md border border-[#f7f1df]/10 bg-black/18 p-3 text-sm">
+                      {(order.printifyCostTotal || order.estimatedProfit) ? (
+                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                          <div>
+                            <p className="text-xs font-black uppercase text-[#f7f1df]/44">Printify cost</p>
+                            <p className="mt-1 font-black text-[#f7f1df]">{money(order.printifyCostTotal, order.currency)}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs font-black uppercase text-[#f7f1df]/44">PayPal fee est.</p>
+                            <p className="mt-1 font-black text-[#f7f1df]">{money(order.estimatedPaymentFee, order.currency)}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs font-black uppercase text-[#f7f1df]/44">Profit est.</p>
+                            <p className={`mt-1 font-black ${toNumber(order.estimatedProfit) < 0 ? 'text-[#ff4f5f]' : 'text-[#d6ff57]'}`}>
+                              {money(order.estimatedProfit, order.currency)}
+                            </p>
+                          </div>
+                        </div>
+                      ) : null}
+                      {(order.trackingNumber || order.trackingUrl) ? (
+                        <div className="border-t border-[#f7f1df]/10 pt-2">
+                          <p className="text-xs font-black uppercase text-[#f7f1df]/44">Tracking</p>
+                          {order.trackingUrl ? (
+                            <a
+                              href={order.trackingUrl}
+                              className="kk-focus mt-1 inline-flex break-all text-sm font-semibold text-[#35d7f2] hover:underline"
+                              rel="noopener noreferrer"
+                              target="_blank"
+                            >
+                              {[order.trackingCarrier?.toUpperCase(), order.trackingNumber].filter(Boolean).join(' ') || 'Open tracking'}
+                            </a>
+                          ) : (
+                            <p className="mt-1 break-all font-semibold text-[#f7f1df]">
+                              {[order.trackingCarrier?.toUpperCase(), order.trackingNumber].filter(Boolean).join(' ')}
+                            </p>
+                          )}
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
               </div>
 

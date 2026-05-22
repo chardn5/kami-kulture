@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { calculateOrderPricing } from '@/lib/pricing';
 
 export const runtime = 'nodejs';
 
@@ -47,6 +48,8 @@ type CreateOrderRequest = {
   // minimal mode
   value?: number | string;
   currency?: string;
+  shippingAmount?: number | string;
+  taxAmount?: number | string;
 
   // optional detailed cart
   items?: Array<{
@@ -96,29 +99,33 @@ export async function POST(req: NextRequest) {
     const currency = (body.currency ?? 'USD').toUpperCase();
 
     // Build purchase unit (either from items[] or from value)
-    let amountValue: string;
-    let breakdown: { item_total?: { currency_code: string; value: string } } | undefined;
+    let itemTotal = 0;
     let items = body.items;
 
     if (items && items.length > 0) {
       // normalize quantities and amounts, compute item_total
-      let sum = 0;
       items = items.map((it) => {
         const qty = parseNumber(it.quantity) ?? 1;
         const unit = parseNumber(it.unit_amount?.value) ?? 0;
-        sum += qty * unit;
+        itemTotal += qty * unit;
         return {
           ...it,
           quantity: String(qty),
           unit_amount: { currency_code: currency, value: to2(unit) },
         };
       });
-      amountValue = to2(sum);
-      breakdown = { item_total: { currency_code: currency, value: amountValue } };
     } else {
-      const val = parseNumber(body.value) ?? 0;
-      amountValue = to2(val);
+      itemTotal = parseNumber(body.value) ?? 0;
     }
+    const pricing = calculateOrderPricing(itemTotal, currency);
+    const shippingAmount = Math.max(parseNumber(body.shippingAmount) ?? pricing.shipping, pricing.shipping);
+    const taxAmount = Math.max(parseNumber(body.taxAmount) ?? pricing.tax, pricing.tax);
+    const amountValue = to2(itemTotal + shippingAmount + taxAmount);
+    const breakdown = {
+      item_total: { currency_code: currency, value: to2(itemTotal) },
+      shipping: { currency_code: currency, value: to2(shippingAmount) },
+      tax_total: { currency_code: currency, value: to2(taxAmount) },
+    };
 
     const token = await getAccessToken();
 
@@ -130,7 +137,7 @@ export async function POST(req: NextRequest) {
           amount: {
             currency_code: currency,
             value: amountValue,
-            ...(breakdown ? { breakdown } : {}),
+            breakdown,
           },
           ...(body.shipping ? { shipping: body.shipping } : {}),
         },

@@ -24,6 +24,13 @@ type LookupOk = {
   amountTax?: string | null;
   currency?: string;
   createdAt?: string;
+  fulfilledAt?: string | null;
+  printifyStatus?: string | null;
+  trackingCarrier?: string | null;
+  trackingNumber?: string | null;
+  trackingUrl?: string | null;
+  shippedAt?: string | null;
+  deliveredAt?: string | null;
   items?: LookupItem[];
   shipping?: { city?: string | null; state?: string | null; country?: string | null };
 };
@@ -120,6 +127,8 @@ function TrackOrderInner() {
   const currency = found?.currency || 'USD';
   const items = found?.items?.length ? found.items : [];
   const placedAt = formatDate(found?.createdAt);
+  const shippedAt = formatDate(found?.shippedAt ?? found?.fulfilledAt ?? undefined);
+  const deliveredAt = formatDate(found?.deliveredAt ?? undefined);
   const shipTo = found?.shipping
     ? [found.shipping.city, found.shipping.state, found.shipping.country].filter(Boolean).join(', ')
     : '';
@@ -187,7 +196,14 @@ function TrackOrderInner() {
                     {statusMeta.customerDescription}
                   </p>
                   {placedAt ? <p className="mt-1 text-sm text-[#f7f1df]/58">Placed {placedAt}</p> : null}
+                  {shippedAt ? <p className="mt-1 text-sm text-[#f7f1df]/58">Shipped {shippedAt}</p> : null}
+                  {deliveredAt ? <p className="mt-1 text-sm text-[#f7f1df]/58">Delivered {deliveredAt}</p> : null}
                   {shipTo ? <p className="mt-1 text-sm text-[#f7f1df]/58">Ship to {shipTo}</p> : null}
+                  {found.printifyStatus ? (
+                    <p className="mt-1 text-sm text-[#f7f1df]/58">
+                      Fulfillment status: {found.printifyStatus.replace(/[-_]+/g, ' ')}
+                    </p>
+                  ) : null}
                 </div>
                 <div className={`rounded-md px-3 py-2 text-sm font-black ${statusMeta.badgeClass}`}>
                   {formatMoney(found.amountTotal, currency)}
@@ -213,6 +229,25 @@ function TrackOrderInner() {
                   );
                 })}
               </div>
+
+              {(found.trackingNumber || found.trackingUrl) ? (
+                <div className="mt-5 rounded-lg border border-[#d6ff57]/30 bg-[#d6ff57]/8 p-4">
+                  <p className="text-xs font-black uppercase text-[#d6ff57]">Carrier tracking</p>
+                  <p className="mt-2 break-all text-lg font-black text-[#f7f1df]">
+                    {[found.trackingCarrier?.toUpperCase(), found.trackingNumber].filter(Boolean).join(' ') || 'Tracking available'}
+                  </p>
+                  {found.trackingUrl ? (
+                    <a
+                      href={found.trackingUrl}
+                      className="kk-focus mt-3 inline-flex h-10 items-center rounded-md bg-[#f7f1df] px-3 text-sm font-black text-black hover:bg-[#d6ff57]"
+                      rel="noopener noreferrer"
+                      target="_blank"
+                    >
+                      Open carrier tracking
+                    </a>
+                  ) : null}
+                </div>
+              ) : null}
 
               {items.length > 0 ? (
                 <div className="mt-5">

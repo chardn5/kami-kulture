@@ -103,6 +103,21 @@ model Order {
   printifySubmittedAt DateTime?
   printifyLastError   String?
   printifyPayload     Json?
+  printifyCostSubtotal Decimal? @db.Decimal(12, 2)
+  printifyCostShipping Decimal? @db.Decimal(12, 2)
+  printifyCostTax      Decimal? @db.Decimal(12, 2)
+  printifyCostTotal    Decimal? @db.Decimal(12, 2)
+  estimatedPaymentFee  Decimal? @db.Decimal(12, 2)
+  estimatedProfit      Decimal? @db.Decimal(12, 2)
+
+  trackingCarrier String?
+  trackingNumber  String?
+  trackingUrl     String?
+  shippedAt       DateTime?
+  deliveredAt     DateTime?
+
+  statusEmailLastStatus String?
+  statusEmailSentAt     DateTime?
 
   @@index([createdAt])
   @@index([status])
@@ -111,6 +126,7 @@ model Order {
   @@index([customerId])
   @@index([captureId])
   @@index([printifyStatus])
+  @@index([trackingNumber])
 }
 
 /// ===== Printify-synced catalog =====

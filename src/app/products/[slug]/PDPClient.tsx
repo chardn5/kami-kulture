@@ -4,11 +4,8 @@ import { useMemo, useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { formatPrice } from '@/lib/format';
-import dynamic from 'next/dynamic';
 import { useCart } from '@/lib/cartStore';
 import type { CatalogProduct, CatalogVariant } from '@/lib/catalog';
-
-const PaySection = dynamic(() => import('@/components/PaySection'), { ssr: false });
 
 const swatches: Record<string, string> = {
   black: '#080807',
@@ -250,23 +247,6 @@ export default function PDPClient({ product, recs }: { product: CatalogProduct; 
             </Link>
           </div>
           {justAdded && <p className="mt-3 text-sm font-semibold text-[#d6ff57]">Added to cart.</p>}
-
-          <div className="mt-6 rounded-md border border-[#f7f1df]/10 bg-[#0f0f0c] p-4">
-            <p className="text-xs font-black uppercase text-[#f7f1df]/54">Buy now</p>
-            <div className="mt-3">
-              <PaySection
-                productTitle={product.title}
-                amount={activePrice}
-                selectedSize={selectedSize}
-                selectedColor={selectedColor || undefined}
-                productSlug={product.slug}
-                sku={activeSku}
-                image={images[0]}
-                printifyProductId={activeVariant?.printifyProductId ?? product.printifyId}
-                printifyVariantId={activeVariant?.variantId}
-              />
-            </div>
-          </div>
 
           <div className="mt-5 grid gap-3 text-sm text-[#f7f1df]/70">
             <div className="flex justify-between border-b border-[#f7f1df]/10 pb-3">

@@ -136,7 +136,7 @@ export default function CartDrawer({ open, onClose }: Props) {
             <p className="text-sm text-[#f7f1df]/58">Subtotal</p>
             <p className="text-xl font-black">{formatPrice(subtotal)}</p>
           </div>
-          <p className="mt-1 text-xs text-[#f7f1df]/46">Shipping and tax are calculated at checkout.</p>
+          <p className="mt-1 text-xs text-[#f7f1df]/46">Flat shipping is calculated at checkout.</p>
 
           <div className="mt-4 grid grid-cols-[1fr_auto] gap-2">
             <Link

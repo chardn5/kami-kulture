@@ -7,6 +7,7 @@ import Image from 'next/image';
 import { useCart, useHydrateCart } from '@/lib/cartStore';
 import { formatPrice } from '@/lib/format';
 import { loadPayPalSDK } from '@/lib/paypalClient';
+import { calculateOrderPricing } from '@/lib/pricing';
 import CheckoutForm, { type NormalizedCheckout } from '@/components/CheckoutForm';
 
 type PayPalOrderActions = {
@@ -71,9 +72,10 @@ export default function CheckoutPage() {
   }, [formValues]);
 
   const subtotal = useMemo(() => items.reduce((s, i) => s + i.price * i.qty, 0), [items]);
-  const shipping = 0;
-  const tax = 0;
-  const total = subtotal + shipping + tax;
+  const pricing = useMemo(() => calculateOrderPricing(subtotal, CURRENCY), [subtotal]);
+  const shipping = pricing.shipping;
+  const tax = pricing.tax;
+  const total = pricing.total;
 
   useEffect(() => {
     if (items.length === 0) return;
@@ -95,6 +97,8 @@ export default function CheckoutPage() {
       // ---- Create order via server with items + payer + shipping ----
       type CreateOrderBody = {
         currency: string;
+        shippingAmount?: number;
+        taxAmount?: number;
         items: Array<{
           name: string;
           sku?: string;
@@ -121,6 +125,8 @@ export default function CheckoutPage() {
 
         const body: CreateOrderBody = {
           currency: CURRENCY,
+          shippingAmount: shipping,
+          taxAmount: tax,
           items: items.map((i) => ({
             name: i.title,
             sku: i.sku,
@@ -252,7 +258,7 @@ export default function CheckoutPage() {
     };
 
     // Keep buttons stable: don't depend on formValues here
-  }, [items, subtotal, total, clear]);
+  }, [items, subtotal, shipping, tax, total, clear]);
 
   if (!hasHydrated) {
     return (
@@ -347,6 +353,9 @@ export default function CheckoutPage() {
               <span>Shipping</span>
               <span>{formatPrice(shipping)}</span>
             </div>
+            <p className="text-xs leading-5 text-[#f7f1df]/42">
+              Flat shipping. Orders over {formatPrice(pricing.freeShippingThreshold)} ship free.
+            </p>
             <div className="flex justify-between border-t border-[#f7f1df]/10 pt-3 text-base font-black text-[#f7f1df]">
               <span>Total</span>
               <span>{formatPrice(total)}</span>

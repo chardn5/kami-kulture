@@ -105,6 +105,8 @@ export type ReceiptItem = {
   image?: string;
 };
 
+export type StatusEmailItem = ReceiptItem;
+
 export type ReceiptPayload = {
   to: string;
   orderNumber: string;
@@ -257,6 +259,146 @@ export async function sendOrderReceipt(p: ReceiptPayload) {
   const html = renderReceiptHTML(p);
   const text = renderReceiptText(p);
   return sendEmail({ to: p.to, subject, html, text });
+}
+
+function statusEmailCopy(status: string, printifyStatus?: string | null) {
+  switch (status) {
+    case 'IN_PRODUCTION':
+      return {
+        subjectPrefix: 'Production started',
+        eyebrow: 'In production',
+        title: 'Your order is in production',
+        body: 'Your order has moved into the production queue. We will send tracking once the carrier has it.',
+      };
+    case 'SHIPPED':
+      return {
+        subjectPrefix: 'Your order shipped',
+        eyebrow: 'Shipped',
+        title: 'Your order is on the way',
+        body: 'The carrier has your package. Tracking may take a little time to show movement after the label is created.',
+      };
+    case 'DELIVERED':
+      return {
+        subjectPrefix: 'Your order was delivered',
+        eyebrow: 'Delivered',
+        title: 'Your order was delivered',
+        body: 'Printify marked the shipment delivered. If anything looks wrong, reply to this email and we will help.',
+      };
+    case 'FULFILLMENT_FAILED':
+      return {
+        subjectPrefix: 'Order update needed',
+        eyebrow: 'Needs attention',
+        title: 'Your order needs a manual review',
+        body: 'We are reviewing a fulfillment issue before the order can continue. You do not need to place a new order.',
+      };
+    default:
+      return {
+        subjectPrefix: 'Order update',
+        eyebrow: printifyStatus ? printifyStatus.replace(/[-_]+/g, ' ') : 'Order update',
+        title: 'Your order status changed',
+        body: 'Your order status has been updated.',
+      };
+  }
+}
+
+export async function sendOrderStatusEmail(p: {
+  to: string;
+  orderNumber: string;
+  status: string;
+  printifyStatus?: string | null;
+  customerName?: string;
+  currency?: string;
+  items?: StatusEmailItem[];
+  trackingCarrier?: string;
+  trackingNumber?: string;
+  trackingUrl?: string;
+  trackUrl?: string;
+  productionDate?: string;
+  shippedAt?: string;
+  deliveredAt?: string;
+}) {
+  const copy = statusEmailCopy(p.status, p.printifyStatus);
+  const currency = p.currency || 'USD';
+  const locale = currency === 'PHP' ? 'en-PH' : 'en-US';
+  const itemRows = p.items?.length
+    ? p.items.map((item) => `
+      <tr>
+        <td style="padding:12px 0;border-bottom:1px solid #1f2937;">
+          <div style="font-weight:700;color:#ffffff;">${escapeHtml(item.title)}</div>
+          <div style="font-size:12px;line-height:18px;color:#9ca3af;">${[
+            itemOptionHtml(item, ' / '),
+            item.sku ? `SKU: ${escapeHtml(item.sku)}` : '',
+          ].filter(Boolean).join(' | ')}</div>
+        </td>
+        <td style="padding:12px 0;text-align:right;color:#e5e7eb;border-bottom:1px solid #1f2937;">x${item.qty}</td>
+      </tr>
+    `).join('')
+    : '';
+  const trackingLine = p.trackingNumber
+    ? `${p.trackingCarrier ? `${p.trackingCarrier.toUpperCase()} ` : ''}${p.trackingNumber}`
+    : '';
+
+  const html = `
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="font-family:Arial, Helvetica, sans-serif;color:#e5e7eb;">
+      <tr>
+        <td align="center" style="padding:18px 10px;">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:640px;background:#0b0f19;border-radius:16px;overflow:hidden;">
+            <tr>
+              <td style="padding:28px 26px 16px;">
+                <div style="color:#d6ff57;font-size:12px;font-weight:800;letter-spacing:0;text-transform:uppercase;">${escapeHtml(copy.eyebrow)}</div>
+                <h1 style="margin:8px 0 8px;color:#ffffff;font-size:24px;line-height:30px;">${escapeHtml(copy.title)}${p.customerName ? `, ${escapeHtml(p.customerName)}` : ''}</h1>
+                <p style="margin:0;color:#9ca3af;font-size:14px;line-height:22px;">Order #: <strong style="color:#ffffff">${escapeHtml(p.orderNumber)}</strong></p>
+                <p style="margin:12px 0 0;color:#d1d5db;font-size:14px;line-height:22px;">${escapeHtml(copy.body)}</p>
+              </td>
+            </tr>
+            ${trackingLine ? `
+              <tr>
+                <td style="padding:0 26px 12px;">
+                  <div style="background:#111827;border-radius:12px;padding:14px;">
+                    <div style="color:#9ca3af;font-size:12px;font-weight:700;text-transform:uppercase;">Tracking</div>
+                    <div style="margin-top:5px;color:#ffffff;font-weight:800;">${escapeHtml(trackingLine)}</div>
+                  </div>
+                </td>
+              </tr>
+            ` : ''}
+            ${itemRows ? `
+              <tr>
+                <td style="padding:0 26px 12px;">
+                  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border-collapse:collapse;">
+                    <tbody>${itemRows}</tbody>
+                  </table>
+                </td>
+              </tr>
+            ` : ''}
+            <tr>
+              <td style="padding:12px 26px 28px;">
+                ${p.trackingUrl ? `<a href="${escapeAttr(p.trackingUrl)}" style="display:inline-block;background:#d6ff57;color:#000000;padding:12px 16px;border-radius:10px;text-decoration:none;font-weight:800;margin-right:8px;">Track package</a>` : ''}
+                ${p.trackUrl ? `<a href="${escapeAttr(p.trackUrl)}" style="display:inline-block;background:#f7f1df;color:#000000;padding:12px 16px;border-radius:10px;text-decoration:none;font-weight:800;">View order</a>` : ''}
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>`;
+
+  const text = `${copy.title}${p.customerName ? `, ${p.customerName}` : ''}
+Order #: ${p.orderNumber}
+
+${copy.body}
+${trackingLine ? `\nTracking: ${trackingLine}` : ''}
+${p.trackingUrl ? `\nTrack package: ${p.trackingUrl}` : ''}
+${p.trackUrl ? `\nView order: ${p.trackUrl}` : ''}
+${p.items?.length ? `\n\nItems:\n${p.items.map((item) => {
+    const options = itemOptionText(item);
+    return `- ${item.title}${options ? ` (${options})` : ''} x${item.qty}${item.unitPrice ? ` @ ${money(item.unitPrice, currency, locale)}` : ''}`;
+  }).join('\n')}` : ''}`;
+
+  return sendEmail({
+    to: p.to,
+    subject: `${copy.subjectPrefix}: Kami Kulture ${p.orderNumber}`,
+    html,
+    text,
+  });
 }
 
 /** ---------- New: Admin notification ---------- */

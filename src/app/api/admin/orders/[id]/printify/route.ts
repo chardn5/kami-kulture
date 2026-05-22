@@ -4,7 +4,6 @@ import { prisma } from '@/lib/prisma';
 import { hasAdminApiAccess } from '@/lib/adminApiAuth';
 import {
   buildPrintifyOrderPayload,
-  fetchPrintifyFulfillmentOrder,
   formatPrintifyError,
   getOrderShippingSnapshot,
   getPrintifyReadiness,
@@ -12,6 +11,7 @@ import {
   submitPrintifyFulfillment,
   type PrintifyFulfillmentLine,
 } from '@/lib/printifyFulfillment';
+import { PRINTIFY_SYNC_ORDER_SELECT, refreshOrderFromPrintify } from '@/lib/printifyOrderSync';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -22,37 +22,6 @@ type Body = {
   dryRun?: boolean;
   refresh?: boolean;
 };
-
-function localStatusForPrintifyStatus(printifyStatus: string | null | undefined, currentStatus: string) {
-  const normalized = (printifyStatus ?? '').toLowerCase();
-  if (!normalized) return currentStatus;
-
-  if (normalized.includes('delivered')) return 'DELIVERED';
-  if (
-    normalized.includes('shipped') ||
-    normalized.includes('on-the-way') ||
-    normalized.includes('out-for-delivery') ||
-    normalized.includes('ready-to-ship')
-  ) {
-    return 'SHIPPED';
-  }
-  if (normalized.includes('in-production') || normalized.includes('sending-to-production')) {
-    return 'IN_PRODUCTION';
-  }
-  if (
-    normalized.includes('canceled') ||
-    normalized.includes('cancelled') ||
-    normalized.includes('has-issues') ||
-    normalized.includes('payment-not-received')
-  ) {
-    return 'FULFILLMENT_FAILED';
-  }
-  if (normalized.includes('on-hold') || normalized.includes('pending') || normalized.includes('submit-order')) {
-    return 'FULFILLMENT_SUBMITTED';
-  }
-
-  return currentStatus;
-}
 
 function lineItems(order: {
   items: Array<{
@@ -119,33 +88,19 @@ export async function POST(
   if (order.printifyOrderId) {
     if (body.refresh) {
       try {
-        const printifyOrder = await fetchPrintifyFulfillmentOrder(order.printifyOrderId);
-        const updated = await prisma.order.update({
+        const syncOrder = await prisma.order.findUnique({
           where: { seq: order.seq },
-          data: {
-            status: localStatusForPrintifyStatus(printifyOrder.status, order.status),
-            printifyStatus: printifyOrder.status ?? order.printifyStatus,
-            printifyLastError: null,
-            raw: mergeOrderRaw(order.raw, {
-              printify: printifyOrder as Prisma.InputJsonValue,
-            }),
-          },
-          select: {
-            id: true,
-            status: true,
-            printifyOrderId: true,
-            printifyStatus: true,
-            printifySubmittedAt: true,
-          },
+          select: PRINTIFY_SYNC_ORDER_SELECT,
         });
+        if (!syncOrder) {
+          return NextResponse.json({ ok: false, error: 'Order not found' }, { status: 404 });
+        }
+        const result = await refreshOrderFromPrintify(syncOrder);
 
         return NextResponse.json({
-          ok: true,
+          ok: result.ok,
           refreshed: true,
-          order: {
-            ...updated,
-            printifySubmittedAt: updated.printifySubmittedAt?.toISOString() ?? null,
-          },
+          order: result,
         });
       } catch (error) {
         const message = formatPrintifyError(error);
@@ -255,12 +210,19 @@ export async function POST(
       },
     });
 
+    const syncOrder = await prisma.order.findUnique({
+      where: { seq: order.seq },
+      select: PRINTIFY_SYNC_ORDER_SELECT,
+    });
+    const refreshed = syncOrder ? await refreshOrderFromPrintify(syncOrder) : null;
+
     return NextResponse.json({
       ok: true,
       order: {
         ...updated,
         printifySubmittedAt: updated.printifySubmittedAt?.toISOString() ?? null,
       },
+      refreshed,
     });
   } catch (error) {
     const message = formatPrintifyError(error);

@@ -27,6 +27,13 @@ type LookupResult =
       amountTax?: string | null;
       currency?: string;
       createdAt?: string;
+      fulfilledAt?: string | null;
+      printifyStatus?: string | null;
+      trackingCarrier?: string | null;
+      trackingNumber?: string | null;
+      trackingUrl?: string | null;
+      shippedAt?: string | null;
+      deliveredAt?: string | null;
       items?: LookupItem[];
       shipping?: { city?: string | null; state?: string | null; country?: string | null };
     };
@@ -129,6 +136,7 @@ function ThankYouInner() {
   const items = verified?.items?.length ? verified.items : [];
   const currency = verified?.currency || 'USD';
   const placedAt = formatDate(verified?.createdAt);
+  const shippedAt = formatDate(verified?.shippedAt ?? verified?.fulfilledAt ?? undefined);
   const statusMeta = getOrderStatusMeta(verified?.status);
 
   return (
@@ -200,6 +208,30 @@ function ThankYouInner() {
               <p className="border-t border-[#f7f1df]/10 py-4 text-sm leading-6 text-[#f7f1df]/64">
                 {statusMeta.customerDescription}
               </p>
+              {verified.printifyStatus ? (
+                <p className="pb-4 text-sm leading-6 text-[#f7f1df]/58">
+                  Fulfillment status: {verified.printifyStatus.replace(/[-_]+/g, ' ')}
+                  {shippedAt ? ` / Shipped ${shippedAt}` : ''}
+                </p>
+              ) : null}
+              {(verified.trackingNumber || verified.trackingUrl) ? (
+                <div className="mb-4 rounded-lg border border-[#d6ff57]/30 bg-[#d6ff57]/8 p-4">
+                  <p className="text-xs font-black uppercase text-[#d6ff57]">Carrier tracking</p>
+                  <p className="mt-2 break-all text-lg font-black text-[#f7f1df]">
+                    {[verified.trackingCarrier?.toUpperCase(), verified.trackingNumber].filter(Boolean).join(' ') || 'Tracking available'}
+                  </p>
+                  {verified.trackingUrl ? (
+                    <a
+                      href={verified.trackingUrl}
+                      className="kk-focus mt-3 inline-flex h-10 items-center rounded-md bg-[#f7f1df] px-3 text-sm font-black text-black hover:bg-[#d6ff57]"
+                      rel="noopener noreferrer"
+                      target="_blank"
+                    >
+                      Open carrier tracking
+                    </a>
+                  ) : null}
+                </div>
+              ) : null}
 
               <div className="space-y-2 border-t border-[#f7f1df]/10 pt-4 text-sm">
                 <div className="flex justify-between gap-4 text-[#f7f1df]/64">
