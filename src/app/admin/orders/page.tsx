@@ -2,41 +2,13 @@
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import Link from 'next/link';
-import { cookies, headers } from 'next/headers';
-import { redirect } from 'next/navigation';
-import { ADMIN_SESSION_COOKIE, verifyAdminSessionToken } from '@/lib/adminSession';
+import { requireAdminPageAccess } from '@/lib/adminPageAuth';
 import { getOrderShippingSnapshot, getPrintifyReadiness } from '@/lib/printifyFulfillment';
 import { getOrderStatusMeta } from '@/lib/orderStatus';
 import OrderStatusControl from './OrderStatusControl';
 import PrintifySubmitControl from './PrintifySubmitControl';
 import PrintifySyncAllButton from './PrintifySyncAllButton';
-
-function decodeBasicAuth(h: string) {
-  if (!h?.startsWith('Basic ')) return null;
-  try {
-    const decoded = Buffer.from(h.split(' ')[1] || '', 'base64').toString('utf8');
-    const separator = decoded.indexOf(':');
-    if (separator === -1) return null;
-    return { user: decoded.slice(0, separator), pass: decoded.slice(separator + 1) };
-  } catch {
-    return null;
-  }
-}
-
-async function requireAdminAccess() {
-  const [hdrs, cookieStore] = await Promise.all([headers(), cookies()]);
-  const adminOk = cookieStore.get('admin_ok')?.value === '1';
-  const signedSessionOk = verifyAdminSessionToken(cookieStore.get(ADMIN_SESSION_COOKIE)?.value);
-
-  const user = process.env.BASIC_AUTH_USER || process.env.ADMIN_USER || '';
-  const pass = process.env.BASIC_AUTH_PASS || process.env.ADMIN_PASSWORD || process.env.ADMIN_PASS || '';
-  const creds = decodeBasicAuth(hdrs.get('authorization') ?? '');
-  const okAuth = !!user && !!pass && !!creds && creds.user === user && creds.pass === pass;
-
-  if (!signedSessionOk && !(adminOk && okAuth)) {
-    redirect('/admin/sign-in?next=/admin/orders');
-  }
-}
+import LocalDateTime, { LocalTimeZoneNote } from './LocalDateTime';
 
 function sortHref(base: { q: string }, key: string) {
   const qs = new URLSearchParams();
@@ -63,23 +35,13 @@ function money(amount: unknown, currency = 'USD') {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(toNumber(amount));
 }
 
-function dateTime(value: Date) {
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(value);
-}
-
 export default async function AdminOrders({
   searchParams,
 }: {
   // Keeping the existing Promise style to avoid breaking changes in this app version.
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  await requireAdminAccess();
+  await requireAdminPageAccess('/admin/orders');
 
   const sp = await searchParams;
 
@@ -200,9 +162,12 @@ export default async function AdminOrders({
             Search, review fulfillment status, and export recent order data without fighting a
             cramped table.
           </p>
-          <p className={`mt-2 w-fit rounded-md px-2.5 py-1 text-xs font-black uppercase ${paypalIsLive ? 'bg-[#d6ff57] text-black' : 'bg-[#ff4f5f]/14 text-[#ff4f5f]'}`}>
-            PayPal {paypalIsLive ? 'live' : 'sandbox'}
-          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <p className={`w-fit rounded-md px-2.5 py-1 text-xs font-black uppercase ${paypalIsLive ? 'bg-[#d6ff57] text-black' : 'bg-[#ff4f5f]/14 text-[#ff4f5f]'}`}>
+              PayPal {paypalIsLive ? 'live' : 'sandbox'}
+            </p>
+            <LocalTimeZoneNote className="text-xs font-semibold text-[#f7f1df]/48" />
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -325,10 +290,15 @@ export default async function AdminOrders({
                     <span className={`rounded-md px-2.5 py-1 text-xs font-black uppercase ${statusMeta.badgeClass}`}>
                       {statusMeta.label}
                     </span>
-                    <span className="text-sm text-[#f7f1df]/52">{dateTime(order.createdAt)}</span>
+                    <LocalDateTime value={order.createdAt.toISOString()} className="text-sm text-[#f7f1df]/52" />
                   </div>
                   <p className="mt-1 text-sm text-[#f7f1df]/52">{statusMeta.adminDescription}</p>
-                  <p className="mt-2 break-all font-mono text-lg text-[#f7f1df]">{order.id}</p>
+                  <Link
+                    href={`/admin/orders/${encodeURIComponent(order.id)}`}
+                    className="kk-focus mt-2 inline-flex break-all font-mono text-lg text-[#f7f1df] hover:text-[#35d7f2]"
+                  >
+                    {order.id}
+                  </Link>
                 </div>
                 <div className="grid gap-3 lg:min-w-[23rem]">
                   <OrderStatusControl orderId={order.id} currentStatus={order.status} />
@@ -342,6 +312,12 @@ export default async function AdminOrders({
                     readinessIssues={readiness.issues}
                   />
                   <div className="flex flex-wrap gap-2">
+                    <Link
+                      href={`/admin/orders/${encodeURIComponent(order.id)}`}
+                      className="kk-focus inline-flex h-9 items-center rounded-md border border-[#f7f1df]/18 px-3 text-sm font-semibold hover:bg-[#f7f1df]/8"
+                    >
+                      Details
+                    </Link>
                     <Link
                       href={`/track-order?${trackParams.toString()}`}
                       className="kk-focus inline-flex h-9 items-center rounded-md border border-[#f7f1df]/18 px-3 text-sm font-semibold hover:bg-[#f7f1df]/8"

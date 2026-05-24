@@ -24,6 +24,12 @@ export default function Footer() {
             <Link href="/shipping-returns" className="kk-focus rounded-md hover:text-[#35d7f2]">
               Shipping and returns
             </Link>
+            <Link href="/faq" className="kk-focus rounded-md hover:text-[#35d7f2]">
+              FAQ
+            </Link>
+            <Link href="/contact" className="kk-focus rounded-md hover:text-[#35d7f2]">
+              Contact
+            </Link>
           </div>
         </div>
 
@@ -32,6 +38,9 @@ export default function Footer() {
           <div className="mt-3 flex flex-col gap-2">
             <Link href="/products" className="kk-focus rounded-md hover:text-[#35d7f2]">
               Shop products
+            </Link>
+            <Link href="/size-guide" className="kk-focus rounded-md hover:text-[#35d7f2]">
+              Size guide
             </Link>
             <Link href="/privacy" className="kk-focus rounded-md hover:text-[#35d7f2]">
               Privacy policy

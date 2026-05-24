@@ -71,6 +71,9 @@ export async function GET(req: NextRequest) {
       { printifyOrderId: { contains: q } },
       { printifyStatus: { contains: q } },
       { printifyLastError: { contains: q } },
+      { trackingCarrier: { contains: q } },
+      { trackingNumber: { contains: q } },
+      { trackingUrl: { contains: q } },
       {
         items: {
           some: {

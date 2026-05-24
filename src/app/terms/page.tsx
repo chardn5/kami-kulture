@@ -3,14 +3,14 @@ export const metadata = {
   description: "The terms that govern using Kami Kulture.",
 };
 
+const lastUpdated = "May 24, 2026";
+
 export default function TermsPage() {
   return (
     <div className="kk-container max-w-3xl py-12 text-[#f7f1df]">
       <p className="text-sm font-black uppercase text-[#ff4f5f]">Store policy</p>
       <h1 className="mt-2 text-3xl font-black">Terms of Service</h1>
-      <p className="mt-2 text-sm text-[#f7f1df]/58">
-        Last updated: {new Date().toLocaleDateString()}
-      </p>
+      <p className="mt-2 text-sm text-[#f7f1df]/58">Last updated: {lastUpdated}</p>
 
       <div className="mt-6 space-y-6 rounded-lg border border-[#f7f1df]/12 bg-[#171711] p-6 text-sm leading-7 text-[#f7f1df]/72">
         <h2 className="text-lg font-black text-[#f7f1df]">Purchases</h2>
