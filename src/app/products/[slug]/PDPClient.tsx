@@ -55,7 +55,7 @@ export default function PDPClient({
     gallery.color === color && gallery.index < images.length
       ? gallery.index
       : 0;
-  const garment = getGarment(product.slug);
+  const garment = getGarment(product.slug, product.garmentKey);
 
   function chooseColor(next: string) {
     setColor(next);
@@ -341,7 +341,7 @@ export default function PDPClient({
             <X size={20} />
           </button>
         </div>
-        <SizeChart slug={product.slug} />
+        <SizeChart slug={product.slug} garmentKey={product.garmentKey} />
         <Link
           href="/size-guide"
           className="kk-focus mt-4 inline-block text-sm text-[#35d7f2] underline"

@@ -4,6 +4,7 @@ import {
   type StaticProduct,
 } from "@/data/products";
 import { cache } from "react";
+import { MANAGED_DESIGN_TAG, isApprovedDesign } from "@/lib/designMetadata";
 
 export type CatalogVariant = {
   size?: string;
@@ -31,6 +32,7 @@ export type CatalogProduct = {
   colors?: string[];
   variants?: CatalogVariant[];
   garment?: string;
+  garmentKey?: string;
 };
 
 type DbProductForStatic = Awaited<
@@ -131,7 +133,7 @@ async function getMappedPrintifyProducts() {
   if (!ids.length) return [];
 
   return prisma.product.findMany({
-    where: { printifyId: { in: ids } },
+    where: { OR: [{ printifyId: { in: ids } }, { tags: { has: MANAGED_DESIGN_TAG } }] },
     include: {
       variants: {
         where: { isEnabled: true },
@@ -147,15 +149,38 @@ export const getCatalogProducts = cache(async (): Promise<CatalogProduct[]> => {
     const byPrintifyId = new Map(
       dbProducts.map((product) => [product.printifyId, product]),
     );
-    return staticProducts.map((product) =>
+    const legacy = staticProducts.map((product) =>
       mapStaticProduct(product, byPrintifyId.get(product.printifyId ?? "")),
     );
+    return [...legacy, ...dbProducts.filter(isApprovedDesign).map(mapManagedProduct)];
   } catch (error) {
     console.warn("[catalog] falling back to static products", error);
   }
 
   return staticProducts.map((product) => mapStaticProduct(product));
 });
+
+export function mapManagedProduct(product: DbProductForStatic): CatalogProduct {
+  const variants = product.variants.filter(v => v.isEnabled);
+  const sizeOrder = ["S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL"];
+  return {
+    slug: product.slug, title: product.title, description: product.description ?? "",
+    price: product.priceMinCents / 100, printifyId: product.printifyId,
+    garmentKey: product.tags.find(t => t.startsWith("kami:garment:"))?.slice("kami:garment:".length),
+    tags: product.tags.filter(t => !t.startsWith("kami:")),
+    images: Array.from(new Set(product.images.map(i => i.url))),
+    sizes: Array.from(new Set(variants.map(v => v.size).filter((s): s is string => !!s)))
+      .sort((a, b) => sizeOrder.indexOf(a) - sizeOrder.indexOf(b)),
+    colors: Array.from(new Set(variants.map(v => v.color).filter((c): c is string => !!c))),
+    variants: variants.map(v => ({
+      size: v.size ?? undefined, color: v.color ?? undefined,
+      sku: [product.slug, v.color && skuPart(v.color), v.size && skuPart(v.size)].filter(Boolean).join("-"),
+      variantId: v.variantId, printifyProductId: product.printifyId, price: v.priceCents / 100,
+      isAvailable: isApprovedDesign(product) && v.isAvailable,
+      images: product.images.filter(i => i.variantIds.includes(v.variantId)).map(i => i.url),
+    })),
+  };
+}
 
 export async function getCatalogProduct(
   slug: string,

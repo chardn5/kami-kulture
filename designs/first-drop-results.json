@@ -1,0 +1,56 @@
+{
+  "training-arc-mode": {
+    "uploadId": "6add9c0ccf78f111cb627658",
+    "artworkHash": "d43fe8201f7f6ca026dc664ea511ee5f85884dcc997da4857a3f22ed0b5cbd86",
+    "status": "draft-created",
+    "slug": "training-arc-mode",
+    "title": "Training Arc Mode",
+    "variants": 14,
+    "colors": [
+      "Ivory",
+      "Graphite"
+    ],
+    "artworkPixels": "1024x1536",
+    "printWidthInches": 6.5,
+    "effectiveDpi": 158,
+    "retailPrice": 30,
+    "productId": "6add9c0feee2532ed208bb08",
+    "createdAt": "2026-10-25T06:05:08.548Z"
+  },
+  "main-character-energy": {
+    "uploadId": "6add9c1558c0443706fdb103",
+    "artworkHash": "b786f57c8b270a96104f83d7deea71dc3c19a24974536d0cb63d0ce70193da6b",
+    "status": "draft-created",
+    "slug": "main-character-energy",
+    "title": "Main Character Energy",
+    "variants": 13,
+    "colors": [
+      "Graphite",
+      "China Blue"
+    ],
+    "artworkPixels": "1024x1536",
+    "printWidthInches": 6.5,
+    "effectiveDpi": 158,
+    "retailPrice": 30,
+    "productId": "6add9c178811741b2b0b94c2",
+    "createdAt": "2026-10-25T06:05:15.686Z"
+  },
+  "lowkey-overpowered": {
+    "uploadId": "6add9c1c69cd53f78f7f51fa",
+    "artworkHash": "132a76a4b78bc13508399665c02b7b0899adfbcea967e98aadedd655ed326a40",
+    "status": "draft-created",
+    "slug": "lowkey-overpowered",
+    "title": "Lowkey Overpowered",
+    "variants": 13,
+    "colors": [
+      "Graphite",
+      "China Blue"
+    ],
+    "artworkPixels": "1024x1536",
+    "printWidthInches": 6.5,
+    "effectiveDpi": 158,
+    "retailPrice": 30,
+    "productId": "6add9c1d0059fe8df003433b",
+    "createdAt": "2026-10-25T06:05:22.165Z"
+  }
+}

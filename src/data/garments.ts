@@ -59,6 +59,7 @@ export const garments = {
   }
 >;
 
-export function getGarment(slug: string) {
+export function getGarment(slug: string, garmentKey?: string) {
+  if (garmentKey === "comfort-colors-1717") return garments.powerover9000;
   return garments[slug as keyof typeof garments];
 }

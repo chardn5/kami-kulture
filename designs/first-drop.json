@@ -1,0 +1,30 @@
+{
+  "templateProductId": "689e27a7e99e06b0d50247c8",
+  "garmentKey": "comfort-colors-1717",
+  "retailPriceCents": 3000,
+  "frontWidthInches": 6.5,
+  "minimumDpi": 150,
+  "designs": [
+    {
+      "slug": "training-arc-mode",
+      "title": "Training Arc Mode",
+      "description": "Your next training arc starts here. A bold lifting graphic and red progress bar on a relaxed, garment-dyed Comfort Colors tee.",
+      "artwork": "Kami Kulture Photos/Designs/Print-ready/training-arc-mode.png",
+      "colors": ["Ivory", "Graphite"]
+    },
+    {
+      "slug": "main-character-energy",
+      "title": "Main Character Energy",
+      "description": "Take the lead. Distressed cream lettering and manga-inspired speed lines on a relaxed, garment-dyed Comfort Colors tee.",
+      "artwork": "Kami Kulture Photos/Designs/Print-ready/main-character-energy.png",
+      "colors": ["Graphite", "China Blue"]
+    },
+    {
+      "slug": "lowkey-overpowered",
+      "title": "Lowkey Overpowered",
+      "description": "Quiet presence. Unreasonable power. White statement lettering and watchful eyes on a relaxed, garment-dyed Comfort Colors tee.",
+      "artwork": "Kami Kulture Photos/Designs/Print-ready/lowkey-overpowered.png",
+      "colors": ["Graphite", "China Blue"]
+    }
+  ]
+}

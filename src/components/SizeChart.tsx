@@ -2,9 +2,9 @@
 import { useState } from "react";
 import { getGarment } from "@/data/garments";
 
-export default function SizeChart({ slug }: { slug: string }) {
+export default function SizeChart({ slug, garmentKey }: { slug: string; garmentKey?: string }) {
   const [unit, setUnit] = useState<"in" | "cm">("in");
-  const garment = getGarment(slug);
+  const garment = getGarment(slug, garmentKey);
   if (!garment) return null;
   const measure = (n: number) =>
     (unit === "cm" ? n * 2.54 : n)

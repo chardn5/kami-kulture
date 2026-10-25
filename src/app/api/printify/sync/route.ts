@@ -2,6 +2,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
+import { MANAGED_DESIGN_TAG } from '@/lib/designMetadata';
+import { syncDesignDraft } from '@/lib/designCatalog';
 import {
   getEnvShopId,
   listProducts,
@@ -111,6 +113,11 @@ export async function POST(req: NextRequest) {
     let updated = 0;
 
     for (const p of products) {
+      if (p.tags?.includes(MANAGED_DESIGN_TAG)) {
+        await syncDesignDraft(p.id);
+        updated += 1;
+        continue;
+      }
       // Compute price range from enabled+available variants
       const activeVariants = (p.variants ?? []).filter(v => v.is_enabled && v.is_available);
       const prices = activeVariants.map(v => v.price);

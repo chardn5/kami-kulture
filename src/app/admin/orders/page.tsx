@@ -172,6 +172,7 @@ export default async function AdminOrders({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <Link href="/admin/designs" className="kk-focus inline-flex h-10 items-center rounded-md border border-[#f7f1df]/18 px-3 text-sm font-semibold">Designs</Link>
           <a
             href={`/api/orders?${exportQS.toString()}`}
             className="kk-focus inline-flex h-10 items-center rounded-md border border-[#f7f1df]/18 px-3 text-sm font-semibold hover:bg-[#f7f1df]/8"
