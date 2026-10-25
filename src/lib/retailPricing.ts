@@ -9,3 +9,10 @@ export function retailPriceCents(size?: string | null) {
   if (!price) throw new Error(`UNSUPPORTED_RETAIL_SIZE:${normalized}`);
   return price;
 }
+
+export function refreshCartRetailPrices<T extends { size?: string; price: number }>(items: T[]): T[] {
+  return items.map(item => {
+    const cents = RETAIL_PRICES_CENTS[(item.size ?? '').trim().toUpperCase()];
+    return cents ? { ...item, price: cents / 100 } : item;
+  });
+}

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { safeAdminNext, validAdminCredentials } from '../src/lib/adminLogin';
 import { createAdminSessionToken, verifyAdminSessionToken } from '../src/lib/adminSession';
-import { retailPriceCents } from '../src/lib/retailPricing';
+import { retailPriceCents, refreshCartRetailPrices } from '../src/lib/retailPricing';
 import { estimatePaymentFee } from '../src/lib/pricing';
 import { paypalEventSchema, processPayPalEvent, webhookOrderId, webhookVerificationPayload, type PayPalEvent } from '../src/lib/paypalWebhook';
 import { isSameOriginRequest } from '../src/lib/requestOrigin';
@@ -39,6 +39,9 @@ test('retail pricing has approved size tiers and rejects unknown sizes', () => {
   assert.equal(retailPriceCents('4XL'), 4499); assert.equal(retailPriceCents('5XL'), 4499);
   assert.throws(() => retailPriceCents('mystery'));
   assert.equal(estimatePaymentFee(30), 1.62);
+  const saved = [{ size: '4XL', price: 30, qty: 2 }];
+  assert.deepEqual(refreshCartRetailPrices(saved), [{ size: '4XL', price: 44.99, qty: 2 }]);
+  assert.equal(saved[0].price, 30);
 });
 
 const event: PayPalEvent = { id: 'WH-TEST', event_type: 'PAYMENT.CAPTURE.COMPLETED', resource: { id: 'CAPTURE123456', supplementary_data: { related_ids: { order_id: 'PAYPAL1234567' } } } };

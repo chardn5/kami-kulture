@@ -2,6 +2,7 @@
 import { useEffect } from "react";
 import { create } from "zustand";
 import { z } from "zod";
+import { refreshCartRetailPrices } from '@/lib/retailPricing';
 
 export type CartItem = {
   sku: string;
@@ -50,9 +51,9 @@ const savedCartSchema = z
 const load = (): CartItem[] => {
   if (typeof window === "undefined") return [];
   try {
-    return savedCartSchema.parse(
+    return refreshCartRetailPrices(savedCartSchema.parse(
       JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"),
-    );
+    ));
   } catch {
     return [];
   }
@@ -83,6 +84,7 @@ export const useCart = create<CartState>((set, get) => ({
     if (idx >= 0)
       items[idx] = {
         ...items[idx],
+        ...item,
         qty: Math.min(20, items[idx].qty + item.qty),
       };
     else items.push(item);
