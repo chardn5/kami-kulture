@@ -26,7 +26,7 @@ export const products: StaticProduct[] = [
       "/images/products/over9000/Back.png",
       "/images/products/over9000/Folded.png"
     ],
-    description: "Premium cotton tee with Meme front print.",
+    description: "Heavy lifts. Bigger appetites. An anime-inspired gym graphic on a relaxed garment-dyed tee, with a Kami Kulture back print.",
     designId: "over9000",
     tags: ["tee","cotton","unisex"],
     sizes: ["S","M","L","XL","2XL"],
@@ -35,8 +35,6 @@ export const products: StaticProduct[] = [
     printifyColorMap: {
       "Navy Blue": "Navy"
     },
-    rating: 5.0,
-    ratingCount: 10,
   },
   {
     slug: "sorryimlate",
@@ -48,7 +46,7 @@ export const products: StaticProduct[] = [
       "/images/products/sorryimlate/Hanging%201.png",
       "/images/products/sorryimlate/Front%20Collar%20Closeup.png"
     ],
-    description: "Sorry I'm late",
+    description: "For the entrance that needs no explanation. A playful statement print on a classic unisex cotton tee.",
     designId: "sorryimlate",
     tags: ["tee","cotton","unisex"],
     sizes: ["S","M","L","XL","2XL"],
@@ -57,7 +55,5 @@ export const products: StaticProduct[] = [
     printifyColorMap: {
       "Pink": "Light Pink"
     },
-    rating: 4.5,
-    ratingCount: 10,
   }
 ];

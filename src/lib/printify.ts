@@ -1,21 +1,25 @@
 // src/lib/printify.ts
 // Lightweight Printify API wrapper for server-side use in Next.js (Node runtime)
 
-const PRINTIFY_BASE = 'https://api.printify.com/v1';
+const PRINTIFY_BASE = "https://api.printify.com/v1";
 
 function getApiToken(): string {
   const token = process.env.PRINTIFY_API_TOKEN;
   if (!token) {
-    throw new Error('Missing PRINTIFY_API_TOKEN in environment.');
+    throw new Error("Missing PRINTIFY_API_TOKEN in environment.");
   }
   return token;
 }
 
-type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE';
+type HttpMethod = "GET" | "POST" | "PUT" | "DELETE";
 
 async function callPrintify<T>(
   path: string,
-  opts: { method?: HttpMethod; body?: unknown; search?: Record<string, string | number | boolean | undefined> } = {}
+  opts: {
+    method?: HttpMethod;
+    body?: unknown;
+    search?: Record<string, string | number | boolean | undefined>;
+  } = {},
 ): Promise<T> {
   const url = new URL(`${PRINTIFY_BASE}${path}`);
   if (opts.search) {
@@ -25,20 +29,28 @@ async function callPrintify<T>(
   }
 
   const res = await fetch(url.toString(), {
-    method: opts.method ?? 'GET',
+    method: opts.method ?? "GET",
     headers: {
       Authorization: `Bearer ${getApiToken()}`,
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
+      "User-Agent": "KamiKulture/1.0",
     },
     // Only include body for non-GET
-    body: opts.method && opts.method !== 'GET' ? JSON.stringify(opts.body ?? {}) : undefined,
+    body:
+      opts.method && opts.method !== "GET"
+        ? JSON.stringify(opts.body ?? {})
+        : undefined,
     // Ensure we never cache API results in Next.js
-    cache: 'no-store',
+    cache: "no-store",
+    signal: AbortSignal.timeout(15000),
   });
 
   if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`Printify API error ${res.status} ${res.statusText}: ${text}`);
+    const text = await res.text().catch(() => "");
+    console.error("[printify] request failed", res.status, text.slice(0, 500));
+    throw new Error(
+      res.status === 401 ? "PRINTIFY_AUTH_FAILED" : "PRINTIFY_UNAVAILABLE",
+    );
   }
 
   return (await res.json()) as T;
@@ -70,7 +82,7 @@ export type PrintifyVariant = {
 
 export type PrintifyOption = {
   name: string; // e.g., "Color"
-  type: 'color' | 'size' | 'dropdown';
+  type: "color" | "size" | "dropdown";
   values: { id: number; title: string; color?: string }[];
 };
 
@@ -99,30 +111,39 @@ export type ListProductsResponse = {
 
 /** Get shops connected to this Printify account */
 export async function getShops() {
-  return callPrintify<PrintifyShop[]>('/shops.json');
+  return callPrintify<PrintifyShop[]>("/shops.json");
 }
 
 /** List products for a shop (paginated) */
-export async function listProducts(shopId: number | string, params?: { page?: number; limit?: number; status?: 'all' | 'published' | 'draft' }) {
+export async function listProducts(
+  shopId: number | string,
+  params?: {
+    page?: number;
+    limit?: number;
+    status?: "all" | "published" | "draft";
+  },
+) {
   return callPrintify<ListProductsResponse>(`/shops/${shopId}/products.json`, {
     search: {
       page: params?.page ?? 1,
       limit: params?.limit ?? 30, // Printify default is 30
-      status: params?.status ?? 'published',
+      status: params?.status ?? "published",
     },
   });
 }
 
 /** Get a single product (full detail) */
 export async function getProduct(shopId: number | string, productId: string) {
-  return callPrintify<PrintifyProduct>(`/shops/${shopId}/products/${productId}.json`);
+  return callPrintify<PrintifyProduct>(
+    `/shops/${shopId}/products/${productId}.json`,
+  );
 }
 
 /** ====== Order creation (to be used after PayPal capture) ====== */
 
 export type PrintifyOrderLineItem = {
-  product_id: string;     // Printify product ID
-  variant_id: number;     // Variant ID chosen by customer
+  product_id: string; // Printify product ID
+  variant_id: number; // Variant ID chosen by customer
   quantity: number;
 };
 
@@ -134,16 +155,16 @@ export type PrintifyAddress = {
   address1: string;
   address2?: string;
   city: string;
-  region?: string;        // state/province
+  region?: string; // state/province
   zip: string;
-  country: string;        // ISO2, e.g., "PH"
+  country: string; // ISO2, e.g., "PH"
 };
 
 export type CreateOrderPayload = {
-  external_id?: string;           // your internal order id
-  label?: string;                 // optional
+  external_id?: string; // your internal order id
+  label?: string; // optional
   line_items: PrintifyOrderLineItem[];
-  shipping_method?: number;       // 1 = Economy, 2 = Standard, 3 = Express (varies by provider)
+  shipping_method?: number; // 1 = Standard, 4 = Economy
   send_shipping_notification?: boolean;
   address_to: PrintifyAddress;
 };
@@ -191,9 +212,12 @@ export type PrintifyOrder = CreateOrderResponse & {
 };
 
 /** Create an order in Printify for fulfillment */
-export async function createOrder(shopId: number | string, payload: CreateOrderPayload) {
+export async function createOrder(
+  shopId: number | string,
+  payload: CreateOrderPayload,
+) {
   return callPrintify<CreateOrderResponse>(`/shops/${shopId}/orders.json`, {
-    method: 'POST',
+    method: "POST",
     body: payload,
   });
 }
@@ -203,11 +227,27 @@ export async function getOrder(shopId: number | string, orderId: string) {
   return callPrintify<PrintifyOrder>(`/shops/${shopId}/orders/${orderId}.json`);
 }
 
+export async function calculateShipping(
+  shopId: number,
+  payload: Pick<CreateOrderPayload, "line_items" | "address_to">,
+) {
+  return callPrintify<{ standard?: number; economy?: number }>(
+    `/shops/${shopId}/orders/shipping.json`,
+    {
+      method: "POST",
+      body: payload,
+    },
+  );
+}
+
 /** Convenience: read SHOP_ID from env with a safe fallback */
 export function getEnvShopId(): number {
   const raw = process.env.PRINTIFY_SHOP_ID;
-  if (!raw) throw new Error('Missing PRINTIFY_SHOP_ID in environment.');
+  if (!raw) throw new Error("Missing PRINTIFY_SHOP_ID in environment.");
   const id = Number(raw);
-  if (Number.isNaN(id)) throw new Error('PRINTIFY_SHOP_ID must be numeric (from Printify dashboard).');
+  if (Number.isNaN(id))
+    throw new Error(
+      "PRINTIFY_SHOP_ID must be numeric (from Printify dashboard).",
+    );
   return id;
 }

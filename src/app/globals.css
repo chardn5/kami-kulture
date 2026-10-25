@@ -75,6 +75,16 @@ html, body {
   box-shadow: 0 0 0 3px rgba(53, 215, 242, 0.55);
 }
 
+.kk-eyebrow { font-size: 0.75rem; font-weight: 800; text-transform: uppercase; color: var(--kk-cyan); }
+.kk-button { display: inline-flex; min-height: 3rem; align-items: center; justify-content: center; border-radius: 6px; padding: 0.75rem 1.25rem; background: var(--kk-ink); color: #111; font-size: 0.875rem; font-weight: 800; transition: background 150ms; }
+.kk-button:hover { background: var(--kk-lime); }
+.kk-button:focus-visible, .kk-icon:focus-visible { outline: 2px solid var(--kk-cyan); outline-offset: 4px; }
+.kk-icon { display: inline-flex; width: 2.75rem; height: 2.75rem; flex-shrink: 0; align-items: center; justify-content: center; border: 1px solid var(--kk-border); border-radius: 6px; }
+.kk-icon:hover { background: rgba(255,255,255,0.08); }
+.kk-dialog { max-height: calc(100dvh - 2rem); overflow-y: auto; }
+.kk-dialog::backdrop { background: rgba(0,0,0,0.8); }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; } }
+
 /* ---------- Global form inputs (dark look) ---------- */
 /* NOTE: we DO NOT set color-scheme globally to avoid affecting PayPal iframes. */
 @layer base {

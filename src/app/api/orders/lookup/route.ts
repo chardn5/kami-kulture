@@ -42,6 +42,7 @@ export async function POST(req: NextRequest) {
   const order = await prisma.order.findFirst({
     where: {
       id: orderID,
+      status: { not: 'PENDING_PAYMENT' },
       OR: [
         { payerEmail: { equals: email, mode: 'insensitive' } },
         { buyerEmail: { equals: email, mode: 'insensitive' } },

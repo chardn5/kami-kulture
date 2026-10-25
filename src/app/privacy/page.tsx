@@ -3,7 +3,7 @@ export const metadata = {
   description: "How Kami Kulture collects and uses information.",
 };
 
-const lastUpdated = "May 24, 2026";
+const lastUpdated = "October 25, 2026";
 
 export default function PrivacyPage() {
   return (
@@ -29,6 +29,11 @@ export default function PrivacyPage() {
           Payments are processed by PayPal. Transaction details may be shared with PayPal to
           prevent fraud and complete your purchase.
         </p>
+        <p>We share your delivery address, contact information, and selected items with Printify and its production and delivery partners to calculate shipping, print your products, and deliver your order. Our hosting and database providers process order data to operate this store, and our email provider delivers transactional messages.</p>
+        <h2 className="text-lg font-black text-[#f7f1df]">Browser Storage</h2>
+        <p>Your browser stores your cart so it can be restored when you return. Admin sessions use authentication cookies. Clearing browser storage removes your saved cart. Shipping details entered during checkout are sent to our server and fulfillment partner when calculating a delivery quote.</p>
+        <h2 className="text-lg font-black text-[#f7f1df]">Order Records</h2>
+        <p>Order records include the items, delivery details, payment references, and status history needed for fulfillment, support, fraud prevention, and record keeping. Access is limited to the people and service providers needed to operate the store.</p>
         <h2 className="text-lg font-black text-[#f7f1df]">Your Rights</h2>
         <p>
           You may request deletion or export of your data. Contact us at{" "}

@@ -135,7 +135,7 @@ function TrackOrderInner() {
   const statusMeta = getOrderStatusMeta(found?.status);
 
   return (
-    <main className="kk-container max-w-5xl py-10 sm:py-14">
+    <div className="kk-container max-w-5xl py-10 sm:py-14">
       <section className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr] lg:items-start">
         <div>
           <p className="text-sm font-black uppercase text-[#ff4f5f]">Order status</p>
@@ -321,13 +321,13 @@ function TrackOrderInner() {
           Contact support
         </a>
       </div>
-    </main>
+    </div>
   );
 }
 
 export default function TrackOrderPage() {
   return (
-    <Suspense fallback={<main className="kk-container max-w-5xl py-14 text-center">Loading...</main>}>
+    <Suspense fallback={<div className="kk-container max-w-5xl py-14 text-center">Loading...</div>}>
       <TrackOrderInner />
     </Suspense>
   );

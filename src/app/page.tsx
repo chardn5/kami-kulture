@@ -24,7 +24,7 @@ export default async function HomePage() {
         <div className="kk-container relative z-10 pb-12 pt-16">
           <div className="max-w-2xl">
             <p className="mb-4 inline-flex rounded-md border border-[#d6ff57]/40 bg-[#d6ff57]/12 px-3 py-1 text-xs font-black uppercase text-[#d6ff57]">
-              New print-on-demand drops
+              Made for your daily rotation
             </p>
             <h1 className="text-5xl font-black leading-[0.95] text-[#f7f1df] md:text-7xl">
               Kami Kulture
@@ -53,9 +53,9 @@ export default async function HomePage() {
       <section className="border-y border-[#f7f1df]/10 bg-[#171711]">
         <div className="kk-container grid gap-px py-0 md:grid-cols-3">
           {[
-            ["Original artwork", "Inspired by anime culture without using protected characters."],
-            ["Printed on demand", "Each shirt is produced after checkout to keep inventory lean."],
-            ["PayPal checkout", "Card and wallet options route through PayPal's secure flow."],
+            ["Pick your fit", "Relaxed and classic unisex tees. Check the garment-specific size guide before you choose."],
+            ["Printed for you", "Made after you order. Allow 3-7 business days for production before shipping."],
+            ["Follow your order", "Keep your order ID and checkout email to follow production and delivery."],
           ].map(([title, body]) => (
             <div key={title} className="border-[#f7f1df]/10 py-5 md:border-l md:px-6 md:first:border-l-0">
               <p className="text-sm font-black uppercase text-[#35d7f2]">{title}</p>
@@ -79,7 +79,7 @@ export default async function HomePage() {
               View all products
             </Link>
           </div>
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-6 sm:grid-cols-2">
             {featured.map((p) => (
               <ProductCard key={p.slug} product={p} />
             ))}

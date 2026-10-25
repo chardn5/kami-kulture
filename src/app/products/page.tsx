@@ -3,7 +3,7 @@ import { getCatalogProducts } from '@/lib/catalog';
 import ProductsClient from './ProductsClient';
 
 export const metadata = {
-  title: 'Products | Kami Kulture',
+  title: 'Shop',
   description: 'Browse Kami Kulture designs and merch.',
 };
 

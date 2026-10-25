@@ -3,7 +3,7 @@ export const metadata = {
   description: "The terms that govern using Kami Kulture.",
 };
 
-const lastUpdated = "May 24, 2026";
+const lastUpdated = "October 25, 2026";
 
 export default function TermsPage() {
   return (
@@ -18,6 +18,9 @@ export default function TermsPage() {
           By placing an order you confirm that you are authorized to use the selected payment method.
           Orders may be canceled or refunded at our discretion if fraudulent or unavailable.
         </p>
+        <p>Prices are in USD. Shipping is calculated for your items and delivery address before payment. A payment authorization is not an order confirmation; we confirm the order after the payment processor reports a completed payment.</p>
+        <h2 className="text-lg font-black text-[#f7f1df]">Production & Delivery</h2>
+        <p>Items are made to order through Printify and its production partners. Production and transit estimates are not guaranteed delivery dates. Review the shipping and returns policy before ordering and check the size guide for your selected garment.</p>
         <h2 className="text-lg font-black text-[#f7f1df]">Intellectual Property</h2>
         <p>
           Artwork and content are owned by Kami Kulture. You may not reproduce or resell designs

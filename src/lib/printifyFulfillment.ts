@@ -40,7 +40,8 @@ export type PrintifyReadiness = {
 };
 
 export function isPrintifyAutoSubmitEnabled() {
-  return ['1', 'true', 'yes'].includes((process.env.PRINTIFY_AUTO_SUBMIT ?? '').toLowerCase());
+  const live = ['live', 'production'].includes(process.env.PAYPAL_ENV ?? 'sandbox');
+  return live && ['1', 'true', 'yes'].includes((process.env.PRINTIFY_AUTO_SUBMIT ?? '').toLowerCase());
 }
 
 export function printifyShippingMethod() {

@@ -10,6 +10,14 @@ const faqs = [
       "Items are printed on demand, so production usually takes 3-7 business days before shipping. Tracking appears once the carrier provides it.",
   },
   {
+    question: "How much does shipping cost?",
+    answer: "Enter your delivery details at checkout to get a standard shipping quote for your items and address before payment. If shipping cannot be confirmed, checkout will ask you to contact support. All prices are in USD; import fees may apply on arrival.",
+  },
+  {
+    question: "Why do the shirts have different size charts?",
+    answer: "Our designs use different garments. Open Size guide beside the size selector to see measurements in inches or centimeters for that design. Compare with a shirt you already own before ordering.",
+  },
+  {
     question: "Can I change my address after ordering?",
     answer:
       "Contact support as soon as possible. If production has not started, we will try to update the order. Once production starts, address changes may no longer be possible.",
@@ -33,7 +41,7 @@ export const metadata = {
 
 export default function FaqPage() {
   return (
-    <main className="kk-container max-w-3xl py-12 text-[#f7f1df]">
+    <div className="kk-container max-w-3xl py-12 text-[#f7f1df]">
       <p className="text-sm font-black uppercase text-[#d6ff57]">Help center</p>
       <h1 className="mt-2 text-3xl font-black">FAQ</h1>
       <div className="mt-8 space-y-3">
@@ -44,6 +52,6 @@ export default function FaqPage() {
           </section>
         ))}
       </div>
-    </main>
+    </div>
   );
 }

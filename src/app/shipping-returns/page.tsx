@@ -3,7 +3,7 @@ export const metadata = {
   description: "Production times, shipping, returns and exchanges.",
 };
 
-const lastUpdated = "May 24, 2026";
+const lastUpdated = "October 25, 2026";
 
 export default function ShippingReturnsPage() {
   return (
@@ -22,11 +22,15 @@ export default function ShippingReturnsPage() {
 
         <h2 className="text-lg font-black text-[#f7f1df]">Shipping</h2>
         <ul className="list-disc space-y-1 pl-5">
-          <li>Flat shipping is currently $7.99 for eligible checkout regions.</li>
-          <li>Orders over $75 currently qualify for free shipping.</li>
+          <li>Shipping is calculated for your actual items and delivery address before payment.</li>
+          <li>Checkout confirms whether standard delivery is available for your destination. If no rate is available, payment stays disabled.</li>
+          <li>All prices and shipping charges are shown in US dollars (USD). Your payment provider may apply currency conversion.</li>
           <li>Tracking is sent when the carrier provides it.</li>
           <li>Transit times vary by destination and carrier.</li>
+          <li>Production time and transit time are separate. International orders may take longer due to customs and local delivery.</li>
+          <li>Import duties, customs fees, and local taxes charged on arrival are not included in the checkout total and may be payable by the recipient.</li>
         </ul>
+        <p>We do not promise a delivery date before a carrier estimate is available. If you need a shirt for a particular event, contact support before ordering. Multiple items may ship separately.</p>
 
         <h2 className="text-lg font-black text-[#f7f1df]">Returns & Exchanges</h2>
         <p>

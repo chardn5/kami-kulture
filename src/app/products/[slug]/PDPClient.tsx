@@ -1,300 +1,381 @@
-'use client';
+"use client";
 
-import { useMemo, useState, useEffect } from 'react';
-import Image from 'next/image';
-import Link from 'next/link';
-import { formatPrice } from '@/lib/format';
-import { useCart } from '@/lib/cartStore';
-import type { CatalogProduct, CatalogVariant } from '@/lib/catalog';
+import { useRef, useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  Ruler,
+  ShoppingBag,
+  Truck,
+  X,
+} from "lucide-react";
+import { formatPrice } from "@/lib/format";
+import { useCart } from "@/lib/cartStore";
+import type { CatalogProduct } from "@/lib/catalog";
+import { getGarment } from "@/data/garments";
+import SizeChart from "@/components/SizeChart";
 
 const swatches: Record<string, string> = {
-  black: '#080807',
-  white: '#f4efe2',
-  red: '#d83342',
-  pink: '#f3a2bd',
-  navy: '#263b63',
-  'navy blue': '#263b63',
+  graphite: "#50504c",
+  ivory: "#e9e3c9",
+  "china blue": "#556b8d",
+  white: "#f4f2e9",
+  "light pink": "#efb6c7",
+  "heather red": "#b74b55",
 };
 
-function uniqueDefined(values: Array<string | undefined>) {
-  return Array.from(new Set(values.filter((value): value is string => Boolean(value))));
-}
-
-function firstVariantValue(
-  variants: CatalogVariant[] | undefined,
-  key: 'size' | 'color',
-  fallback?: string[]
-) {
-  return variants?.find((variant) => variant[key])?.[key] ?? fallback?.[0] ?? '';
-}
-
-function skuPart(value: string) {
-  return value
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-}
-
-function swatchStyle(color: string) {
-  return { backgroundColor: swatches[color.toLowerCase()] ?? '#6f6a5f' };
-}
-
-export default function PDPClient({ product, recs }: { product: CatalogProduct; recs: CatalogProduct[] }) {
-  const colorsFromVariants = useMemo(() => {
-    const colors = uniqueDefined(product.variants?.map((variant) => variant.color) ?? []);
-    return colors.length ? colors : product.colors ?? [];
-  }, [product.colors, product.variants]);
-
-  const [selectedColor, setSelectedColor] = useState<string>(
-    firstVariantValue(product.variants, 'color', product.colors)
+export default function PDPClient({
+  product,
+  recs,
+}: {
+  product: CatalogProduct;
+  recs: CatalogProduct[];
+}) {
+  const available = product.variants?.filter((v) => v.isAvailable) ?? [];
+  const first = available[0];
+  const [color, setColor] = useState(first?.color ?? product.colors?.[0] ?? "");
+  const [size, setSize] = useState(first?.size ?? product.sizes?.[0] ?? "");
+  const [gallery, setGallery] = useState({ color, index: 0 });
+  const [added, setAdded] = useState(false);
+  const add = useCart((s) => s.add);
+  const sizeDialog = useRef<HTMLDialogElement>(null);
+  const variant = product.variants?.find(
+    (v) => v.color === color && v.size === size,
   );
-
-  const sizesFromVariants = useMemo(() => {
-    const variants = product.variants ?? [];
-    const matchingVariants = selectedColor
-      ? variants.filter((variant) => variant.color === selectedColor)
-      : variants;
-    const sizes = uniqueDefined(matchingVariants.map((variant) => variant.size));
-    if (sizes.length) return sizes;
-    if (product.sizes?.length) return product.sizes;
-    return ['S', 'M', 'L', 'XL', '2XL'];
-  }, [product.sizes, product.variants, selectedColor]);
-
-  const [selectedSize, setSelectedSize] = useState<string>(
-    firstVariantValue(product.variants, 'size', product.sizes) || 'M'
+  const colorVariant = product.variants?.find(
+    (v) => v.color === color && v.images?.length,
   );
-  const images = product.images?.length ? product.images : ['/placeholder.jpg'];
-  const [mainIdx, setMainIdx] = useState(0);
+  const images = colorVariant?.images?.length
+    ? colorVariant.images.slice(0, 8)
+    : product.images;
+  const mainIndex =
+    gallery.color === color && gallery.index < images.length
+      ? gallery.index
+      : 0;
+  const garment = getGarment(product.slug);
 
-  const addToCart = useCart(s => s.add);
-  const [justAdded, setJustAdded] = useState(false);
-
-  useEffect(() => {
-    if (!colorsFromVariants.length) return;
-    if (!colorsFromVariants.includes(selectedColor)) {
-      setSelectedColor(colorsFromVariants[0] ?? '');
+  function chooseColor(next: string) {
+    setColor(next);
+    setGallery({ color: next, index: 0 });
+    setAdded(false);
+    if (
+      !product.variants?.some(
+        (v) => v.color === next && v.size === size && v.isAvailable,
+      )
+    ) {
+      setSize(
+        product.variants?.find((v) => v.color === next && v.isAvailable)
+          ?.size ?? "",
+      );
     }
-  }, [colorsFromVariants, selectedColor]);
-
-  useEffect(() => {
-    if (!sizesFromVariants.includes(selectedSize)) {
-      setSelectedSize(sizesFromVariants[0] ?? '');
-    }
-  }, [selectedSize, sizesFromVariants]);
-
-  const activeVariant = useMemo(() => {
-    const variants = product.variants ?? [];
-    if (!variants.length) return undefined;
-
-    return (
-      variants.find(
-        (variant) =>
-          (!selectedColor || variant.color === selectedColor) &&
-          (!selectedSize || variant.size === selectedSize)
-      ) ??
-      variants.find((variant) => !selectedSize || variant.size === selectedSize) ??
-      variants[0]
-    );
-  }, [product.variants, selectedColor, selectedSize]);
-
-  const activePrice = activeVariant?.price ?? product.price;
-
-  const activeSku = useMemo(() => {
-    const fallbackOptions = [selectedColor, selectedSize].filter(Boolean).map(skuPart);
-    return activeVariant?.sku || [product.slug, ...fallbackOptions].filter(Boolean).join('-');
-  }, [activeVariant?.sku, product.slug, selectedColor, selectedSize]);
-
-  const handleAddToCart = () => {
-    addToCart({
-      sku: activeSku,
+  }
+  function addItem() {
+    if (!variant?.isAvailable || !variant.sku || !variant.variantId) return;
+    add({
+      sku: variant.sku,
       title: product.title,
-      price: activePrice,
-      image: images[0],
-      size: selectedSize,
-      color: selectedColor || undefined,
-      printifyProductId: activeVariant?.printifyProductId ?? product.printifyId,
-      printifyVariantId: activeVariant?.variantId,
       qty: 1,
+      price: product.price,
+      color,
+      size,
+      image: images[0],
+      printifyProductId: variant.printifyProductId,
+      printifyVariantId: variant.variantId,
     });
-    setJustAdded(true);
-  };
-
-  useEffect(() => {
-    if (!justAdded) return;
-    const t = setTimeout(() => setJustAdded(false), 1800);
-    return () => clearTimeout(t);
-  }, [justAdded]);
+    setAdded(true);
+  }
 
   return (
-    <div className="kk-container py-8 lg:py-12">
-      <nav className="mb-6 flex items-center gap-2 text-sm text-[#f7f1df]/58">
-        <Link href="/products" className="kk-focus rounded-md hover:text-[#35d7f2]">
-          Products
-        </Link>
-        <span>/</span>
-        <span className="line-clamp-1 text-[#f7f1df]/76">{product.title}</span>
-      </nav>
-
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]">
-        <section className="min-w-0">
-          <div className="relative aspect-[4/5] overflow-hidden rounded-lg border border-[#f7f1df]/12 bg-[#171711] md:aspect-square">
-            <Image
-              src={images[mainIdx]}
-              alt={product.title}
-              fill
-              priority
-              sizes="(min-width:1024px) 58vw, 100vw"
-              className="object-cover"
-            />
+    <div className="kk-container py-6 md:py-10">
+      <Link
+        href="/products"
+        className="kk-focus mb-6 inline-flex items-center gap-2 text-sm text-[#f7f1df]/60"
+      >
+        <ArrowLeft size={15} /> All designs
+      </Link>
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,.9fr)] lg:gap-12">
+        <section className="min-w-0" aria-label="Product gallery">
+          <div className="relative aspect-[4/5] overflow-hidden rounded-lg bg-[#e8e6e1] md:aspect-square">
+            {images[mainIndex] && (
+              <Image
+                src={images[mainIndex]}
+                alt={`${product.title} in ${color}, view ${mainIndex + 1}`}
+                fill
+                priority
+                sizes="(min-width:1024px) 55vw, 100vw"
+                className="object-contain"
+              />
+            )}
+            <span className="absolute bottom-3 left-3 rounded bg-black/75 px-3 py-1.5 text-xs font-semibold text-white">
+              {colorVariant?.images?.length
+                ? `${color} · Studio mockup`
+                : "Design reference"}
+            </span>
           </div>
-
           {images.length > 1 && (
-            <div className="mt-3 grid grid-cols-4 gap-3 sm:grid-cols-6">
+            <div className="mt-3 grid grid-cols-4 gap-2 sm:grid-cols-8">
               {images.map((src, i) => (
                 <button
                   key={src}
                   type="button"
-                  onClick={() => setMainIdx(i)}
-                  className={`kk-focus relative aspect-square overflow-hidden rounded-md border bg-[#171711] ${
-                    i === mainIdx ? 'border-[#d6ff57]' : 'border-[#f7f1df]/12'
-                  }`}
                   aria-label={`View image ${i + 1}`}
+                  aria-pressed={i === mainIndex}
+                  onClick={() => setGallery({ color, index: i })}
+                  className={`kk-focus relative aspect-square overflow-hidden rounded border bg-[#e8e6e1] ${i === mainIndex ? "border-[#d6ff57] ring-1 ring-[#d6ff57]" : "border-transparent"}`}
                 >
-                  <Image src={src} alt="" fill className="object-cover" sizes="96px" />
+                  <Image
+                    src={src}
+                    alt=""
+                    fill
+                    sizes="90px"
+                    className="object-contain"
+                  />
                 </button>
               ))}
             </div>
           )}
         </section>
-
-        <aside className="self-start rounded-lg border border-[#f7f1df]/12 bg-[#171711] p-5 lg:sticky lg:top-24">
-          <p className="text-xs font-black uppercase text-[#ff4f5f]">Printed on demand</p>
-          <h1 className="mt-2 text-3xl font-black leading-tight text-[#f7f1df] md:text-4xl">
+        <section className="min-w-0 self-start lg:sticky lg:top-24">
+          <p className="kk-eyebrow">Kami Kulture / Graphic tees</p>
+          <h1 className="mt-3 text-3xl font-black leading-tight md:text-4xl">
             {product.title}
           </h1>
-          <p className="mt-4 text-3xl font-black text-[#35d7f2]">{formatPrice(activePrice)}</p>
-          {product.description ? (
-            <p className="mt-4 text-sm leading-6 text-[#f7f1df]/68">{product.description}</p>
-          ) : null}
-
-          <div className="mt-6 space-y-6 border-y border-[#f7f1df]/10 py-6">
-            {colorsFromVariants.length > 0 && (
-              <div>
-                <div className="mb-3 flex items-center justify-between">
-                  <p className="text-sm font-black text-[#f7f1df]">Color</p>
-                  {selectedColor ? <p className="text-sm text-[#f7f1df]/58">{selectedColor}</p> : null}
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {colorsFromVariants.map(color => (
-                    <button
-                      key={color}
-                      type="button"
-                      onClick={() => setSelectedColor(color)}
-                      className={`kk-focus inline-flex h-11 items-center gap-2 rounded-md border px-3 text-sm font-semibold ${
-                        selectedColor === color
-                          ? 'border-[#d6ff57] bg-[#d6ff57]/12 text-[#f7f1df]'
-                          : 'border-[#f7f1df]/14 text-[#f7f1df]/72 hover:bg-[#f7f1df]/8'
-                      }`}
-                    >
-                      <span
-                        className="h-4 w-4 rounded-full border border-[#f7f1df]/28"
-                        style={swatchStyle(color)}
-                      />
-                      {color}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div>
-              <div className="mb-3 flex items-center justify-between">
-                <p className="text-sm font-black text-[#f7f1df]">Size</p>
-                <p className="text-sm text-[#f7f1df]/58">{selectedSize}</p>
-              </div>
-              <div className="grid grid-cols-5 gap-2">
-                {sizesFromVariants.map(size => (
-                  <button
-                    key={size}
-                    type="button"
-                    onClick={() => setSelectedSize(size)}
-                    className={`kk-focus h-11 rounded-md border text-sm font-black ${
-                      selectedSize === size
-                        ? 'border-[#f7f1df] bg-[#f7f1df] text-black'
-                        : 'border-[#f7f1df]/14 text-[#f7f1df]/72 hover:bg-[#f7f1df]/8'
-                    }`}
-                  >
-                    {size}
-                  </button>
-                ))}
-              </div>
+          <p className="mt-4 text-2xl font-bold">
+            {formatPrice(product.price)}{" "}
+            <span className="text-xs font-medium text-[#f7f1df]/50">USD</span>
+          </p>
+          <p className="mt-4 text-sm leading-7 text-[#f7f1df]/70">
+            {product.description}
+          </p>
+          <div className="mt-7 border-t border-white/15 pt-5">
+            <p className="mb-3 text-sm font-bold">
+              Color{" "}
+              <span className="ml-2 font-normal text-[#f7f1df]/60">
+                {color}
+              </span>
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {product.colors?.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  aria-pressed={c === color}
+                  onClick={() => chooseColor(c)}
+                  className={`kk-focus inline-flex min-h-11 items-center gap-2 rounded-md border px-3 text-sm ${c === color ? "border-[#d6ff57] text-[#d6ff57]" : "border-white/20"}`}
+                >
+                  <span
+                    className="h-4 w-4 rounded-full border border-white/20"
+                    style={{ background: swatches[c.toLowerCase()] ?? "#777" }}
+                  />
+                  {c}
+                </button>
+              ))}
             </div>
-          </div>
-
-          <div className="mt-5 grid gap-3 sm:grid-cols-[1fr_auto]">
-            <button
-              onClick={handleAddToCart}
-              className="kk-focus inline-flex h-12 items-center justify-center rounded-md bg-[#f7f1df] px-5 text-sm font-black text-black transition hover:bg-[#d6ff57]"
-              aria-label="Add item to cart"
-            >
-              Add to Cart
-            </button>
-            <Link
-              href="/checkout"
-              className="kk-focus inline-flex h-12 items-center justify-center rounded-md border border-[#f7f1df]/18 px-5 text-sm font-semibold text-[#f7f1df] transition hover:bg-[#f7f1df]/8"
-            >
-              Checkout
-            </Link>
-          </div>
-          {justAdded && <p className="mt-3 text-sm font-semibold text-[#d6ff57]">Added to cart.</p>}
-
-          <div className="mt-5 grid gap-3 text-sm text-[#f7f1df]/70">
-            <div className="flex justify-between border-b border-[#f7f1df]/10 pb-3">
-              <span>Production</span>
-              <span className="font-semibold text-[#f7f1df]">3-7 business days</span>
-            </div>
-            <div className="flex justify-between border-b border-[#f7f1df]/10 pb-3">
-              <span>Fabric</span>
-              <span className="font-semibold text-[#f7f1df]">Soft cotton tee</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Support</span>
-              <span className="font-semibold text-[#f7f1df]">Defect replacements</span>
-            </div>
-          </div>
-        </aside>
-      </div>
-
-      {recs.length > 0 && (
-        <section className="mt-16">
-          <div className="mb-5 flex items-end justify-between gap-4">
-            <div>
-              <p className="text-sm font-black uppercase text-[#ff4f5f]">More designs</p>
-              <h2 className="mt-2 text-2xl font-black text-[#f7f1df]">You might also like</h2>
-            </div>
-            <Link href="/products" className="kk-focus rounded-md text-sm font-semibold text-[#35d7f2]">
-              View all
-            </Link>
-          </div>
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {recs.map(r => (
-              <Link
-                key={r.slug}
-                href={`/products/${r.slug}`}
-                className="kk-focus group overflow-hidden rounded-lg border border-[#f7f1df]/12 bg-[#171711] transition hover:border-[#35d7f2]/55"
+            <div className="mb-3 mt-6 flex items-center justify-between">
+              <p className="text-sm font-bold">
+                Size{" "}
+                <span className="ml-2 font-normal text-[#f7f1df]/60">
+                  {size}
+                </span>
+              </p>
+              <button
+                type="button"
+                onClick={() => sizeDialog.current?.showModal()}
+                className="kk-focus inline-flex items-center gap-1.5 text-sm text-[#35d7f2] underline underline-offset-4"
               >
-                <div className="relative aspect-[4/5] bg-[#0b0b09]">
+                <Ruler size={15} /> Size guide
+              </button>
+            </div>
+            <div className="grid grid-cols-4 gap-2 sm:grid-cols-5">
+              {product.sizes?.map((s) => {
+                const enabled = product.variants?.some(
+                  (v) => v.color === color && v.size === s && v.isAvailable,
+                );
+                return (
+                  <button
+                    key={s}
+                    type="button"
+                    disabled={!enabled}
+                    aria-pressed={s === size}
+                    title={!enabled ? `${s} unavailable in ${color}` : s}
+                    onClick={() => {
+                      setSize(s);
+                      setAdded(false);
+                    }}
+                    className={`kk-focus h-11 rounded-md border text-sm font-bold disabled:cursor-not-allowed disabled:opacity-30 disabled:line-through ${s === size && enabled ? "border-[#f7f1df] bg-[#f7f1df] text-black" : "border-white/20"}`}
+                  >
+                    {s}
+                  </button>
+                );
+              })}
+            </div>
+            <button
+              type="button"
+              disabled={!variant?.isAvailable}
+              onClick={addItem}
+              className="kk-button mt-6 w-full gap-2 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {added ? <Check size={18} /> : <ShoppingBag size={18} />}
+              {!variant?.isAvailable
+                ? "Currently unavailable"
+                : added
+                  ? "Added to your cart"
+                  : "Add to cart"}
+            </button>
+            {added && (
+              <Link
+                href="/checkout"
+                className="kk-focus mt-3 inline-flex w-full items-center justify-center gap-2 py-2 text-sm font-bold text-[#35d7f2]"
+              >
+                Continue to checkout <ArrowRight size={16} />
+              </Link>
+            )}
+            {!available.length && (
+              <p role="status" className="mt-3 text-sm text-[#f7f1df]/60">
+                We are confirming availability with our production partner.{" "}
+                <Link className="underline" href="/contact">
+                  Contact us
+                </Link>{" "}
+                for help.
+              </p>
+            )}
+            <p className="mt-4 flex items-center gap-2 text-xs text-[#f7f1df]/65">
+              <Truck size={16} /> Made to order. Production usually takes 3-7
+              business days.
+            </p>
+            <Link
+              href="/shipping-returns"
+              className="kk-focus mt-2 inline-block text-xs text-[#35d7f2] underline underline-offset-4"
+            >
+              Shipping calculated for your address at checkout
+            </Link>
+          </div>
+          <div className="mt-7 divide-y divide-white/15 border-y border-white/15">
+            <details className="py-4" open>
+              <summary className="kk-focus cursor-pointer text-sm font-bold">
+                The shirt
+              </summary>
+              <p className="mt-3 text-sm leading-6 text-[#f7f1df]/65">
+                {garment?.description}
+              </p>
+              <dl className="mt-3 space-y-2 text-xs">
+                <div className="flex justify-between gap-4">
+                  <dt className="text-[#f7f1df]/50">Garment</dt>
+                  <dd>{garment?.name ?? product.garment}</dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="text-[#f7f1df]/50">Fabric</dt>
+                  <dd className="text-right">{garment?.fabric}</dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="text-[#f7f1df]/50">Weight</dt>
+                  <dd>{garment?.weight}</dd>
+                </div>
+              </dl>
+              <p className="mt-3 text-xs leading-5 text-[#f7f1df]/50">
+                {garment?.notes}
+              </p>
+            </details>
+            <details className="py-4">
+              <summary className="kk-focus cursor-pointer text-sm font-bold">
+                Care & keeping
+              </summary>
+              <p className="mt-3 text-sm leading-6 text-[#f7f1df]/65">
+                Wash inside out in cold water with similar colors. Tumble dry
+                low. Do not iron directly on the print. Follow the care label on
+                your shirt.
+              </p>
+            </details>
+            <details className="py-4">
+              <summary className="kk-focus cursor-pointer text-sm font-bold">
+                Delivery & returns
+              </summary>
+              <p className="mt-3 text-sm leading-6 text-[#f7f1df]/65">
+                Each shirt is printed after ordering. Delivery time is
+                production plus carrier transit. Report damaged, misprinted, or
+                incorrect items within 30 days of delivery. Check your size
+                before ordering; preference and size exchanges are reviewed case
+                by case.
+              </p>
+              <Link
+                href="/shipping-returns"
+                className="kk-focus mt-3 inline-block text-sm text-[#35d7f2] underline"
+              >
+                Full shipping & returns policy
+              </Link>
+            </details>
+          </div>
+        </section>
+      </div>
+      <dialog
+        ref={sizeDialog}
+        aria-labelledby="size-title"
+        className="kk-dialog w-[calc(100%_-_2rem)] max-w-xl rounded-lg border border-white/20 bg-[#171711] p-5 text-[#f7f1df] sm:p-7"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            const r = e.currentTarget.getBoundingClientRect();
+            if (
+              e.clientX < r.left ||
+              e.clientX > r.right ||
+              e.clientY < r.top ||
+              e.clientY > r.bottom
+            )
+              sizeDialog.current?.close();
+          }
+        }}
+      >
+        <div className="mb-5 flex items-center justify-between gap-4">
+          <h2 id="size-title" className="text-xl font-black">
+            Find your fit
+          </h2>
+          <button
+            type="button"
+            aria-label="Close size guide"
+            title="Close size guide"
+            className="kk-icon"
+            onClick={() => sizeDialog.current?.close()}
+          >
+            <X size={20} />
+          </button>
+        </div>
+        <SizeChart slug={product.slug} />
+        <Link
+          href="/size-guide"
+          className="kk-focus mt-4 inline-block text-sm text-[#35d7f2] underline"
+        >
+          How to measure your shirt
+        </Link>
+      </dialog>
+      {!!recs.length && (
+        <section className="mt-16 border-t border-white/15 pt-8">
+          <p className="kk-eyebrow">One more for the rotation</p>
+          <div className="mt-5 grid gap-6 sm:grid-cols-2">
+            {recs.map((p) => (
+              <Link
+                key={p.slug}
+                href={`/products/${p.slug}`}
+                className="kk-focus flex items-center gap-5"
+              >
+                <div className="relative aspect-square w-28 shrink-0 overflow-hidden rounded bg-white/5">
                   <Image
-                    src={r.images?.[0] ?? '/placeholder.jpg'}
-                    alt={r.title}
+                    src={p.images[0]}
+                    alt={p.title}
                     fill
+                    sizes="112px"
                     className="object-cover"
-                    sizes="(min-width:1024px) 33vw, (min-width:640px) 50vw, 100vw"
                   />
                 </div>
-                <div className="flex items-center justify-between gap-3 p-4">
-                  <p className="line-clamp-1 text-sm font-black text-[#f7f1df]">{r.title}</p>
-                  <p className="text-sm font-black text-[#35d7f2]">{formatPrice(r.price)}</p>
+                <div>
+                  <h2 className="font-bold">{p.title}</h2>
+                  <p className="mt-2 text-sm text-[#f7f1df]/65">
+                    {formatPrice(p.price)}
+                  </p>
+                  <span className="mt-3 inline-flex items-center gap-2 text-sm text-[#35d7f2]">
+                    View design <ArrowRight size={15} />
+                  </span>
                 </div>
               </Link>
             ))}

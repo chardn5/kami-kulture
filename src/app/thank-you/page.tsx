@@ -140,7 +140,7 @@ function ThankYouInner() {
   const statusMeta = getOrderStatusMeta(verified?.status);
 
   return (
-    <main className="kk-container max-w-4xl py-10 sm:py-14">
+    <div className="kk-container max-w-4xl py-10 sm:py-14">
       <section className="text-center">
         <p className="text-sm font-black uppercase text-[#d6ff57]">Order confirmed</p>
         <h1 className="mt-2 text-4xl font-black sm:text-5xl">Thank you</h1>
@@ -326,13 +326,13 @@ function ThankYouInner() {
           </div>
         </aside>
       </section>
-    </main>
+    </div>
   );
 }
 
 export default function ThankYouPage() {
   return (
-    <Suspense fallback={<main className="kk-container max-w-4xl py-14 text-center">Loading...</main>}>
+    <Suspense fallback={<div className="kk-container max-w-4xl py-14 text-center">Loading...</div>}>
       <ThankYouInner />
     </Suspense>
   );

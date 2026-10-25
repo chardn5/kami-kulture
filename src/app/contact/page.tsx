@@ -5,7 +5,7 @@ export const metadata = {
 
 export default function ContactPage() {
   return (
-    <main className="kk-container max-w-3xl py-12 text-[#f7f1df]">
+    <div className="kk-container max-w-3xl py-12 text-[#f7f1df]">
       <p className="text-sm font-black uppercase text-[#35d7f2]">Support</p>
       <h1 className="mt-2 text-3xl font-black">Contact Kami Kulture</h1>
       <p className="mt-3 max-w-2xl text-sm leading-6 text-[#f7f1df]/64">
@@ -37,6 +37,6 @@ export default function ContactPage() {
           </p>
         </div>
       </section>
-    </main>
+    </div>
   );
 }

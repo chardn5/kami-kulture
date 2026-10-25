@@ -1,0 +1,11 @@
+.env*
+.vercel/
+.git/
+.next/
+node_modules/
+.DS_Store
+Kami Kulture Photos/
+.data/
+tests/
+scripts/
+*.tsbuildinfo

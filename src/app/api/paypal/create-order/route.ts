@@ -1,173 +1,128 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { calculateOrderPricing } from '@/lib/pricing';
+import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
+import { readQuote, checkoutError } from "@/lib/checkout";
+import { paypalRequest } from "@/lib/paypalServer";
+import { rateLimit } from "@/lib/rateLimit";
 
-export const runtime = 'nodejs';
-
-const PP_BASE =
-  process.env.PAYPAL_ENV === 'live' || process.env.PAYPAL_ENV === 'production'
-    ? 'https://api-m.paypal.com'
-    : 'https://api-m.sandbox.paypal.com';
-
-// Accept either PAYPAL_CLIENT_SECRET or PAYPAL_SECRET
-function getSecrets() {
-  const id = process.env.PAYPAL_CLIENT_ID || process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID;
-  const secret = process.env.PAYPAL_CLIENT_SECRET || process.env.PAYPAL_SECRET;
-  if (!id || !secret) {
-    throw new Error(
-      'Missing PayPal credentials: set PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET (or PAYPAL_SECRET).'
-    );
-  }
-  return { id, secret };
-}
-
-async function getAccessToken(): Promise<string> {
-  const { id, secret } = getSecrets();
-  const basic = Buffer.from(`${id}:${secret}`).toString('base64');
-
-  const res = await fetch(`${PP_BASE}/v1/oauth2/token`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Basic ${basic}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: 'grant_type=client_credentials',
-    cache: 'no-store',
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`PayPal token failed: ${res.status} ${text}`);
-  }
-  const json = (await res.json()) as { access_token: string };
-  return json.access_token;
-}
-
-/* ---------------------------- Request typing ---------------------------- */
-
-type CreateOrderRequest = {
-  // minimal mode
-  value?: number | string;
-  currency?: string;
-  shippingAmount?: number | string;
-  taxAmount?: number | string;
-
-  // optional detailed cart
-  items?: Array<{
-    name: string;
-    sku?: string;
-    unit_amount: { currency_code: string; value: string | number };
-    quantity: string | number;
-    category?: 'PHYSICAL_GOODS' | 'DIGITAL_GOODS';
-  }>;
-
-  // optional shipping/payer (can be added later once baseline works)
-  shipping?: {
-    name?: { full_name?: string };
-    address: {
-      address_line_1?: string;
-      address_line_2?: string;
-      admin_area_1?: string;
-      admin_area_2?: string;
-      postal_code?: string;
-      country_code: string; // ISO-2
-    };
-  };
-  payer?: {
-    email_address?: string;
-    name?: { given_name?: string; surname?: string };
-  };
-};
-
-function to2(v: number) {
-  return v.toFixed(2);
-}
-
-function parseNumber(n: string | number | undefined): number | undefined {
-  if (typeof n === 'number') return n;
-  if (typeof n === 'string') {
-    const x = Number(n);
-    return Number.isFinite(x) ? x : undefined;
-  }
-  return undefined;
-}
-
-/* -------------------------------- Route -------------------------------- */
-
+export const runtime = "nodejs";
+export const maxDuration = 60;
 export async function POST(req: NextRequest) {
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0] ?? "unknown";
+  if (!rateLimit(`payment-create:${ip}`, 10, 60_000).ok)
+    return NextResponse.json(
+      { error: "Please wait a moment and try again." },
+      { status: 429 },
+    );
   try {
-    const body = (await req.json().catch(() => ({}))) as Partial<CreateOrderRequest>;
-    const currency = (body.currency ?? 'USD').toUpperCase();
-
-    // Build purchase unit (either from items[] or from value)
-    let itemTotal = 0;
-    let items = body.items;
-
-    if (items && items.length > 0) {
-      // normalize quantities and amounts, compute item_total
-      items = items.map((it) => {
-        const qty = parseNumber(it.quantity) ?? 1;
-        const unit = parseNumber(it.unit_amount?.value) ?? 0;
-        itemTotal += qty * unit;
-        return {
-          ...it,
-          quantity: String(qty),
-          unit_amount: { currency_code: currency, value: to2(unit) },
-        };
-      });
-    } else {
-      itemTotal = parseNumber(body.value) ?? 0;
-    }
-    const pricing = calculateOrderPricing(itemTotal, currency);
-    const shippingAmount = Math.max(parseNumber(body.shippingAmount) ?? pricing.shipping, pricing.shipping);
-    const taxAmount = Math.max(parseNumber(body.taxAmount) ?? pricing.tax, pricing.tax);
-    const amountValue = to2(itemTotal + shippingAmount + taxAmount);
-    const breakdown = {
-      item_total: { currency_code: currency, value: to2(itemTotal) },
-      shipping: { currency_code: currency, value: to2(shippingAmount) },
-      tax_total: { currency_code: currency, value: to2(taxAmount) },
-    };
-
-    const token = await getAccessToken();
-
-    const payload = {
-      intent: 'CAPTURE' as const,
-      purchase_units: [
-        {
-          ...(items && items.length > 0 ? { items } : {}),
-          amount: {
-            currency_code: currency,
-            value: amountValue,
-            breakdown,
-          },
-          ...(body.shipping ? { shipping: body.shipping } : {}),
+    const body = await req.json();
+    const quote = readQuote(body.quoteToken);
+    const c = quote.customer;
+    // Save the signed snapshot before opening PayPal so capture never trusts browser prices.
+    await prisma.order.upsert({
+      where: { id: quote.id },
+      update: {},
+      create: {
+        id: quote.id,
+        status: "PENDING_PAYMENT",
+        currency: quote.currency,
+        amountTotal: quote.total,
+        amountSubtotal: quote.subtotal,
+        amountShipping: quote.shipping,
+        amountTax: quote.tax,
+        buyerEmail: c.email,
+        shipEmail: c.email,
+        shipFirstName: c.firstName,
+        shipLastName: c.lastName,
+        shipPhone: c.phone,
+        shipAddress1: c.address1,
+        shipAddress2: c.address2,
+        shipCity: c.city,
+        shipState: c.state,
+        shipPostalCode: c.postalCode,
+        shipCountry: c.country,
+        raw: { checkout: quote as unknown as Prisma.InputJsonValue },
+        items: {
+          create: quote.items.map((i) => ({
+            sku: i.sku,
+            title: i.title,
+            qty: i.qty,
+            unitPrice: i.price,
+            size: i.size,
+            color: i.color,
+            image: i.image,
+            printifyProductId: i.printifyProductId,
+            printifyVariantId: i.printifyVariantId,
+          })),
         },
-      ],
-      ...(body.payer ? { payer: body.payer } : {}),
-      // If you want to force using your provided address later:
-      // application_context: { shipping_preference: 'SET_PROVIDED_ADDRESS' },
-    };
-
-    const res = await fetch(`${PP_BASE}/v2/checkout/orders`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
       },
-      body: JSON.stringify(payload),
     });
-
-    const json = await res.json();
-    if (!res.ok) {
-      console.error('PAYPAL_CREATE_FAIL', { status: res.status, json, payload });
-      return NextResponse.json(
-        { ok: false, error: 'CREATE_FAILED', detail: json },
-        { status: 400 }
-      );
-    }
-
-    return NextResponse.json({ ok: true, id: json.id }, { status: 200 });
-  } catch (e) {
-    console.error('/api/paypal/create-order error', e);
-    return NextResponse.json({ ok: false, error: 'CREATE_FAILED' }, { status: 500 });
+    const order = await paypalRequest<{ id: string }>(
+      "/v2/checkout/orders",
+      "POST",
+      {
+        intent: "CAPTURE",
+        purchase_units: [
+          {
+            custom_id: quote.id,
+            items: quote.items.map((i) => ({
+              name: `${i.title} - ${i.color} / ${i.size}`,
+              sku: i.sku,
+              quantity: String(i.qty),
+              category: "PHYSICAL_GOODS",
+              unit_amount: {
+                currency_code: quote.currency,
+                value: i.price.toFixed(2),
+              },
+            })),
+            amount: {
+              currency_code: quote.currency,
+              value: quote.total.toFixed(2),
+              breakdown: {
+                item_total: {
+                  currency_code: quote.currency,
+                  value: quote.subtotal.toFixed(2),
+                },
+                shipping: {
+                  currency_code: quote.currency,
+                  value: quote.shipping.toFixed(2),
+                },
+                tax_total: {
+                  currency_code: quote.currency,
+                  value: quote.tax.toFixed(2),
+                },
+              },
+            },
+            shipping: {
+              name: { full_name: `${c.firstName} ${c.lastName}` },
+              address: {
+                address_line_1: c.address1,
+                address_line_2: c.address2 || undefined,
+                admin_area_1: c.state || undefined,
+                admin_area_2: c.city,
+                postal_code: c.postalCode,
+                country_code: c.country,
+              },
+            },
+          },
+        ],
+        application_context: {
+          shipping_preference: "SET_PROVIDED_ADDRESS",
+          user_action: "PAY_NOW",
+        },
+      },
+      `create-${quote.id}`,
+    );
+    if (!order.id) throw new Error("PAYPAL_REQUEST_FAILED");
+    return NextResponse.json({ ok: true, id: order.id });
+  } catch (error) {
+    console.error(
+      "[checkout] create failed",
+      error instanceof Error ? error.message : "unknown",
+    );
+    return NextResponse.json(
+      { ok: false, error: checkoutError(error) },
+      { status: 400 },
+    );
   }
 }

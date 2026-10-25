@@ -5,7 +5,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://kamikulture.com";
-const DEFAULT_DESC = "Anime-inspired streetwear - premium prints, fast shipping.";
+const DEFAULT_DESC = "Anime-inspired graphic tees for your daily rotation. Explore Kami Kulture shirts, find your fit, and get delivery rates at checkout.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),

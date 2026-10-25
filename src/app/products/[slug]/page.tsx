@@ -1,13 +1,17 @@
 // /src/app/products/[slug]/page.tsx
-import type { Metadata } from 'next';
-import { getCatalogProduct, getCatalogProducts, type CatalogProduct } from '@/lib/catalog';
-import PDPClient from './PDPClient';
+import type { Metadata } from "next";
+import {
+  getCatalogProduct,
+  getCatalogProducts,
+  type CatalogProduct,
+} from "@/lib/catalog";
+import PDPClient from "./PDPClient";
 import { notFound } from "next/navigation";
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://kamikulture.com';
-const DEFAULT_DESC = 'Anime-inspired designs printed on demand.';
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://kamikulture.com";
+const DEFAULT_DESC = "Anime-inspired designs printed on demand.";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({
   params,
@@ -17,32 +21,33 @@ export async function generateMetadata({
   const { slug } = await params;
   const product = await getCatalogProduct(slug);
 
-  const title = product ? `${product.title}` : 'Product';
+  const title = product ? `${product.title}` : "Product";
   const description = product?.description ?? DEFAULT_DESC;
   const url = new URL(`/products/${slug}`, SITE_URL).toString();
-  const ogImages =
-    product?.images?.length ? product.images.map((u) => ({ url: u })) : [{ url: '/og.png' }];
+  const ogImages = product?.images?.length
+    ? product.images.map((u) => ({ url: u }))
+    : [{ url: "/og.png" }];
 
   return {
     title,
     description,
     alternates: { canonical: url },
     openGraph: {
-  title,
-  description,
-  url,
-  // Note: Next Metadata doesn't support 'product' here.
-  // Using 'website' is valid and keeps OG tags type-safe.
-  type: 'website',
-  images: ogImages,
-  siteName: 'Kami Kulture',
-},
-
-    twitter: {
-      card: 'summary_large_image',
       title,
       description,
-      images: product?.images?.length ? [product.images[0]] : ['/og.png'],
+      url,
+      // Note: Next Metadata doesn't support 'product' here.
+      // Using 'website' is valid and keeps OG tags type-safe.
+      type: "website",
+      images: ogImages,
+      siteName: "Kami Kulture",
+    },
+
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: product?.images?.length ? [product.images[0]] : ["/og.png"],
     },
   };
 }
@@ -54,11 +59,13 @@ export default async function ProductPage({
 }) {
   const { slug } = await params;
   const products = await getCatalogProducts();
-  const product = products.find(p => p.slug === slug);
-  if (!product) { notFound(); }
+  const product = products.find((p) => p.slug === slug);
+  if (!product) {
+    notFound();
+  }
 
   // simple recs (exclude current)
-  const recs = products.filter(p => p.slug !== product.slug).slice(0, 3);
+  const recs = products.filter((p) => p.slug !== product.slug).slice(0, 3);
 
   const canonical = new URL(`/products/${slug}`, SITE_URL).toString();
 
@@ -71,29 +78,30 @@ export default async function ProductPage({
 }
 
 /** ---- JSON-LD (server-rendered) ---- */
-function ProductJsonLd({ product, url }: { product: CatalogProduct; url: string }) {
+function ProductJsonLd({
+  product,
+  url,
+}: {
+  product: CatalogProduct;
+  url: string;
+}) {
   const jsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'Product',
+    "@context": "https://schema.org",
+    "@type": "Product",
     name: product.title,
     description: product.description || undefined,
     image: product.images.length ? product.images : undefined,
     sku: product.variants?.find((variant) => variant.sku)?.sku || undefined,
-    brand: { '@type': 'Brand', name: 'Kami Kulture' },
+    brand: { "@type": "Brand", name: "Kami Kulture" },
     offers: {
-      '@type': 'Offer',
+      "@type": "Offer",
       url,
-      priceCurrency: 'USD',
+      priceCurrency: "USD",
       price: product.price.toFixed(2),
-      availability: 'https://schema.org/InStock',
+      availability: product.variants?.some((v) => v.isAvailable)
+        ? "https://schema.org/InStock"
+        : "https://schema.org/OutOfStock",
     },
-    ...(typeof product.rating === 'number' && {
-      aggregateRating: {
-        '@type': 'AggregateRating',
-        ratingValue: product.rating,
-        reviewCount: product.ratingCount ?? 1,
-      },
-    }),
   };
 
   return (

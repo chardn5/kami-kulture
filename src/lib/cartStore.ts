@@ -1,11 +1,12 @@
-'use client';
-import { useEffect } from 'react';
-import { create } from 'zustand';
+"use client";
+import { useEffect } from "react";
+import { create } from "zustand";
+import { z } from "zod";
 
 export type CartItem = {
   sku: string;
   title: string;
-  price: number;      // cents or PHP minor units if you prefer
+  price: number; // cents or PHP minor units if you prefer
   image?: string;
   size?: string;
   color?: string;
@@ -20,19 +21,49 @@ type CartState = {
   hydrate: () => void;
   add: (item: CartItem) => void;
   remove: (sku: string, size?: string, color?: string) => void;
-  setQty: (sku: string, size: string | undefined, color: string | undefined, qty: number) => void;
+  setQty: (
+    sku: string,
+    size: string | undefined,
+    color: string | undefined,
+    qty: number,
+  ) => void;
   clear: () => void;
 };
 
-const STORAGE_KEY = 'kk_cart_v1';
+const STORAGE_KEY = "kk_cart_v1";
+const savedCartSchema = z
+  .array(
+    z.object({
+      sku: z.string().min(1).max(120),
+      title: z.string().max(200),
+      price: z.number().finite().nonnegative(),
+      qty: z.number().int().min(1).max(20),
+      image: z.string().optional(),
+      size: z.string().optional(),
+      color: z.string().optional(),
+      printifyProductId: z.string().optional(),
+      printifyVariantId: z.number().int().optional(),
+    }),
+  )
+  .max(20);
 
 const load = (): CartItem[] => {
-  if (typeof window === 'undefined') return [];
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch { return []; }
+  if (typeof window === "undefined") return [];
+  try {
+    return savedCartSchema.parse(
+      JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"),
+    );
+  } catch {
+    return [];
+  }
 };
 const save = (items: CartItem[]) => {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+  } catch {
+    /* The cart still works when browser storage is unavailable. */
+  }
 };
 
 export const useCart = create<CartState>((set, get) => ({
@@ -45,24 +76,41 @@ export const useCart = create<CartState>((set, get) => ({
   add: (item) => {
     const current = get().hasHydrated ? get().items : load();
     const items = [...current];
-    const idx = items.findIndex(i => i.sku === item.sku && i.size === item.size && i.color === item.color);
-    if (idx >= 0) items[idx] = { ...items[idx], qty: items[idx].qty + item.qty };
+    const idx = items.findIndex(
+      (i) =>
+        i.sku === item.sku && i.size === item.size && i.color === item.color,
+    );
+    if (idx >= 0)
+      items[idx] = {
+        ...items[idx],
+        qty: Math.min(20, items[idx].qty + item.qty),
+      };
     else items.push(item);
-    save(items); set({ items, hasHydrated: true });
+    save(items);
+    set({ items, hasHydrated: true });
   },
   remove: (sku, size, color) => {
     const current = get().hasHydrated ? get().items : load();
-    const items = current.filter(i => !(i.sku === sku && i.size === size && i.color === color));
-    save(items); set({ items, hasHydrated: true });
+    const items = current.filter(
+      (i) => !(i.sku === sku && i.size === size && i.color === color),
+    );
+    save(items);
+    set({ items, hasHydrated: true });
   },
   setQty: (sku, size, color, qty) => {
     const current = get().hasHydrated ? get().items : load();
-    const items = current.map(i => (
-      i.sku === sku && i.size === size && i.color === color ? { ...i, qty } : i
-    ));
-    save(items); set({ items, hasHydrated: true });
+    const items = current.map((i) =>
+      i.sku === sku && i.size === size && i.color === color
+        ? { ...i, qty: Math.min(20, Math.max(1, Math.trunc(qty) || 1)) }
+        : i,
+    );
+    save(items);
+    set({ items, hasHydrated: true });
   },
-  clear: () => { save([]); set({ items: [], hasHydrated: true }); },
+  clear: () => {
+    save([]);
+    set({ items: [], hasHydrated: true });
+  },
 }));
 
 export function useHydrateCart() {

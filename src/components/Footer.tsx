@@ -15,8 +15,8 @@ export default function Footer() {
         <div>
           <p className="font-semibold text-[#f7f1df]">Help</p>
           <div className="mt-3 flex flex-col gap-2">
-            <a href="mailto:orders@kamikulture.com" className="kk-focus rounded-md hover:text-[#35d7f2]">
-              orders@kamikulture.com
+            <a href="mailto:support@kamikulture.com" className="kk-focus rounded-md hover:text-[#35d7f2]">
+              support@kamikulture.com
             </a>
             <Link href="/track-order" className="kk-focus rounded-md hover:text-[#35d7f2]">
               Track order

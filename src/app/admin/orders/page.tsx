@@ -103,6 +103,7 @@ export default async function AdminOrders({
       }
     : {};
 
+  where.status = { not: 'PENDING_PAYMENT' };
   const orders = await prisma.order.findMany({
     where,
     orderBy,

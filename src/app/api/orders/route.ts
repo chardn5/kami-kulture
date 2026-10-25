@@ -90,6 +90,7 @@ export async function GET(req: NextRequest) {
     ],
   } : {};
 
+  where.status = { not: 'PENDING_PAYMENT' };
   const rows = await prisma.order.findMany({
     where,
     orderBy,

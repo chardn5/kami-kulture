@@ -1,383 +1,400 @@
-// src/app/checkout/page.tsx
-'use client';
+"use client";
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import Link from 'next/link';
-import Image from 'next/image';
-import { useCart, useHydrateCart } from '@/lib/cartStore';
-import { formatPrice } from '@/lib/format';
-import { loadPayPalSDK } from '@/lib/paypalClient';
-import { calculateOrderPricing } from '@/lib/pricing';
-import CheckoutForm, { type NormalizedCheckout } from '@/components/CheckoutForm';
+import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import Image from "next/image";
+import { ArrowLeft, AlertCircle, RefreshCw, ShieldCheck } from "lucide-react";
+import { useCart, useHydrateCart } from "@/lib/cartStore";
+import { formatPrice } from "@/lib/format";
+import { loadPayPalSDK } from "@/lib/paypalClient";
+import CheckoutForm, {
+  type NormalizedCheckout,
+} from "@/components/CheckoutForm";
 
-type PayPalOrderActions = {
-  create: (input: unknown) => Promise<string>;
-  capture: () => Promise<unknown>;
+type Quote = {
+  token: string;
+  expiresAt: number;
+  pricing: { subtotal: number; shipping: number; tax: number; total: number };
+  items: Array<{
+    sku: string;
+    title: string;
+    qty: number;
+    price: number;
+    color?: string;
+    size?: string;
+    image?: string;
+  }>;
 };
-
-type PayPalButtonsInstance = {
-  render: (container: HTMLElement) => void;
-  isEligible?: () => boolean;
+type Buttons = {
+  render: (el: HTMLElement) => Promise<void> | void;
   close?: () => void;
+  isEligible?: () => boolean;
 };
-
-type PayPalButtonStyle = {
-  shape?: 'pill' | 'rect';
-  label?: 'paypal' | 'checkout' | 'pay' | 'buynow' | 'installment';
-  layout?: 'vertical' | 'horizontal';
-};
-
-// Proper typing for onClick
-type PayPalOnClickActions = { resolve: () => void; reject: () => void };
-type PayPalOnClick = (data: unknown, actions: PayPalOnClickActions) => void;
-
-type PayPalButtonOptions = {
-  fundingSource?: string;
-  style?: PayPalButtonStyle;
-  onClick?: PayPalOnClick;
-  createOrder: (data: unknown, actions: { order: PayPalOrderActions }) => Promise<string>;
-  onApprove: (data: { orderID: string }, actions: { order: PayPalOrderActions }) => Promise<void>;
-  onError?: (err: unknown) => void;
-};
-
-type PayPalSDK = {
-  Buttons: (opts: PayPalButtonOptions) => PayPalButtonsInstance;
-  FUNDING: { PAYPAL: string; CARD: string };
-};
-/* ------------------------------------------------------------------- */
-
-const CURRENCY = (process.env.NEXT_PUBLIC_CURRENCY ?? 'USD').toUpperCase();
-const IS_SANDBOX = (process.env.NEXT_PUBLIC_PAYPAL_ENV ?? 'sandbox') !== 'live';
-
-function getErrorMessage(err: unknown): string {
-  if (err instanceof Error) return err.message;
-  if (typeof err === 'string') return err;
-  try { return JSON.stringify(err); } catch { return ''; }
-}
+const IS_SANDBOX = !["live", "production"].includes(
+  process.env.NEXT_PUBLIC_PAYPAL_ENV ?? "sandbox",
+);
 
 export default function CheckoutPage() {
   useHydrateCart();
   const items = useCart((s) => s.items);
-  const hasHydrated = useCart((s) => s.hasHydrated);
+  const hasItems = items.length > 0;
+  const hydrated = useCart((s) => s.hasHydrated);
   const clear = useCart((s) => s.clear);
-  const paypalRef = useRef<HTMLDivElement>(null);
+  const [customer, setCustomer] = useState<NormalizedCheckout | null>(null);
+  const [quoteState, setQuote] = useState<{ key: string; quote: Quote } | null>(
+    null,
+  );
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [paymentError, setPaymentError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [retry, setRetry] = useState(0);
+  const [sdkReady, setSdkReady] = useState(false);
+  const walletRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
-
-  const [formValues, setFormValues] = useState<NormalizedCheckout | null>(null);
-
-  // Keep a ref so we don't re-render Buttons when the form changes
-  const formRef = useRef<NormalizedCheckout | null>(null);
-  useEffect(() => {
-    formRef.current = formValues;
-  }, [formValues]);
-
-  const subtotal = useMemo(() => items.reduce((s, i) => s + i.price * i.qty, 0), [items]);
-  const pricing = useMemo(() => calculateOrderPricing(subtotal, CURRENCY), [subtotal]);
-  const shipping = pricing.shipping;
-  const tax = pricing.tax;
-  const total = pricing.total;
+  const key = JSON.stringify({
+    cart: items.map((i) => ({ sku: i.sku, qty: i.qty })),
+    customer,
+  });
+  const quote = quoteState?.key === key ? quoteState.quote : null;
+  const latest = useRef<Quote | null>(null);
+  latest.current = quote;
 
   useEffect(() => {
-    if (items.length === 0) return;
-    let cancelled = false;
-    let walletButtons: PayPalButtonsInstance | null = null;
-    let cardButtons: PayPalButtonsInstance | null = null;
-
-    const renderButtons = async () => {
-      const paypal = (await loadPayPalSDK()) as unknown as PayPalSDK;
-      if (cancelled) return;
-
-      const walletContainer = paypalRef.current;
-      const cardContainer = cardRef.current;
-      if (!walletContainer || !cardContainer) return;
-
-      walletContainer.innerHTML = '';
-      cardContainer.innerHTML = '';
-
-      // ---- Create order via server with items + payer + shipping ----
-      type CreateOrderBody = {
-        currency: string;
-        shippingAmount?: number;
-        taxAmount?: number;
-        items: Array<{
-          name: string;
-          sku?: string;
-          unit_amount: { currency_code: string; value: number };
-          quantity: number;
-          category?: 'PHYSICAL_GOODS' | 'DIGITAL_GOODS';
-        }>;
-        payer?: { email_address?: string; name?: { given_name?: string; surname?: string } };
-        shipping?: {
-          name?: { full_name?: string };
-          address: {
-            address_line_1?: string;
-            address_line_2?: string;
-            admin_area_1?: string;
-            admin_area_2?: string;
-            postal_code?: string;
-            country_code: string;
-          };
-        };
-      };
-
-      const createOrder = async () => {
-        const fv = formRef.current;
-
-        const body: CreateOrderBody = {
-          currency: CURRENCY,
-          shippingAmount: shipping,
-          taxAmount: tax,
-          items: items.map((i) => ({
-            name: i.title,
-            sku: i.sku,
-            unit_amount: { currency_code: CURRENCY, value: i.price },
-            quantity: i.qty,
-            category: 'PHYSICAL_GOODS',
-          })),
-          ...(fv && {
-            payer: {
-              email_address: fv.email,
-              name: { given_name: fv.firstName, surname: fv.lastName },
-            },
-            shipping: {
-              name: { full_name: `${fv.firstName} ${fv.lastName}` },
-              address: {
-                address_line_1: fv.address1 || undefined,
-                address_line_2: fv.address2 || undefined,
-                admin_area_2: fv.city || undefined,
-                admin_area_1: fv.state || undefined, // 2-letter for US
-                postal_code: fv.postalCode || undefined,
-                country_code: fv.country.toUpperCase(),
-              },
-            },
-          }),
-        };
-
-        const res = await fetch('/api/paypal/create-order', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
+    const body = JSON.parse(key);
+    if (!body.customer || !body.cart.length) return;
+    const controller = new AbortController();
+    setLoading(true);
+    setError("");
+    const timeout = setTimeout(async () => {
+      try {
+        const response = await fetch("/api/checkout/quote", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: key,
+          signal: controller.signal,
         });
-        const data: { ok?: boolean; id?: string; error?: string } = await res.json();
-        if (!res.ok || !data?.id) {
-          console.error('create-order API failed:', data);
-          throw new Error(data?.error || `HTTP ${res.status}`);
+        const result = await response.json();
+        if (!response.ok)
+          throw new Error(
+            result.error ||
+              "Shipping could not be calculated. Please try again.",
+          );
+        if (!controller.signal.aborted) setQuote({ key, quote: result });
+      } catch (err) {
+        if (!controller.signal.aborted) {
+          setQuote(null);
+          setError(err instanceof Error ? err.message : "Please try again.");
         }
-        return data.id;
-      };
-
-      const onApprove = async (data: { orderID: string }) => {
-        const paypalOrderId = data.orderID;
-        if (!paypalOrderId) throw new Error('Missing PayPal order ID');
-        const lines = items.map((i) => ({
-          sku: i.sku,
-          title: i.title,
-          qty: i.qty,
-          price: i.price,
-          size: i.size,
-          color: i.color,
-          image: i.image,
-          printifyProductId: i.printifyProductId,
-          printifyVariantId: i.printifyVariantId,
-        }));
-
-        const res = await fetch('/api/orders/capture', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            paypalOrderId,
-            cart: lines,
-            currency: CURRENCY,
-            shipping,
-            tax,
-            payer: formRef.current
-              ? {
-                  email: formRef.current.email,
-                  name: `${formRef.current.firstName} ${formRef.current.lastName}`.trim(),
-                }
-              : undefined,
-            customer: formRef.current ?? undefined,
-          }),
-        });
-
-        const json: { ok: boolean; orderId?: string; error?: string } = await res
-          .json()
-          .catch(() => ({ ok: false }));
-        if (!res.ok || !json.ok) throw new Error(json.error || `Capture API failed (${res.status})`);
-
-        clear();
-        const qp = new URLSearchParams({ orderID: json.orderId ?? '' });
-        const emailForLookup = formRef.current?.email;
-        if (emailForLookup) qp.set('email', emailForLookup);
-        window.location.href = `/thank-you?${qp.toString()}`;
-      };
-
-      const onError = (err: unknown) => {
-        console.error('PayPal onError', err);
-        const msg = getErrorMessage(err);
-        alert(`PayPal error. Please try again.${msg ? `\n\n${msg}` : ''}`);
-      };
-
-      // Gate clicks with onClick instead of re-rendering buttons on form change
-      const onClick: PayPalOnClick = (_data, actions) => {
-        if (!formRef.current) return actions.reject();
-        return actions.resolve();
-      };
-
-      // Wallet button
-      walletButtons = paypal.Buttons({
-        fundingSource: paypal.FUNDING.PAYPAL,
-        style: { shape: 'pill', label: 'paypal', layout: 'vertical' },
-        onClick,
-        createOrder,
-        onApprove,
-        onError,
-      });
-      walletButtons.render(walletContainer);
-
-      // Card button
-      cardButtons = paypal.Buttons({
-        fundingSource: paypal.FUNDING.CARD,
-        style: { layout: 'vertical', shape: 'pill' },
-        onClick,
-        createOrder,
-        onApprove,
-        onError,
-      });
-      if (cardButtons.isEligible?.()) {
-        cardButtons.render(cardContainer);
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
       }
+    }, 800);
+    return () => {
+      clearTimeout(timeout);
+      controller.abort();
     };
+  }, [key, retry]);
 
-    renderButtons();
+  useEffect(() => {
+    if (!quote) return;
+    const timeout = setTimeout(
+      () => {
+        setQuote(null);
+        setError("Your shipping quote has expired. Refresh it to continue.");
+      },
+      Math.max(0, quote.expiresAt - Date.now()),
+    );
+    return () => clearTimeout(timeout);
+  }, [quote]);
 
+  useEffect(() => {
+    if (!hydrated || !hasItems) return;
+    let cancelled = false;
+    const buttons: Buttons[] = [];
+    async function render() {
+      try {
+        const paypal = await loadPayPalSDK();
+        if (cancelled || !walletRef.current || !cardRef.current) return;
+        const createOrder = async () => {
+          setPaymentError("");
+          const current = latest.current;
+          if (!current || current.expiresAt <= Date.now())
+            throw new Error("Please refresh your shipping quote.");
+          setBusy(true);
+          const response = await fetch("/api/paypal/create-order", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ quoteToken: current.token }),
+          });
+          const result = await response.json();
+          if (!response.ok || !result.id)
+            throw new Error(result.error || "Payment could not be started.");
+          setBusy(true);
+          return result.id;
+        };
+        const onApprove = async (data: { orderID: string }) => {
+          setBusy(true);
+          try {
+            const response = await fetch("/api/orders/capture", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ paypalOrderId: data.orderID }),
+            });
+            const result = await response.json();
+            if (!response.ok || !result.ok)
+              throw new Error(
+                result.error || "Payment could not be confirmed.",
+              );
+            const email = customerEmail.current;
+            clear();
+            window.location.assign(
+              `/thank-you?${new URLSearchParams({ orderID: result.orderId, ...(email ? { email } : {}) })}`,
+            );
+          } catch (err) {
+            setPaymentError(
+              err instanceof Error
+                ? err.message
+                : "Please contact support before paying again.",
+            );
+            setBusy(false);
+          }
+        };
+        const options = {
+          createOrder,
+          onApprove,
+          onClick: (
+            _: unknown,
+            actions: { resolve: () => void; reject: () => void },
+          ) =>
+            latest.current && latest.current.expiresAt > Date.now()
+              ? actions.resolve()
+              : actions.reject(),
+          onCancel: () => setBusy(false),
+          onError: (err: unknown) => {
+            setBusy(false);
+            setPaymentError(
+              err instanceof Error
+                ? err.message
+                : "PayPal could not complete checkout. Please try again.",
+            );
+          },
+          style: { shape: "rect", layout: "vertical" },
+        };
+        const wallet = paypal.Buttons({
+          ...options,
+          fundingSource: paypal.FUNDING.PAYPAL,
+        }) as Buttons;
+        buttons.push(wallet);
+        await wallet.render(walletRef.current);
+        const card = paypal.Buttons({
+          ...options,
+          fundingSource: paypal.FUNDING.CARD,
+        }) as Buttons;
+        buttons.push(card);
+        if (card.isEligible?.()) await card.render(cardRef.current);
+        if (!cancelled) setSdkReady(true);
+      } catch {
+        if (!cancelled)
+          setPaymentError(
+            "Payment options could not load. Refresh this page or contact support.",
+          );
+      }
+    }
+    void render();
     return () => {
       cancelled = true;
-      try { walletButtons?.close?.(); } catch {}
-      try { cardButtons?.close?.(); } catch {}
+      buttons.forEach((b) => {
+        try {
+          b.close?.();
+        } catch {}
+      });
     };
+  }, [hydrated, hasItems, clear]);
+  const customerEmail = useRef("");
+  customerEmail.current = customer?.email ?? customerEmail.current;
 
-    // Keep buttons stable: don't depend on formValues here
-  }, [items, subtotal, shipping, tax, total, clear]);
-
-  if (!hasHydrated) {
+  if (!hydrated || !items.length)
     return (
-      <main className="kk-container py-16">
-        <div className="rounded-lg border border-[#f7f1df]/12 bg-[#171711] p-8">
-          <p className="text-sm font-black uppercase text-[#ff4f5f]">Checkout</p>
-          <h1 className="mt-2 text-3xl font-black">Loading your cart</h1>
-          <p className="mt-2 text-[#f7f1df]/64">Checking your saved items before checkout.</p>
-        </div>
-      </main>
-    );
-  }
-
-  if (items.length === 0) {
-    return (
-      <main className="kk-container py-16">
-        <div className="rounded-lg border border-[#f7f1df]/12 bg-[#171711] p-8">
-          <p className="text-sm font-black uppercase text-[#ff4f5f]">Checkout</p>
-          <h1 className="mt-2 text-3xl font-black">Your cart is empty</h1>
-          <p className="mt-2 text-[#f7f1df]/64">Add something you like and come back to checkout.</p>
-          <Link
-            href="/products"
-            className="kk-focus mt-6 inline-flex h-11 items-center rounded-md bg-[#f7f1df] px-4 text-sm font-black text-black hover:bg-[#d6ff57]"
-          >
-            Browse products
+      <div className="kk-container py-20">
+        <h1 className="text-3xl font-black">
+          {hydrated ? "Your cart is empty" : "Loading your cart"}
+        </h1>
+        <p className="mt-3 text-[#f7f1df]/65">
+          {hydrated ? "Find your next daily rotation." : "Just a moment."}
+        </p>
+        {hydrated && (
+          <Link className="kk-button mt-6" href="/products">
+            Shop the collection
           </Link>
-        </div>
-      </main>
+        )}
+      </div>
     );
-  }
 
+  const summaryItems = quote?.items ?? items;
+  const subtotal =
+    quote?.pricing.subtotal ?? items.reduce((n, i) => n + i.qty * i.price, 0);
   return (
-    <main className="kk-container py-10">
-      <div className="mb-8">
-        <p className="text-sm font-black uppercase text-[#ff4f5f]">Secure checkout</p>
-        <h1 className="mt-2 text-4xl font-black text-[#f7f1df]">Complete your order</h1>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-[#f7f1df]/62">
-          Add your shipping details, review your items, then choose PayPal or card.
+    <div className="kk-container py-8 md:py-12">
+      <Link
+        href="/products"
+        className="kk-focus inline-flex items-center gap-2 text-sm text-[#f7f1df]/65"
+      >
+        <ArrowLeft size={16} /> Continue shopping
+      </Link>
+      <div className="mb-8 mt-6">
+        <p className="kk-eyebrow">Checkout</p>
+        <h1 className="mt-2 text-3xl font-black md:text-4xl">Make it yours.</h1>
+        <p className="mt-3 text-sm text-[#f7f1df]/65">
+          Your items, your address, one final total before you pay.
         </p>
       </div>
-
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_390px]">
-        <section className="rounded-lg border border-[#f7f1df]/12 bg-[#171711] p-5">
-          <div className="mb-5 flex items-center justify-between gap-3 border-b border-[#f7f1df]/10 pb-4">
-            <div>
-              <h2 className="text-lg font-black">Shipping details</h2>
-              <p className="mt-1 text-sm text-[#f7f1df]/54">Used for PayPal and Printify fulfillment.</p>
-            </div>
-            <span
-              className={`rounded-md px-2.5 py-1 text-xs font-black ${
-                formValues ? 'bg-[#d6ff57] text-black' : 'bg-[#ff4f5f]/14 text-[#ff4f5f]'
-              }`}
-            >
-              {formValues ? 'Ready' : 'Required'}
-            </span>
-          </div>
-          <CheckoutForm onValidChange={setFormValues} />
+      <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_380px]">
+        <section>
+          <h2 className="mb-5 border-b border-white/15 pb-4 text-lg font-bold">
+            1. Delivery details
+          </h2>
+          <fieldset disabled={busy}>
+            <CheckoutForm onValidChange={setCustomer} />
+          </fieldset>
+          <p className="mt-5 text-xs leading-5 text-[#f7f1df]/55">
+            Your address is shared with our production partner to confirm
+            delivery availability and fulfill your order.
+          </p>
         </section>
-
-        <aside className="self-start rounded-lg border border-[#f7f1df]/12 bg-[#11110d] p-5 lg:sticky lg:top-24">
-          <h2 className="text-lg font-black">Order summary</h2>
-          <ul className="mt-4 divide-y divide-[#f7f1df]/10">
-            {items.map((i) => (
-              <li key={`${i.sku}-${i.color ?? ''}-${i.size ?? ''}`} className="flex gap-3 py-4 first:pt-0">
-                <div className="relative h-20 w-16 shrink-0 overflow-hidden rounded-md bg-[#0b0b09]">
-                  {i.image ? <Image src={i.image} alt={i.title} fill className="object-cover" sizes="80px" /> : null}
+        <aside className="self-start border-t border-white/15 pt-5 lg:sticky lg:top-24 lg:border-t-0 lg:pt-0">
+          <h2 className="text-lg font-bold">2. Review & pay</h2>
+          <ul className="mt-5 divide-y divide-white/10">
+            {summaryItems.map((i) => (
+              <li key={i.sku} className="flex gap-3 py-4">
+                <div className="relative h-24 w-20 shrink-0 overflow-hidden rounded bg-white/5">
+                  {i.image && (
+                    <Image
+                      src={i.image}
+                      alt={i.title}
+                      fill
+                      sizes="80px"
+                      className="object-cover"
+                    />
+                  )}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="line-clamp-2 text-sm font-black">{i.title}</p>
-                  <p className="mt-1 text-xs text-[#f7f1df]/54">
-                    {[i.color ? `Color: ${i.color}` : '', i.size ? `Size: ${i.size}` : '', `SKU: ${i.sku}`]
-                      .filter(Boolean)
-                      .join(' / ')}
+                  <p className="text-sm font-bold">{i.title}</p>
+                  <p className="mt-1 text-xs text-[#f7f1df]/60">
+                    {i.color} / {i.size}
                   </p>
-                  <p className="mt-2 text-xs text-[#f7f1df]/54">
-                    Qty {i.qty} at {formatPrice(i.price)}
+                  <p className="mt-3 text-xs text-[#f7f1df]/60">
+                    Qty {i.qty} · {formatPrice(i.price)} each
                   </p>
                 </div>
-                <div className="text-sm font-black text-[#35d7f2]">
-                  {formatPrice(i.price * i.qty)}
-                </div>
+                <span className="text-sm font-bold">
+                  {formatPrice(i.qty * i.price)}
+                </span>
               </li>
             ))}
           </ul>
-
-          <div className="mt-3 space-y-3 border-t border-[#f7f1df]/10 pt-4 text-sm">
-            <div className="flex justify-between text-[#f7f1df]/62">
-              <span>Subtotal</span>
-              <span>{formatPrice(subtotal)}</span>
+          <dl className="mt-4 space-y-3 border-t border-white/15 pt-5 text-sm">
+            <div className="flex justify-between">
+              <dt>Items</dt>
+              <dd>{formatPrice(subtotal)}</dd>
             </div>
-            <div className="flex justify-between text-[#f7f1df]/62">
-              <span>Shipping</span>
-              <span>{formatPrice(shipping)}</span>
+            <div className="flex justify-between gap-4">
+              <dt>Standard shipping</dt>
+              <dd>
+                {quote
+                  ? formatPrice(quote.pricing.shipping)
+                  : customer && loading
+                    ? "Calculating..."
+                    : "Calculated for your address"}
+              </dd>
             </div>
-            <p className="text-xs leading-5 text-[#f7f1df]/42">
-              Flat shipping. Orders over {formatPrice(pricing.freeShippingThreshold)} ship free.
-            </p>
-            <div className="flex justify-between border-t border-[#f7f1df]/10 pt-3 text-base font-black text-[#f7f1df]">
-              <span>Total</span>
-              <span>{formatPrice(total)}</span>
+            <div className="flex justify-between border-t border-white/15 pt-4 text-lg font-bold">
+              <dt>{quote ? "Total (USD)" : "Subtotal (USD)"}</dt>
+              <dd>{formatPrice(quote?.pricing.total ?? subtotal)}</dd>
             </div>
-          </div>
-
-          <div
-            className={`mt-6 space-y-2 transition-opacity ${
-              formValues ? 'opacity-100' : 'pointer-events-none opacity-40'
-            }`}
-          >
-            <div ref={paypalRef} style={{ colorScheme: 'light' }} />
-            <div ref={cardRef} style={{ colorScheme: 'light' }} />
-          </div>
-          {IS_SANDBOX ? <p className="mt-3 text-xs text-[#f7f1df]/42">PayPal sandbox active.</p> : null}
-          {!formValues && (
-            <p className="mt-2 text-xs font-semibold text-[#ff4f5f]">
-              Complete shipping details to enable payment.
+          </dl>
+          <p className="mt-3 text-xs leading-5 text-[#f7f1df]/55">
+            Made to order in 3-7 business days before shipping. Carrier transit
+            time varies by destination. Import charges may apply on arrival.
+          </p>
+          {error && (
+            <div
+              role="alert"
+              className="mt-5 border-l-2 border-[#ff4f5f] pl-3 text-sm leading-6"
+            >
+              <p>{error}</p>
+              <button
+                onClick={() => {
+                  setQuote(null);
+                  setRetry((n) => n + 1);
+                }}
+                className="kk-focus mt-2 inline-flex items-center gap-2 text-[#35d7f2]"
+              >
+                <RefreshCw size={14} /> Refresh quote
+              </button>
+            </div>
+          )}
+          {!customer && (
+            <p className="mt-5 text-sm text-[#f7f1df]/65">
+              Complete your delivery details to confirm shipping and unlock
+              payment.
             </p>
           )}
+          <div
+            className={`mt-6 space-y-2 ${!quote || busy ? "pointer-events-none opacity-40" : ""}`}
+            inert={!quote || busy}
+          >
+            <div ref={walletRef} style={{ colorScheme: "light" }} />
+            <div ref={cardRef} style={{ colorScheme: "light" }} />
+          </div>
+          {!sdkReady && !paymentError && (
+            <p role="status" className="mt-2 text-xs text-[#f7f1df]/55">
+              Loading payment options...
+            </p>
+          )}
+          {busy && (
+            <p role="status" className="mt-3 text-sm">
+              Confirming your payment. Keep this page open.
+            </p>
+          )}
+          {paymentError && (
+            <p
+              role="alert"
+              className="mt-4 flex gap-2 text-sm leading-6 text-[#ff4f5f]"
+            >
+              <AlertCircle className="mt-1 shrink-0" size={16} />
+              {paymentError}
+            </p>
+          )}
+          <p className="mt-4 flex items-center gap-2 text-xs text-[#f7f1df]/60">
+            <ShieldCheck size={15} />{" "}
+            {IS_SANDBOX
+              ? "PayPal sandbox · Test payments only"
+              : "Secure payment through PayPal"}
+          </p>
+          <p className="mt-4 text-xs leading-5 text-[#f7f1df]/50">
+            By placing an order you agree to our{" "}
+            <Link className="underline" href="/terms">
+              terms
+            </Link>{" "}
+            and{" "}
+            <Link className="underline" href="/shipping-returns">
+              returns policy
+            </Link>
+            . Read our{" "}
+            <Link className="underline" href="/privacy">
+              privacy policy
+            </Link>
+            .
+          </p>
+          <Link
+            href="/contact"
+            className="kk-focus mt-4 inline-block text-xs text-[#35d7f2]"
+          >
+            Need help with checkout?
+          </Link>
         </aside>
       </div>
-    </main>
+    </div>
   );
 }

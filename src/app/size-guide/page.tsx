@@ -1,54 +1,14 @@
-const rows = [
-  ["S", "18", "28"],
-  ["M", "20", "29"],
-  ["L", "22", "30"],
-  ["XL", "24", "31"],
-  ["2XL", "26", "32"],
-] as const;
+import SizeChart from '@/components/SizeChart';
+import Link from 'next/link';
 
-export const metadata = {
-  title: "Size Guide",
-  description: "Approximate unisex tee measurements for Kami Kulture shirts.",
-};
-
+export const metadata = { title: 'Size Guide', description: 'Garment-specific size charts in inches and centimeters for Kami Kulture tees.' };
 export default function SizeGuidePage() {
-  return (
-    <main className="kk-container max-w-3xl py-12 text-[#f7f1df]">
-      <p className="text-sm font-black uppercase text-[#ff4f5f]">Fit notes</p>
-      <h1 className="mt-2 text-3xl font-black">Size Guide</h1>
-      <p className="mt-3 max-w-2xl text-sm leading-6 text-[#f7f1df]/64">
-        Current tees use a standard unisex fit. Measurements are approximate and can vary
-        by production partner, garment color, and batch.
-      </p>
-
-      <section className="mt-8 overflow-hidden rounded-lg border border-[#f7f1df]/12 bg-[#171711]">
-        <table className="w-full border-collapse text-left text-sm">
-          <thead className="bg-black/22 text-xs uppercase text-[#f7f1df]/48">
-            <tr>
-              <th className="px-4 py-3">Size</th>
-              <th className="px-4 py-3">Width in</th>
-              <th className="px-4 py-3">Length in</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map(([size, width, length]) => (
-              <tr key={size} className="border-t border-[#f7f1df]/10">
-                <td className="px-4 py-3 font-black">{size}</td>
-                <td className="px-4 py-3 text-[#f7f1df]/72">{width}</td>
-                <td className="px-4 py-3 text-[#f7f1df]/72">{length}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
-
-      <div className="mt-5 rounded-lg border border-[#f7f1df]/12 bg-[#171711] p-5 text-sm leading-6 text-[#f7f1df]/66">
-        <p className="font-semibold text-[#f7f1df]">How to choose</p>
-        <p className="mt-2">
-          Measure a shirt you already like from armpit to armpit for width and from collar
-          to hem for length. If you prefer a looser streetwear fit, choose one size up.
-        </p>
-      </div>
-    </main>
-  );
+  return <div className="kk-container max-w-3xl py-12">
+    <p className="kk-eyebrow">Find your fit</p><h1 className="mt-2 text-3xl font-black">A better fit starts here.</h1>
+    <p className="mt-4 text-sm leading-7 text-[#f7f1df]/65">Our designs use different shirts, so the same size can measure differently. Compare the chart for your design with a tee you already like.</p>
+    <ol className="my-8 grid gap-5 border-y border-white/15 py-6 text-sm sm:grid-cols-3"><li><strong>1. Lay it flat</strong><p className="mt-2 leading-6 text-[#f7f1df]/60">Smooth out a well-fitting shirt without stretching it.</p></li><li><strong>2. Measure width</strong><p className="mt-2 leading-6 text-[#f7f1df]/60">Measure across the chest from underarm to underarm.</p></li><li><strong>3. Measure length</strong><p className="mt-2 leading-6 text-[#f7f1df]/60">Measure from the high shoulder near the collar to the bottom hem.</p></li></ol>
+    <section id="powerover9000" className="scroll-mt-24 py-6"><Link href="/products/powerover9000" className="kk-focus mb-4 inline-block text-sm font-semibold text-[#35d7f2]">Power Level Over 9000</Link><SizeChart slug="powerover9000" /></section>
+    <section id="sorryimlate" className="scroll-mt-24 border-t border-white/15 py-8"><Link href="/products/sorryimlate" className="kk-focus mb-4 inline-block text-sm font-semibold text-[#35d7f2]">Sorry I&apos;m late</Link><SizeChart slug="sorryimlate" /></section>
+    <p className="mt-4 text-sm leading-7 text-[#f7f1df]/65">Prefer a looser fit? Compare the next size up. Sizes and colors shown on the product page reflect the available options. <Link href="/contact" className="text-[#35d7f2] underline">Ask us about fit</Link> before ordering.</p>
+  </div>;
 }
