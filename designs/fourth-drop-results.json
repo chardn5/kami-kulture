@@ -1,0 +1,160 @@
+{
+  "plot-armor-blue-shield": {
+    "uploadId": "6addd911e8bdb74fee469541",
+    "artworkHash": "d9e700b3c43c4b43aaae7254483c0b8fa8ad4ed1f28ad9ecb766bc2c709f47ee",
+    "status": "draft-created",
+    "slug": "plot-armor-blue-shield",
+    "title": "Plot Armor - Blue Shield Edition",
+    "variants": 13,
+    "colors": [
+      "Graphite",
+      "China Blue"
+    ],
+    "artworkPixels": "1024x1536",
+    "printWidthInches": 6.5,
+    "effectiveDpi": 158,
+    "retailPrice": 30,
+    "productId": "6addd912961864b80104ba35",
+    "createdAt": "2026-10-25T10:25:26.785Z"
+  },
+  "filler-episode-lounge": {
+    "uploadId": "6addd917eb1f02b94ba40dfd",
+    "artworkHash": "2db150703a927362c0f637d47c020328565889f974bf0096da71b7cff9ba0ada",
+    "status": "draft-created",
+    "slug": "filler-episode-lounge",
+    "title": "Filler Episode - Lounge Edition",
+    "variants": 14,
+    "colors": [
+      "Ivory",
+      "Graphite"
+    ],
+    "artworkPixels": "1024x1536",
+    "printWidthInches": 6.5,
+    "effectiveDpi": 158,
+    "retailPrice": 30,
+    "productId": "6addd91ebded5f2fca037dac",
+    "createdAt": "2026-10-25T10:26:09.324Z"
+  },
+  "hero-of-your-own-story": {
+    "uploadId": "6addd942871bd8fa14a3c142",
+    "artworkHash": "2d2476c5cb557ef184b0c55a6e7fc9a0af98b8de5c2dd96104e9af0c9a3c94a2",
+    "status": "draft-created",
+    "slug": "hero-of-your-own-story",
+    "title": "Hero of Your Own Story",
+    "variants": 14,
+    "colors": [
+      "Ivory",
+      "Graphite"
+    ],
+    "artworkPixels": "1024x1536",
+    "printWidthInches": 6.5,
+    "effectiveDpi": 158,
+    "retailPrice": 30,
+    "productId": "6addd944af42af0203024c74",
+    "createdAt": "2026-10-25T10:26:16.622Z"
+  },
+  "anime-love-language-pink": {
+    "uploadId": "6addd94a124c71cd216c3e0c",
+    "artworkHash": "9bd33243fc3da367989c063e851946d70a471f93c0925ac8ae235d0c97affe02",
+    "status": "draft-created",
+    "slug": "anime-love-language-pink",
+    "title": "Anime Love Language - Pink Edition",
+    "variants": 14,
+    "colors": [
+      "Ivory",
+      "Graphite"
+    ],
+    "artworkPixels": "1024x1536",
+    "printWidthInches": 6.5,
+    "effectiveDpi": 158,
+    "retailPrice": 30,
+    "productId": "6addd94baf42af0203024c79",
+    "createdAt": "2026-10-25T10:26:23.821Z"
+  },
+  "side-character-split-type": {
+    "uploadId": "6addd951124c71cd216c3e0f",
+    "artworkHash": "d1ff7e62e36f52fa14540dfda681b4263b823d03c4098d355d0481f430d851a2",
+    "status": "draft-created",
+    "slug": "side-character-split-type",
+    "title": "Side Character - Split Type Edition",
+    "variants": 7,
+    "colors": [
+      "Ivory"
+    ],
+    "artworkPixels": "1024x1536",
+    "printWidthInches": 6.5,
+    "effectiveDpi": 158,
+    "retailPrice": 30,
+    "productId": "6addd952bded5f2fca037dbf",
+    "createdAt": "2026-10-25T10:26:30.636Z"
+  },
+  "strength-through-struggle-balance": {
+    "uploadId": "6addd9573e00b09f4b81faed",
+    "artworkHash": "28bbb54346a9d79482752ada7dc657f9fb0dee3dea325d14d386d6b21e3ef3c8",
+    "status": "draft-created",
+    "slug": "strength-through-struggle-balance",
+    "title": "Strength Through Struggle - Balance Edition",
+    "variants": 7,
+    "colors": [
+      "Ivory"
+    ],
+    "artworkPixels": "1024x1536",
+    "printWidthInches": 6.5,
+    "effectiveDpi": 158,
+    "retailPrice": 30,
+    "productId": "6addd95ab49274e2dd0476d1",
+    "createdAt": "2026-10-25T10:26:38.041Z"
+  },
+  "time-skip-arc-dumbbell": {
+    "uploadId": "6addd95f966d976dc4137025",
+    "artworkHash": "8e5d36250233071baa855e0d59e0d3cf466d83410d286a72e3cfbbced2786728",
+    "status": "draft-created",
+    "slug": "time-skip-arc-dumbbell",
+    "title": "Time Skip Arc - Dumbbell Edition",
+    "variants": 7,
+    "colors": [
+      "Ivory"
+    ],
+    "artworkPixels": "1024x1536",
+    "printWidthInches": 6.5,
+    "effectiveDpi": 158,
+    "retailPrice": 30,
+    "productId": "6addd961b0beefa60e033374",
+    "createdAt": "2026-10-25T10:26:44.785Z"
+  },
+  "unstoppable-spirit-watercolor": {
+    "uploadId": "6addd9665335933eebdef3da",
+    "artworkHash": "b9bb5a410f8abe79bd90fb83a3a84b736beb6bcbc8e4540c7246d506c945c56e",
+    "status": "draft-created",
+    "slug": "unstoppable-spirit-watercolor",
+    "title": "Unstoppable Spirit - Watercolor Edition",
+    "variants": 7,
+    "colors": [
+      "Ivory"
+    ],
+    "artworkPixels": "1024x1536",
+    "printWidthInches": 6.5,
+    "effectiveDpi": 158,
+    "retailPrice": 30,
+    "productId": "6addd970bded5f2fca037dca",
+    "createdAt": "2026-10-25T10:26:59.983Z"
+  },
+  "victory-is-earned": {
+    "uploadId": "6addd97659f0d2ed1097e2f7",
+    "artworkHash": "ea6189248c587c0be1502adb912af7318d5ab8210179a91cba215d07785dd3af",
+    "status": "draft-created",
+    "slug": "victory-is-earned",
+    "title": "Victory Is Earned",
+    "variants": 13,
+    "colors": [
+      "Graphite",
+      "China Blue"
+    ],
+    "artworkPixels": "1024x1536",
+    "printWidthInches": 6.5,
+    "effectiveDpi": 158,
+    "retailPrice": 30,
+    "productId": "6addd9797ddf8350140b179a",
+    "createdAt": "2026-10-25T10:27:09.420Z"
+  }
+}

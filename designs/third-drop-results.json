@@ -1,0 +1,161 @@
+{
+  "kami-kulture-winged-boy": {
+    "uploadId": "6addd891026dd004342bced8",
+    "artworkHash": "54a27a2148bce8bfe24c41e9bd950e7b41f01775ec03133469da7fe3186019ec",
+    "status": "draft-created",
+    "slug": "kami-kulture-winged-boy",
+    "title": "Kami Kulture - Winged Boy",
+    "variants": 14,
+    "colors": [
+      "Ivory",
+      "Graphite"
+    ],
+    "artworkPixels": "1024x1536",
+    "printWidthInches": 6.5,
+    "effectiveDpi": 158,
+    "retailPrice": 30,
+    "productId": "6addd893c72ac566d00282c8",
+    "createdAt": "2026-10-25T10:23:19.383Z"
+  },
+  "kami-kulture-winged-girl": {
+    "uploadId": "6addd89904a358abf30f74ba",
+    "artworkHash": "27b9a8e7b6cbee165ed93d8b7774c110a1b44b8bb76f9ca9b745ee415791b654",
+    "status": "draft-created",
+    "slug": "kami-kulture-winged-girl",
+    "title": "Kami Kulture - Winged Girl",
+    "variants": 14,
+    "colors": [
+      "Ivory",
+      "Graphite"
+    ],
+    "artworkPixels": "1024x1536",
+    "printWidthInches": 6.5,
+    "effectiveDpi": 158,
+    "retailPrice": 30,
+    "productId": "6addd89bc72ac566d00282cb",
+    "createdAt": "2026-10-25T10:23:26.905Z"
+  },
+  "quiet-power-cyan-aura": {
+    "uploadId": "6addd8a063c22d2792f32610",
+    "artworkHash": "49580ca7d36e3373905df4f3d64176f79e7a6a91b171146d739e2dc47e852d18",
+    "status": "draft-created",
+    "slug": "quiet-power-cyan-aura",
+    "title": "Quiet Power - Cyan Aura",
+    "variants": 13,
+    "colors": [
+      "Graphite",
+      "China Blue"
+    ],
+    "artworkPixels": "1024x1536",
+    "printWidthInches": 6.5,
+    "effectiveDpi": 158,
+    "retailPrice": 30,
+    "productId": "6addd8a2b0beefa60e03332a",
+    "createdAt": "2026-10-25T10:23:34.188Z"
+  },
+  "quiet-power-electric-blue": {
+    "uploadId": "6addd8a6a87504526f6031de",
+    "artworkHash": "64c29108f0523b1112d296b7ae5645fbb1bffc6fd52c58409d5c0bd9b1db5f09",
+    "status": "draft-created",
+    "slug": "quiet-power-electric-blue",
+    "title": "Quiet Power - Electric Blue",
+    "variants": 13,
+    "colors": [
+      "Graphite",
+      "China Blue"
+    ],
+    "artworkPixels": "1024x1536",
+    "printWidthInches": 6.5,
+    "effectiveDpi": 158,
+    "retailPrice": 30,
+    "productId": "6addd8a9bded5f2fca037d7b",
+    "createdAt": "2026-10-25T10:23:41.099Z"
+  },
+  "lowkey-overpowered-shadow": {
+    "uploadId": "6addd8ae0cfd1b552fb354a1",
+    "artworkHash": "c6f5652798e3fbdfa342a22238096336e10150ed1b4befaf2bc5ae590b3963d3",
+    "status": "draft-created",
+    "slug": "lowkey-overpowered-shadow",
+    "title": "Lowkey Overpowered - Shadow Edition",
+    "variants": 13,
+    "colors": [
+      "Graphite",
+      "China Blue"
+    ],
+    "artworkPixels": "1024x1536",
+    "printWidthInches": 6.5,
+    "effectiveDpi": 158,
+    "retailPrice": 30,
+    "productId": "6addd8afaf42af0203024c37",
+    "createdAt": "2026-10-25T10:23:46.931Z"
+  },
+  "my-arc-isnt-finished": {
+    "uploadId": "6addd8b4dbee0c80c842eabf",
+    "artworkHash": "a262bf7dab4327821840daa08eefa76a1b859e1f22496c5f8f9dc946280f4c87",
+    "status": "draft-created",
+    "slug": "my-arc-isnt-finished",
+    "title": "My Arc Isn't Finished",
+    "variants": 7,
+    "colors": [
+      "Ivory"
+    ],
+    "artworkPixels": "1024x1536",
+    "printWidthInches": 6.5,
+    "effectiveDpi": 158,
+    "retailPrice": 30,
+    "productId": "6addd8b7af42af0203024c3c",
+    "createdAt": "2026-10-25T10:23:55.686Z"
+  },
+  "senpai-approved-classic-seal": {
+    "uploadId": "6addd8bc4adadf69ceafc6a4",
+    "artworkHash": "cbe17216a8db888e72f741b7ceea9ce095c50c21a07e7848471159b17a450190",
+    "status": "draft-created",
+    "slug": "senpai-approved-classic-seal",
+    "title": "Senpai Approved - Classic Seal",
+    "variants": 7,
+    "colors": [
+      "Ivory"
+    ],
+    "artworkPixels": "1024x1536",
+    "printWidthInches": 6.5,
+    "effectiveDpi": 158,
+    "retailPrice": 30,
+    "productId": "6addd8bfaf42af0203024c42",
+    "createdAt": "2026-10-25T10:24:04.135Z"
+  },
+  "senpai-approved-kanji-seal": {
+    "uploadId": "6addd8c4990e939d24fbb7f2",
+    "artworkHash": "430ea0e6975597ab720b650b2e5f0b81c573c22e949c54baef131d1452d000df",
+    "status": "draft-created",
+    "slug": "senpai-approved-kanji-seal",
+    "title": "Senpai Approved - Kanji Seal",
+    "variants": 7,
+    "colors": [
+      "Ivory"
+    ],
+    "artworkPixels": "1024x1536",
+    "printWidthInches": 6.5,
+    "effectiveDpi": 158,
+    "retailPrice": 30,
+    "productId": "6addd8c7961864b80104ba17",
+    "createdAt": "2026-10-25T10:24:10.841Z"
+  },
+  "training-arc-power-meter": {
+    "uploadId": "6addd8cb990e939d24fbb7f3",
+    "artworkHash": "880a741068f1af74b35f6eb74334b593fa52d833f40ac9061f38ed9a01981297",
+    "status": "draft-created",
+    "slug": "training-arc-power-meter",
+    "title": "Training Arc - Power Meter Edition",
+    "variants": 14,
+    "colors": [
+      "Ivory",
+      "Graphite"
+    ],
+    "artworkPixels": "1024x1536",
+    "printWidthInches": 6.5,
+    "effectiveDpi": 158,
+    "retailPrice": 30,
+    "productId": "6addd8cdc72ac566d00282e6",
+    "createdAt": "2026-10-25T10:24:17.686Z"
+  }
+}

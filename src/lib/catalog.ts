@@ -117,6 +117,7 @@ function mapStaticProduct(
     description: product.description,
     images: product.images ?? [],
     tags: product.tags,
+    createdAt: dbProduct?.createdAt.toISOString(),
     garment: dbProduct?.title,
     sizes,
     colors,
@@ -166,6 +167,7 @@ export function mapManagedProduct(product: DbProductForStatic): CatalogProduct {
   return {
     slug: product.slug, title: product.title, description: product.description ?? "",
     price: product.priceMinCents / 100, printifyId: product.printifyId,
+    createdAt: product.createdAt.toISOString(),
     garmentKey: product.tags.find(t => t.startsWith("kami:garment:"))?.slice("kami:garment:".length),
     tags: product.tags.filter(t => !t.startsWith("kami:")),
     images: Array.from(new Set(product.images.map(i => i.url))),

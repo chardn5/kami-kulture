@@ -33,6 +33,7 @@ test('catalog maps approved designs to real provider IDs, color images, and stab
   };
   const mapped = mapManagedProduct(product);
   assert.equal(mapped.price, 30);
+  assert.equal(mapped.createdAt, now.toISOString());
   assert.deepEqual(mapped.tags, ['tee']);
   assert.equal(mapped.variants?.[0].sku, 'training-arc-graphite-s');
   assert.equal(mapped.variants?.[0].variantId, 78961);

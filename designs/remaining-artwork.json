@@ -1,0 +1,252 @@
+{
+  "toolMode": "built-in ImageGen",
+  "intent": "background-extraction",
+  "transparentBackground": true,
+  "designs": [
+    {
+      "slug": "kami-kulture-winged-boy",
+      "source": "BoyJapanese.png",
+      "title": "Kami Kulture - Winged Boy",
+      "colors": [
+        "Ivory",
+        "Graphite"
+      ],
+      "description": "A cheerful winged chibi mascot holding a Japan-inspired tee, with bold Kami Kulture lettering. Printed on a relaxed, garment-dyed Comfort Colors tee.",
+      "detail": "Preserve the cheerful brown-haired chibi boy, gold winged headband, red jewel, cream wings, red outfit, white shirt with red circle, and exact cream lettering KAMI KULTURE with its dark contour. Remove only the outer golden-brown poster background to genuine alpha. Keep opaque skin, white shirt, wings, hair, colored outfit and lettering; no new character, symbol or words.",
+      "prompt": "Use case: background-extraction. Edit target: the attached original shirt artwork. Produce a single polished DTG-ready transparent PNG, portrait 1024 x 1536. Artwork only, not a shirt or model mockup. Preserve this specific original artwork and typography; do not substitute a different version. Preserve the cheerful brown-haired chibi boy, gold winged headband, red jewel, cream wings, red outfit, white shirt with red circle, and exact cream lettering KAMI KULTURE with its dark contour. Remove only the outer golden-brown poster background to genuine alpha. Keep opaque skin, white shirt, wings, hair, colored outfit and lettering; no new character, symbol or words. Fill most of the canvas with the requested design and leave a narrow transparent safe margin. True alpha transparency, not a painted checkerboard. No watermark, new logo, slogan, signature or garment.",
+      "generatedPath": "/Users/richardnoceda/.codex/generated_images/019e07aa-840e-7db0-b82c-862d5973d130/exec-6ed14dd7-d560-418b-8ab4-bde19e5e2075.png",
+      "finalPath": "Kami Kulture Photos/Designs/Print-ready/kami-kulture-winged-boy.png"
+    },
+    {
+      "slug": "kami-kulture-winged-girl",
+      "source": "GirlJapanese.png",
+      "title": "Kami Kulture - Winged Girl",
+      "colors": [
+        "Ivory",
+        "Graphite"
+      ],
+      "description": "A smiling gold-haired chibi mascot in a red robe, framed by golden wings and bold Kami Kulture lettering. Printed on a relaxed, garment-dyed Comfort Colors tee.",
+      "detail": "Preserve the smiling gold-haired chibi girl, horned gold headpiece, red ribbon and robe, cream skin, golden wings and ring, exact KAMI KULTURE lettering with cream KAMI and red KULTURE. Remove the golden-brown paper background completely to alpha, including openings around ring and wings. Keep actual character and lettering opaque, dark contours crisp.",
+      "prompt": "Use case: background-extraction. Edit target: the attached original shirt artwork. Produce a single polished DTG-ready transparent PNG, portrait 1024 x 1536. Artwork only, not a shirt or model mockup. Preserve this specific original artwork and typography; do not substitute a different version. Preserve the smiling gold-haired chibi girl, horned gold headpiece, red ribbon and robe, cream skin, golden wings and ring, exact KAMI KULTURE lettering with cream KAMI and red KULTURE. Remove the golden-brown paper background completely to alpha, including openings around ring and wings. Keep actual character and lettering opaque, dark contours crisp. Fill most of the canvas with the requested design and leave a narrow transparent safe margin. True alpha transparency, not a painted checkerboard. No watermark, new logo, slogan, signature or garment.",
+      "generatedPath": "/Users/richardnoceda/.codex/generated_images/019e07aa-840e-7db0-b82c-862d5973d130/exec-0047b32a-ba0f-40e6-b5ba-964db1181b77.png",
+      "finalPath": "Kami Kulture Photos/Designs/Print-ready/kami-kulture-winged-girl.png"
+    },
+    {
+      "slug": "quiet-power-cyan-aura",
+      "source": "Glowing1.png",
+      "title": "Quiet Power - Cyan Aura",
+      "colors": [
+        "Graphite",
+        "China Blue"
+      ],
+      "description": "A stoic illustrated portrait framed by pale lettering and a cool cyan aura. A moody character graphic on a relaxed, garment-dyed Comfort Colors tee.",
+      "detail": "Preserve the original serious black-haired illustrated young man in his dark buttoned school-style jacket, pale cyan characters arranged around him exactly as drawn, and tight cyan edge illumination. Remove the dark rectangular poster backdrop and broad diffuse haze to alpha. Keep face and jacket opaque and their blue-gray shading readable; retain a narrow vivid cyan outline, not a muddy gradient rectangle. Preserve the original character, pose and letter shapes; do not translate or add words.",
+      "prompt": "Use case: background-extraction. Edit target: the attached original shirt artwork. Produce a single polished DTG-ready transparent PNG, portrait 1024 x 1536. Artwork only, not a shirt or model mockup. Preserve this specific original artwork and typography; do not substitute a different version. Preserve the original serious black-haired illustrated young man in his dark buttoned school-style jacket, pale cyan characters arranged around him exactly as drawn, and tight cyan edge illumination. Remove the dark rectangular poster backdrop and broad diffuse haze to alpha. Keep face and jacket opaque and their blue-gray shading readable; retain a narrow vivid cyan outline, not a muddy gradient rectangle. Preserve the original character, pose and letter shapes; do not translate or add words. Fill most of the canvas with the requested design and leave a narrow transparent safe margin. True alpha transparency, not a painted checkerboard. No watermark, new logo, slogan, signature or garment.",
+      "generatedPath": "/Users/richardnoceda/.codex/generated_images/019e07aa-840e-7db0-b82c-862d5973d130/exec-e8ec0f02-c3f8-4c87-9021-f8ec94d2da91.png",
+      "finalPath": "Kami Kulture Photos/Designs/Print-ready/quiet-power-cyan-aura.png"
+    },
+    {
+      "slug": "quiet-power-electric-blue",
+      "source": "Glowing2.png",
+      "title": "Quiet Power - Electric Blue",
+      "colors": [
+        "Graphite",
+        "China Blue"
+      ],
+      "description": "A sharp illustrated profile and vertical cyan lettering with electric-blue edge accents. Printed on a relaxed, garment-dyed Comfort Colors tee.",
+      "detail": "Preserve the original spiky black-haired young man's three-quarter portrait, high collar, solid blue-gray face, dark outfit, and original vertical cyan characters exactly as drawn. Remove the rectangular dark backdrop and diffuse outer haze to alpha. Keep a tight bright electric-blue outline for shirt contrast, with opaque face, hair and clothing. Do not rewrite the characters, add text, or create a full blue rectangle.",
+      "prompt": "Use case: background-extraction. Edit target: the attached original shirt artwork. Produce a single polished DTG-ready transparent PNG, portrait 1024 x 1536. Artwork only, not a shirt or model mockup. Preserve this specific original artwork and typography; do not substitute a different version. Preserve the original spiky black-haired young man's three-quarter portrait, high collar, solid blue-gray face, dark outfit, and original vertical cyan characters exactly as drawn. Remove the rectangular dark backdrop and diffuse outer haze to alpha. Keep a tight bright electric-blue outline for shirt contrast, with opaque face, hair and clothing. Do not rewrite the characters, add text, or create a full blue rectangle. Fill most of the canvas with the requested design and leave a narrow transparent safe margin. True alpha transparency, not a painted checkerboard. No watermark, new logo, slogan, signature or garment.",
+      "generatedPath": "/Users/richardnoceda/.codex/generated_images/019e07aa-840e-7db0-b82c-862d5973d130/exec-59389807-9021-424c-bf9e-589f02847917.png",
+      "finalPath": "Kami Kulture Photos/Designs/Print-ready/quiet-power-electric-blue.png"
+    },
+    {
+      "slug": "lowkey-overpowered-shadow",
+      "source": "LowkeyOP2.png",
+      "title": "Lowkey Overpowered - Shadow Edition",
+      "colors": [
+        "Graphite",
+        "China Blue"
+      ],
+      "description": "Quiet power, a little mystery. White eyes above spaced statement lettering in an alternate Shadow Edition layout on a relaxed Comfort Colors tee.",
+      "detail": "Preserve exact white text LOWKEY OVERPOWERED in its two-line lower position, and the two small white eyes higher on the canvas. Remove the black-gray poster background and wide glows to alpha. Keep the distinctive spacious layout, crisp solid white text and eyes with no broad haze, no silhouette or new artwork. A small transparent margin all around; this is the alternate spaced layout, not the existing compact design.",
+      "prompt": "Use case: background-extraction. Edit target: the attached original shirt artwork. Produce a single polished DTG-ready transparent PNG, portrait 1024 x 1536. Artwork only, not a shirt or model mockup. Preserve this specific original artwork and typography; do not substitute a different version. Preserve exact white text LOWKEY OVERPOWERED in its two-line lower position, and the two small white eyes higher on the canvas. Remove the black-gray poster background and wide glows to alpha. Keep the distinctive spacious layout, crisp solid white text and eyes with no broad haze, no silhouette or new artwork. A small transparent margin all around; this is the alternate spaced layout, not the existing compact design. Fill most of the canvas with the requested design and leave a narrow transparent safe margin. True alpha transparency, not a painted checkerboard. No watermark, new logo, slogan, signature or garment.",
+      "generatedPath": "/Users/richardnoceda/.codex/generated_images/019e07aa-840e-7db0-b82c-862d5973d130/exec-97dc60f2-e855-4993-828d-cc4e4b5dba17.png",
+      "finalPath": "Kami Kulture Photos/Designs/Print-ready/lowkey-overpowered-shadow.png"
+    },
+    {
+      "slug": "my-arc-isnt-finished",
+      "source": "Manga1.png",
+      "title": "My Arc Isn't Finished",
+      "colors": [
+        "Ivory"
+      ],
+      "description": "The story is still yours to write. Bold manga-style lettering and black speed lines on an Ivory Comfort Colors tee with a relaxed unisex fit.",
+      "detail": "Preserve exact text DON'T TALK TO ME, MY ARC ISN'T FINISHED, including apostrophes and comma, in the original dynamic italic arrangement. Keep white opaque letter fills and thick black outlines, plus the strongest black manga speed lines. Remove the white rectangular paper backdrop and excess fine paper noise to alpha. Speed lines should terminate in an organic burst with a transparent safe margin, not touch all canvas edges or form a rectangular block.",
+      "prompt": "Use case: background-extraction. Edit target: the attached original shirt artwork. Produce a single polished DTG-ready transparent PNG, portrait 1024 x 1536. Artwork only, not a shirt or model mockup. Preserve this specific original artwork and typography; do not substitute a different version. Preserve exact text DON'T TALK TO ME, MY ARC ISN'T FINISHED, including apostrophes and comma, in the original dynamic italic arrangement. Keep white opaque letter fills and thick black outlines, plus the strongest black manga speed lines. Remove the white rectangular paper backdrop and excess fine paper noise to alpha. Speed lines should terminate in an organic burst with a transparent safe margin, not touch all canvas edges or form a rectangular block. Fill most of the canvas with the requested design and leave a narrow transparent safe margin. True alpha transparency, not a painted checkerboard. No watermark, new logo, slogan, signature or garment.",
+      "generatedPath": "/Users/richardnoceda/.codex/generated_images/019e07aa-840e-7db0-b82c-862d5973d130/exec-f1145725-f1dc-4e2e-b531-548f8420e389.png",
+      "finalPath": "Kami Kulture Photos/Designs/Print-ready/my-arc-isnt-finished.png"
+    },
+    {
+      "slug": "senpai-approved-classic-seal",
+      "source": "Senapi2.png",
+      "title": "Senpai Approved - Classic Seal",
+      "colors": [
+        "Ivory"
+      ],
+      "description": "A distressed red approval stamp with a geometric border and classic two-line lettering on an Ivory Comfort Colors tee.",
+      "detail": "Preserve exact red text SENPAI APPROVED in two lines and the original red geometric stamp border with corner spirals. Remove all tan paper, center cream fill and shadow to genuine alpha, leaving distressed red ink only. This Classic Seal has no additional characters between the English words. Center the seal at a useful print scale with moderate transparent safe margins.",
+      "prompt": "Use case: background-extraction. Edit target: the attached original shirt artwork. Produce a single polished DTG-ready transparent PNG, portrait 1024 x 1536. Artwork only, not a shirt or model mockup. Preserve this specific original artwork and typography; do not substitute a different version. Preserve exact red text SENPAI APPROVED in two lines and the original red geometric stamp border with corner spirals. Remove all tan paper, center cream fill and shadow to genuine alpha, leaving distressed red ink only. This Classic Seal has no additional characters between the English words. Center the seal at a useful print scale with moderate transparent safe margins. Fill most of the canvas with the requested design and leave a narrow transparent safe margin. True alpha transparency, not a painted checkerboard. No watermark, new logo, slogan, signature or garment.",
+      "generatedPath": "/Users/richardnoceda/.codex/generated_images/019e07aa-840e-7db0-b82c-862d5973d130/exec-f4f0954b-eac2-4c26-8a2d-1c1dae68338d.png",
+      "finalPath": "Kami Kulture Photos/Designs/Print-ready/senpai-approved-classic-seal.png"
+    },
+    {
+      "slug": "senpai-approved-kanji-seal",
+      "source": "Senpai1.png",
+      "title": "Senpai Approved - Kanji Seal",
+      "colors": [
+        "Ivory"
+      ],
+      "description": "Distressed red lettering, a geometric stamp border, and the original two-character center mark on an Ivory Comfort Colors tee.",
+      "detail": "Preserve exact red English text SENPAI at top and APPROVED at bottom, the original two red center characters exactly as drawn, and geometric spiral-corner border. Remove tan paper, cream center fill and shadow to alpha, leaving the red ink stamp only. Preserve all character strokes; do not replace or reinterpret lettering. This version must keep the center mark to distinguish it from the classic stamp.",
+      "prompt": "Use case: background-extraction. Edit target: the attached original shirt artwork. Produce a single polished DTG-ready transparent PNG, portrait 1024 x 1536. Artwork only, not a shirt or model mockup. Preserve this specific original artwork and typography; do not substitute a different version. Preserve exact red English text SENPAI at top and APPROVED at bottom, the original two red center characters exactly as drawn, and geometric spiral-corner border. Remove tan paper, cream center fill and shadow to alpha, leaving the red ink stamp only. Preserve all character strokes; do not replace or reinterpret lettering. This version must keep the center mark to distinguish it from the classic stamp. Fill most of the canvas with the requested design and leave a narrow transparent safe margin. True alpha transparency, not a painted checkerboard. No watermark, new logo, slogan, signature or garment.",
+      "generatedPath": "/Users/richardnoceda/.codex/generated_images/019e07aa-840e-7db0-b82c-862d5973d130/exec-a0ed46ab-dff1-4cd7-a228-04b752236122.png",
+      "finalPath": "Kami Kulture Photos/Designs/Print-ready/senpai-approved-kanji-seal.png"
+    },
+    {
+      "slug": "training-arc-power-meter",
+      "source": "TrainingMode2.png",
+      "title": "Training Arc - Power Meter Edition",
+      "colors": [
+        "Ivory",
+        "Graphite"
+      ],
+      "description": "Training mode is on. An illustrated lifter, multicolor power meter, and cream lettering in a second training-arc layout on a relaxed Comfort Colors tee.",
+      "detail": "Preserve exact cream text TRAINING ARC MODE: ON, the red-edged multicolor power meter, and the original determined illustrated lifter wearing a blue-gray tank with a barbell across his shoulders. Remove the surrounding blue gym wall, racks and floor to alpha. Keep the lifter, visible barbell, opaque face, clothing and lettering. Finish clipped barbell ends into a clean bounded silhouette if needed; narrow transparent safe margin, no rectangular gym backdrop.",
+      "prompt": "Use case: background-extraction. Edit target: the attached original shirt artwork. Produce a single polished DTG-ready transparent PNG, portrait 1024 x 1536. Artwork only, not a shirt or model mockup. Preserve this specific original artwork and typography; do not substitute a different version. Preserve exact cream text TRAINING ARC MODE: ON, the red-edged multicolor power meter, and the original determined illustrated lifter wearing a blue-gray tank with a barbell across his shoulders. Remove the surrounding blue gym wall, racks and floor to alpha. Keep the lifter, visible barbell, opaque face, clothing and lettering. Finish clipped barbell ends into a clean bounded silhouette if needed; narrow transparent safe margin, no rectangular gym backdrop. Fill most of the canvas with the requested design and leave a narrow transparent safe margin. True alpha transparency, not a painted checkerboard. No watermark, new logo, slogan, signature or garment.",
+      "generatedPath": "/Users/richardnoceda/.codex/generated_images/019e07aa-840e-7db0-b82c-862d5973d130/exec-2bb4c9db-3160-458e-9556-ca91bdd60b92.png",
+      "finalPath": "Kami Kulture Photos/Designs/Print-ready/training-arc-power-meter.png"
+    },
+    {
+      "slug": "plot-armor-blue-shield",
+      "source": "armor2.png",
+      "title": "Plot Armor - Blue Shield Edition",
+      "colors": [
+        "Graphite",
+        "China Blue"
+      ],
+      "description": "A silver-edged blue shield, bold white lettering, and electric-blue lightning. A second Plot Armor layout on a relaxed Comfort Colors tee.",
+      "detail": "Preserve exact white text PLOT ARMOR ACTIVATED above the dark-blue shield with silver rim and large silver-white check mark. Retain several clean electric-blue/cyan/violet lightning branches tightly around the composition. Remove the dark full-canvas blue background and broad glow to alpha. Keep shield interior opaque blue, clean lettering and organic lightning edges. This version has a check mark, not the orange lightning-bolt emblem.",
+      "prompt": "Use case: background-extraction. Edit target: the attached original shirt artwork. Produce a single polished DTG-ready transparent PNG, portrait 1024 x 1536. Artwork only, not a shirt or model mockup. Preserve this specific original artwork and typography; do not substitute a different version. Preserve exact white text PLOT ARMOR ACTIVATED above the dark-blue shield with silver rim and large silver-white check mark. Retain several clean electric-blue/cyan/violet lightning branches tightly around the composition. Remove the dark full-canvas blue background and broad glow to alpha. Keep shield interior opaque blue, clean lettering and organic lightning edges. This version has a check mark, not the orange lightning-bolt emblem. Fill most of the canvas with the requested design and leave a narrow transparent safe margin. True alpha transparency, not a painted checkerboard. No watermark, new logo, slogan, signature or garment.",
+      "generatedPath": "/Users/richardnoceda/.codex/generated_images/019e07aa-840e-7db0-b82c-862d5973d130/exec-694e4854-b187-446f-b290-037ff7afcefa.png",
+      "finalPath": "Kami Kulture Photos/Designs/Print-ready/plot-armor-blue-shield.png"
+    },
+    {
+      "slug": "filler-episode-lounge",
+      "source": "filler2.png",
+      "title": "Filler Episode - Lounge Edition",
+      "colors": [
+        "Ivory",
+        "Graphite"
+      ],
+      "description": "A rest-day classic with a sleepy chibi character on a lavender couch inside a retro television. The Lounge Edition on a relaxed Comfort Colors tee.",
+      "detail": "Extract the retro television artwork with exact cream text THIS IS MY FILLER EPISODE, the original sleepy chibi boy leaning on a lavender pillow/couch, teal shirt, and warm brown television frame. Keep the entire illustrated screen interior opaque. Remove outer wall, table and shadow to alpha. Complete the cropped outer left television silhouette into a full clean TV shape without changing the screen scene; leave a narrow transparent margin.",
+      "prompt": "Use case: background-extraction. Edit target: the attached original shirt artwork. Produce a single polished DTG-ready transparent PNG, portrait 1024 x 1536. Artwork only, not a shirt or model mockup. Preserve this specific original artwork and typography; do not substitute a different version. Extract the retro television artwork with exact cream text THIS IS MY FILLER EPISODE, the original sleepy chibi boy leaning on a lavender pillow/couch, teal shirt, and warm brown television frame. Keep the entire illustrated screen interior opaque. Remove outer wall, table and shadow to alpha. Complete the cropped outer left television silhouette into a full clean TV shape without changing the screen scene; leave a narrow transparent margin. Fill most of the canvas with the requested design and leave a narrow transparent safe margin. True alpha transparency, not a painted checkerboard. No watermark, new logo, slogan, signature or garment.",
+      "generatedPath": "/Users/richardnoceda/.codex/generated_images/019e07aa-840e-7db0-b82c-862d5973d130/exec-434e339e-ff7e-4919-8a20-9fabff54ef46.png",
+      "finalPath": "Kami Kulture Photos/Designs/Print-ready/filler-episode-lounge.png"
+    },
+    {
+      "slug": "hero-of-your-own-story",
+      "source": "hero.png",
+      "title": "Hero of Your Own Story",
+      "colors": [
+        "Ivory",
+        "Graphite"
+      ],
+      "description": "Become the hero of your own story. Cream statement lettering with deep teal dimensional brush shadows on a relaxed, garment-dyed Comfort Colors tee.",
+      "detail": "Preserve exact cream lettering BECOME THE HERO OF YOUR OWN STORY with its original bold slanted composition and deep teal dimensional brush shadows. Remove the flat orange rectangular paper backdrop to alpha, including spaces around and between the letters. Keep the teal letter shadows opaque and organically bounded; no orange rectangle, no extra words.",
+      "prompt": "Use case: background-extraction. Edit target: the attached original shirt artwork. Produce a single polished DTG-ready transparent PNG, portrait 1024 x 1536. Artwork only, not a shirt or model mockup. Preserve this specific original artwork and typography; do not substitute a different version. Preserve exact cream lettering BECOME THE HERO OF YOUR OWN STORY with its original bold slanted composition and deep teal dimensional brush shadows. Remove the flat orange rectangular paper backdrop to alpha, including spaces around and between the letters. Keep the teal letter shadows opaque and organically bounded; no orange rectangle, no extra words. Fill most of the canvas with the requested design and leave a narrow transparent safe margin. True alpha transparency, not a painted checkerboard. No watermark, new logo, slogan, signature or garment.",
+      "generatedPath": "/Users/richardnoceda/.codex/generated_images/019e07aa-840e-7db0-b82c-862d5973d130/exec-feff7f59-4856-4c8f-b3e6-6f2790237dde.png",
+      "finalPath": "Kami Kulture Photos/Designs/Print-ready/hero-of-your-own-story.png"
+    },
+    {
+      "slug": "anime-love-language-pink",
+      "source": "lovelanguage2.png",
+      "title": "Anime Love Language - Pink Edition",
+      "colors": [
+        "Ivory",
+        "Graphite"
+      ],
+      "description": "A pink heart-shaped speech bubble, black lettering, and sparkle accents. The Pink Edition of Anime Love Language on a relaxed Comfort Colors tee.",
+      "detail": "Preserve the large opaque pastel-pink heart speech bubble, exact black text ANIME IS MY LOVE LANGUAGE in the original stacked layout, dark contour and surrounding pink/black sparkles. Remove the dark-brown poster backdrop and outer glow to alpha. Keep pink fill and black lettering solid, including the speech-bubble tail; no full background rectangle.",
+      "prompt": "Use case: background-extraction. Edit target: the attached original shirt artwork. Produce a single polished DTG-ready transparent PNG, portrait 1024 x 1536. Artwork only, not a shirt or model mockup. Preserve this specific original artwork and typography; do not substitute a different version. Preserve the large opaque pastel-pink heart speech bubble, exact black text ANIME IS MY LOVE LANGUAGE in the original stacked layout, dark contour and surrounding pink/black sparkles. Remove the dark-brown poster backdrop and outer glow to alpha. Keep pink fill and black lettering solid, including the speech-bubble tail; no full background rectangle. Fill most of the canvas with the requested design and leave a narrow transparent safe margin. True alpha transparency, not a painted checkerboard. No watermark, new logo, slogan, signature or garment.",
+      "generatedPath": "/Users/richardnoceda/.codex/generated_images/019e07aa-840e-7db0-b82c-862d5973d130/exec-f92593cd-e516-4591-a2cf-76fabf64c056.png",
+      "finalPath": "Kami Kulture Photos/Designs/Print-ready/anime-love-language-pink.png"
+    },
+    {
+      "slug": "side-character-split-type",
+      "source": "sidecharacter2.png",
+      "title": "Side Character - Split Type Edition",
+      "colors": [
+        "Ivory"
+      ],
+      "description": "Two moods, one story. Black statement type beside a lavender panel with cream lettering on an Ivory Comfort Colors tee.",
+      "detail": "Preserve exact text SIDE CHARACTER IN THE STREETS in black on the left and MAIN CHARACTER IN MY HEAD in cream on the right. Keep the two-column composition. Remove outer paper and long top/bottom empty poster bands to alpha. Keep a compact opaque lavender panel only directly behind the right-hand cream lettering, bounded to the same typography block height, so it reads on an ivory shirt; left-column background becomes transparent. No portrait, extra words or full-canvas paper rectangle.",
+      "prompt": "Use case: background-extraction. Edit target: the attached original shirt artwork. Produce a single polished DTG-ready transparent PNG, portrait 1024 x 1536. Artwork only, not a shirt or model mockup. Preserve this specific original artwork and typography; do not substitute a different version. Preserve exact text SIDE CHARACTER IN THE STREETS in black on the left and MAIN CHARACTER IN MY HEAD in cream on the right. Keep the two-column composition. Remove outer paper and long top/bottom empty poster bands to alpha. Keep a compact opaque lavender panel only directly behind the right-hand cream lettering, bounded to the same typography block height, so it reads on an ivory shirt; left-column background becomes transparent. No portrait, extra words or full-canvas paper rectangle. Fill most of the canvas with the requested design and leave a narrow transparent safe margin. True alpha transparency, not a painted checkerboard. No watermark, new logo, slogan, signature or garment.",
+      "generatedPath": "/Users/richardnoceda/.codex/generated_images/019e07aa-840e-7db0-b82c-862d5973d130/exec-299d5358-e618-4a6d-a9f5-35bb4f5bb29f.png",
+      "finalPath": "Kami Kulture Photos/Designs/Print-ready/side-character-split-type.png"
+    },
+    {
+      "slug": "strength-through-struggle-balance",
+      "source": "strength2.png",
+      "title": "Strength Through Struggle - Balance Edition",
+      "colors": [
+        "Ivory"
+      ],
+      "description": "Steady under pressure. Black motivational lettering and an alternate balancing lifter silhouette on an Ivory Comfort Colors tee.",
+      "detail": "Preserve exact black text STRENGTH THROUGH STRUGGLE in three lines, and the original solid black single-leg balancing lifter with barbell and weights. Remove the dark olive/gray rectangular background and haze to alpha, including openings around the bent leg, arms and letter counters. Keep black foreground ink, original pose and clean silhouette; do not substitute the symmetric squat from the other edition.",
+      "prompt": "Use case: background-extraction. Edit target: the attached original shirt artwork. Produce a single polished DTG-ready transparent PNG, portrait 1024 x 1536. Artwork only, not a shirt or model mockup. Preserve this specific original artwork and typography; do not substitute a different version. Preserve exact black text STRENGTH THROUGH STRUGGLE in three lines, and the original solid black single-leg balancing lifter with barbell and weights. Remove the dark olive/gray rectangular background and haze to alpha, including openings around the bent leg, arms and letter counters. Keep black foreground ink, original pose and clean silhouette; do not substitute the symmetric squat from the other edition. Fill most of the canvas with the requested design and leave a narrow transparent safe margin. True alpha transparency, not a painted checkerboard. No watermark, new logo, slogan, signature or garment.",
+      "generatedPath": "/Users/richardnoceda/.codex/generated_images/019e07aa-840e-7db0-b82c-862d5973d130/exec-19f9803b-3393-488e-b5d6-1f811c8f2a41.png",
+      "finalPath": "Kami Kulture Photos/Designs/Print-ready/strength-through-struggle-balance.png"
+    },
+    {
+      "slug": "time-skip-arc-dumbbell",
+      "source": "timeskip2.png",
+      "title": "Time Skip Arc - Dumbbell Edition",
+      "colors": [
+        "Ivory"
+      ],
+      "description": "Put in the work between chapters. A black clock and kneeling dumbbell-curl silhouette in an alternate Time Skip layout on an Ivory Comfort Colors tee.",
+      "detail": "Preserve exact black text CURRENTLY IN MY TIME SKIP ARC across the top, the large black clock outline with hands/ticks on the left, and the original kneeling lifter curling a dumbbell at right. Remove the gray/black rectangular backdrop and glow to genuine alpha, including the clock's empty interior and negative spaces around the figure. Keep all foreground ink black and opaque; no white conversion or background block.",
+      "prompt": "Use case: background-extraction. Edit target: the attached original shirt artwork. Produce a single polished DTG-ready transparent PNG, portrait 1024 x 1536. Artwork only, not a shirt or model mockup. Preserve this specific original artwork and typography; do not substitute a different version. Preserve exact black text CURRENTLY IN MY TIME SKIP ARC across the top, the large black clock outline with hands/ticks on the left, and the original kneeling lifter curling a dumbbell at right. Remove the gray/black rectangular backdrop and glow to genuine alpha, including the clock's empty interior and negative spaces around the figure. Keep all foreground ink black and opaque; no white conversion or background block. Fill most of the canvas with the requested design and leave a narrow transparent safe margin. True alpha transparency, not a painted checkerboard. No watermark, new logo, slogan, signature or garment.",
+      "generatedPath": "/Users/richardnoceda/.codex/generated_images/019e07aa-840e-7db0-b82c-862d5973d130/exec-1075aed5-2a67-43e2-a78e-102ca39488b8.png",
+      "finalPath": "Kami Kulture Photos/Designs/Print-ready/time-skip-arc-dumbbell.png"
+    },
+    {
+      "slug": "unstoppable-spirit-watercolor",
+      "source": "unstoppable2.png",
+      "title": "Unstoppable Spirit - Watercolor Edition",
+      "colors": [
+        "Ivory"
+      ],
+      "description": "Expressive black brush marks over soft gold, orange, teal, and blue watercolor, with spaced Unstoppable Spirit lettering on an Ivory Comfort Colors tee.",
+      "detail": "Preserve the two original large black brush-calligraphy characters exactly as drawn, the exact caption UNSTOPPABLE SPIRIT in two spaced lines, and the existing soft gold/orange/teal/blue watercolor splash. Remove surrounding cream paper to alpha with organic pigment edges. Keep calligraphy and caption black and crisp; do not reinterpret characters or replace them with the three-character design from another version.",
+      "prompt": "Use case: background-extraction. Edit target: the attached original shirt artwork. Produce a single polished DTG-ready transparent PNG, portrait 1024 x 1536. Artwork only, not a shirt or model mockup. Preserve this specific original artwork and typography; do not substitute a different version. Preserve the two original large black brush-calligraphy characters exactly as drawn, the exact caption UNSTOPPABLE SPIRIT in two spaced lines, and the existing soft gold/orange/teal/blue watercolor splash. Remove surrounding cream paper to alpha with organic pigment edges. Keep calligraphy and caption black and crisp; do not reinterpret characters or replace them with the three-character design from another version. Fill most of the canvas with the requested design and leave a narrow transparent safe margin. True alpha transparency, not a painted checkerboard. No watermark, new logo, slogan, signature or garment.",
+      "generatedPath": "/Users/richardnoceda/.codex/generated_images/019e07aa-840e-7db0-b82c-862d5973d130/exec-592494c8-102d-4b77-9ce8-1ec38b8d627b.png",
+      "finalPath": "Kami Kulture Photos/Designs/Print-ready/unstoppable-spirit-watercolor.png"
+    },
+    {
+      "slug": "victory-is-earned",
+      "source": "victory.png",
+      "title": "Victory Is Earned",
+      "colors": [
+        "Graphite",
+        "China Blue"
+      ],
+      "description": "Victory is earned, not given. Cream lettering framed by flowing blue, magenta, and orange energy strokes on a relaxed Comfort Colors tee.",
+      "detail": "Preserve exact cream lettering VICTORY IS EARNED, NOT GIVEN with its comma, centered in the original stacked composition. Retain a bounded cluster of the existing fine blue, magenta and orange flowing wave strokes immediately around the lettering for its energetic look. Remove the dark rectangular poster background and far-away full-bleed wave field to genuine alpha, with irregular open edges and transparent safe margins. No rectangular gradient sheet or extra text.",
+      "prompt": "Use case: background-extraction. Edit target: the attached original shirt artwork. Produce a single polished DTG-ready transparent PNG, portrait 1024 x 1536. Artwork only, not a shirt or model mockup. Preserve this specific original artwork and typography; do not substitute a different version. Preserve exact cream lettering VICTORY IS EARNED, NOT GIVEN with its comma, centered in the original stacked composition. Retain a bounded cluster of the existing fine blue, magenta and orange flowing wave strokes immediately around the lettering for its energetic look. Remove the dark rectangular poster background and far-away full-bleed wave field to genuine alpha, with irregular open edges and transparent safe margins. No rectangular gradient sheet or extra text. Fill most of the canvas with the requested design and leave a narrow transparent safe margin. True alpha transparency, not a painted checkerboard. No watermark, new logo, slogan, signature or garment.",
+      "generatedPath": "/Users/richardnoceda/.codex/generated_images/019e07aa-840e-7db0-b82c-862d5973d130/exec-d0881c72-b5b0-4232-85cd-7ddb1b14780d.png",
+      "finalPath": "Kami Kulture Photos/Designs/Print-ready/victory-is-earned.png"
+    }
+  ]
+}

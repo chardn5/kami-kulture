@@ -1,0 +1,96 @@
+{
+  "templateProductId": "689e27a7e99e06b0d50247c8",
+  "garmentKey": "comfort-colors-1717",
+  "retailPriceCents": 3000,
+  "frontWidthInches": 6.5,
+  "minimumDpi": 150,
+  "designs": [
+    {
+      "slug": "kami-kulture-winged-boy",
+      "title": "Kami Kulture - Winged Boy",
+      "description": "A cheerful winged chibi mascot holding a Japan-inspired tee, with bold Kami Kulture lettering. Printed on a relaxed, garment-dyed Comfort Colors tee.",
+      "artwork": "Kami Kulture Photos/Designs/Print-ready/kami-kulture-winged-boy.png",
+      "colors": [
+        "Ivory",
+        "Graphite"
+      ]
+    },
+    {
+      "slug": "kami-kulture-winged-girl",
+      "title": "Kami Kulture - Winged Girl",
+      "description": "A smiling gold-haired chibi mascot in a red robe, framed by golden wings and bold Kami Kulture lettering. Printed on a relaxed, garment-dyed Comfort Colors tee.",
+      "artwork": "Kami Kulture Photos/Designs/Print-ready/kami-kulture-winged-girl.png",
+      "colors": [
+        "Ivory",
+        "Graphite"
+      ]
+    },
+    {
+      "slug": "quiet-power-cyan-aura",
+      "title": "Quiet Power - Cyan Aura",
+      "description": "A stoic illustrated portrait framed by pale lettering and a cool cyan aura. A moody character graphic on a relaxed, garment-dyed Comfort Colors tee.",
+      "artwork": "Kami Kulture Photos/Designs/Print-ready/quiet-power-cyan-aura.png",
+      "colors": [
+        "Graphite",
+        "China Blue"
+      ]
+    },
+    {
+      "slug": "quiet-power-electric-blue",
+      "title": "Quiet Power - Electric Blue",
+      "description": "A sharp illustrated profile and vertical cyan lettering with electric-blue edge accents. Printed on a relaxed, garment-dyed Comfort Colors tee.",
+      "artwork": "Kami Kulture Photos/Designs/Print-ready/quiet-power-electric-blue.png",
+      "colors": [
+        "Graphite",
+        "China Blue"
+      ]
+    },
+    {
+      "slug": "lowkey-overpowered-shadow",
+      "title": "Lowkey Overpowered - Shadow Edition",
+      "description": "Quiet power, a little mystery. White eyes above spaced statement lettering in an alternate Shadow Edition layout on a relaxed Comfort Colors tee.",
+      "artwork": "Kami Kulture Photos/Designs/Print-ready/lowkey-overpowered-shadow.png",
+      "colors": [
+        "Graphite",
+        "China Blue"
+      ]
+    },
+    {
+      "slug": "my-arc-isnt-finished",
+      "title": "My Arc Isn't Finished",
+      "description": "The story is still yours to write. Bold manga-style lettering and black speed lines on an Ivory Comfort Colors tee with a relaxed unisex fit.",
+      "artwork": "Kami Kulture Photos/Designs/Print-ready/my-arc-isnt-finished.png",
+      "colors": [
+        "Ivory"
+      ]
+    },
+    {
+      "slug": "senpai-approved-classic-seal",
+      "title": "Senpai Approved - Classic Seal",
+      "description": "A distressed red approval stamp with a geometric border and classic two-line lettering on an Ivory Comfort Colors tee.",
+      "artwork": "Kami Kulture Photos/Designs/Print-ready/senpai-approved-classic-seal.png",
+      "colors": [
+        "Ivory"
+      ]
+    },
+    {
+      "slug": "senpai-approved-kanji-seal",
+      "title": "Senpai Approved - Kanji Seal",
+      "description": "Distressed red lettering, a geometric stamp border, and the original two-character center mark on an Ivory Comfort Colors tee.",
+      "artwork": "Kami Kulture Photos/Designs/Print-ready/senpai-approved-kanji-seal.png",
+      "colors": [
+        "Ivory"
+      ]
+    },
+    {
+      "slug": "training-arc-power-meter",
+      "title": "Training Arc - Power Meter Edition",
+      "description": "Training mode is on. An illustrated lifter, multicolor power meter, and cream lettering in a second training-arc layout on a relaxed Comfort Colors tee.",
+      "artwork": "Kami Kulture Photos/Designs/Print-ready/training-arc-power-meter.png",
+      "colors": [
+        "Ivory",
+        "Graphite"
+      ]
+    }
+  ]
+}

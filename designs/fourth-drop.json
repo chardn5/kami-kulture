@@ -1,0 +1,95 @@
+{
+  "templateProductId": "689e27a7e99e06b0d50247c8",
+  "garmentKey": "comfort-colors-1717",
+  "retailPriceCents": 3000,
+  "frontWidthInches": 6.5,
+  "minimumDpi": 150,
+  "designs": [
+    {
+      "slug": "plot-armor-blue-shield",
+      "title": "Plot Armor - Blue Shield Edition",
+      "description": "A silver-edged blue shield, bold white lettering, and electric-blue lightning. A second Plot Armor layout on a relaxed Comfort Colors tee.",
+      "artwork": "Kami Kulture Photos/Designs/Print-ready/plot-armor-blue-shield.png",
+      "colors": [
+        "Graphite",
+        "China Blue"
+      ]
+    },
+    {
+      "slug": "filler-episode-lounge",
+      "title": "Filler Episode - Lounge Edition",
+      "description": "A rest-day classic with a sleepy chibi character on a lavender couch inside a retro television. The Lounge Edition on a relaxed Comfort Colors tee.",
+      "artwork": "Kami Kulture Photos/Designs/Print-ready/filler-episode-lounge.png",
+      "colors": [
+        "Ivory",
+        "Graphite"
+      ]
+    },
+    {
+      "slug": "hero-of-your-own-story",
+      "title": "Hero of Your Own Story",
+      "description": "Become the hero of your own story. Cream statement lettering with deep teal dimensional brush shadows on a relaxed, garment-dyed Comfort Colors tee.",
+      "artwork": "Kami Kulture Photos/Designs/Print-ready/hero-of-your-own-story.png",
+      "colors": [
+        "Ivory",
+        "Graphite"
+      ]
+    },
+    {
+      "slug": "anime-love-language-pink",
+      "title": "Anime Love Language - Pink Edition",
+      "description": "A pink heart-shaped speech bubble, black lettering, and sparkle accents. The Pink Edition of Anime Love Language on a relaxed Comfort Colors tee.",
+      "artwork": "Kami Kulture Photos/Designs/Print-ready/anime-love-language-pink.png",
+      "colors": [
+        "Ivory",
+        "Graphite"
+      ]
+    },
+    {
+      "slug": "side-character-split-type",
+      "title": "Side Character - Split Type Edition",
+      "description": "Two moods, one story. Black statement type beside a lavender panel with cream lettering on an Ivory Comfort Colors tee.",
+      "artwork": "Kami Kulture Photos/Designs/Print-ready/side-character-split-type.png",
+      "colors": [
+        "Ivory"
+      ]
+    },
+    {
+      "slug": "strength-through-struggle-balance",
+      "title": "Strength Through Struggle - Balance Edition",
+      "description": "Steady under pressure. Black motivational lettering and an alternate balancing lifter silhouette on an Ivory Comfort Colors tee.",
+      "artwork": "Kami Kulture Photos/Designs/Print-ready/strength-through-struggle-balance.png",
+      "colors": [
+        "Ivory"
+      ]
+    },
+    {
+      "slug": "time-skip-arc-dumbbell",
+      "title": "Time Skip Arc - Dumbbell Edition",
+      "description": "Put in the work between chapters. A black clock and kneeling dumbbell-curl silhouette in an alternate Time Skip layout on an Ivory Comfort Colors tee.",
+      "artwork": "Kami Kulture Photos/Designs/Print-ready/time-skip-arc-dumbbell.png",
+      "colors": [
+        "Ivory"
+      ]
+    },
+    {
+      "slug": "unstoppable-spirit-watercolor",
+      "title": "Unstoppable Spirit - Watercolor Edition",
+      "description": "Expressive black brush marks over soft gold, orange, teal, and blue watercolor, with spaced Unstoppable Spirit lettering on an Ivory Comfort Colors tee.",
+      "artwork": "Kami Kulture Photos/Designs/Print-ready/unstoppable-spirit-watercolor.png",
+      "colors": [
+        "Ivory"
+      ]
+    },
+    {
+      "slug": "victory-is-earned",
+      "title": "Victory Is Earned",
+      "description": "Victory is earned, not given. Cream lettering framed by flowing blue, magenta, and orange energy strokes on a relaxed Comfort Colors tee.",
+      "artwork": "Kami Kulture Photos/Designs/Print-ready/victory-is-earned.png",
+      "colors": [
+        "Graphite",
+        "China Blue"
+      ]
+    }
+  ]
+}

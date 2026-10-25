@@ -23,6 +23,11 @@ Each batch supports up to 10 unique designs. Importing or rerunning a batch pres
 approval; it never publishes new products automatically. The second-drop artwork preparation record is in
 `second-drop-artwork.json`. It contains the original filenames, edit prompts, and final project asset paths.
 
+The remaining 18 source artworks are split into `third-drop.json` and `fourth-drop.json` (nine each).
+Use the same `--manifest` command with each filename. Their shared artwork and prompt record is
+`remaining-artwork.json`; source files are preserved and each edition has a distinct storefront slug.
+All prepared PNGs remain in `Kami Kulture Photos/Designs/Print-ready/`.
+
 The first command validates the manifest without writing. The second uploads artwork, creates Printify drafts,
 and imports their mockups to the website admin. It does not publish a new design. Review every color, front,
 back logo, placement, sizes, and price at https://www.kamikulture.com/admin/designs before clicking Approve & publish.
