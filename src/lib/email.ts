@@ -39,6 +39,7 @@ async function sendEmail(params: {
   html: string;
   text?: string;
   bcc?: string | string[];
+  idempotencyKey?: string;
 }) {
   const from = cleanFrom(process.env.EMAIL_FROM) || 'orders@kamikulture.com';
   const key = process.env.RESEND_API_KEY;
@@ -57,6 +58,7 @@ async function sendEmail(params: {
     headers: {
       Authorization: `Bearer ${key}`,
       'Content-Type': 'application/json',
+      ...(params.idempotencyKey ? { 'Idempotency-Key': params.idempotencyKey } : {}),
     },
     body: JSON.stringify({
       from,
@@ -67,6 +69,7 @@ async function sendEmail(params: {
       text: params.text,
     }),
     cache: 'no-store',
+    signal: AbortSignal.timeout(15000),
   });
 
   const body = await res.json().catch(() => ({}));
@@ -119,6 +122,7 @@ export type ReceiptPayload = {
   tax?: number;            // default 0
   total: number;           // major units
   trackUrl?: string;       // e.g., `${process.env.NEXT_PUBLIC_SITE_URL}/track?order=...`
+  idempotencyKey?: string;
 };
 
 function itemOptionText(i: Pick<ReceiptItem, 'color' | 'size'>, separator = ', ') {
@@ -258,7 +262,7 @@ export async function sendOrderReceipt(p: ReceiptPayload) {
   const subject = `Your Kami Kulture order ${p.orderNumber}`;
   const html = renderReceiptHTML(p);
   const text = renderReceiptText(p);
-  return sendEmail({ to: p.to, subject, html, text });
+  return sendEmail({ to: p.to, subject, html, text, idempotencyKey: p.idempotencyKey });
 }
 
 function statusEmailCopy(status: string, printifyStatus?: string | null) {
@@ -417,6 +421,7 @@ export async function notifyAdminNewOrder(p: {
   items?: ReceiptItem[];
   raw?: unknown;     // only included when EMAIL_INCLUDE_RAW_ORDER=1
   to?: string | string[]; // override; otherwise uses ORDER_TO_EMAIL
+  idempotencyKey?: string;
 }) {
   const to = p.to ?? parseRecipients(process.env.ORDER_TO_EMAIL);
   const currency = p.currency || 'USD';
@@ -541,6 +546,7 @@ ${rawJson ? `\nRAW:\n${rawJson}` : ''}`;
   return sendEmail({
     to,
     subject: `[ADMIN] New order ${p.orderNumber}`,
+    idempotencyKey: p.idempotencyKey,
     html,
     text,
   });

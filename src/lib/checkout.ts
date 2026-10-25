@@ -72,7 +72,7 @@ export async function buildCheckoutQuote(
       sku,
       qty,
       title: product.title,
-      price: product.price,
+      price: variant.price ?? product.price,
       color: variant.color,
       size: variant.size,
       image: variant.images?.[0] ?? product.images[0],

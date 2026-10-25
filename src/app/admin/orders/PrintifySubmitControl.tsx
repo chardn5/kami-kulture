@@ -141,7 +141,7 @@ export default function PrintifySubmitControl({
   }
 
   return (
-    <form onSubmit={submit} className="grid gap-2 rounded-md border border-[#f7f1df]/10 bg-black/18 p-3">
+    <form onSubmit={submit} className="grid min-w-0 grid-cols-1 gap-2 rounded-md border border-[#f7f1df]/10 bg-black/18 p-3 [overflow-wrap:anywhere]">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <p className="text-xs font-black uppercase text-[#f7f1df]/44">Printify fulfillment</p>

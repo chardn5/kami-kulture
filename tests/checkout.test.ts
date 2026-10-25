@@ -245,6 +245,13 @@ test("checkout rejects unknown SKUs and live disabled/unavailable variants befor
     );
   }
 });
+
+test('checkout charges the selected size price, not the product base price or browser price', async () => {
+  const quote = await buildCheckoutQuote({ customer, cart: [{ sku: 'tee-ivory-s', qty: 2, price: 0.01 }] }, {
+    ...deps, getCatalogProducts: async () => [{ ...catalog[0], price: 34.99, variants: [{ ...catalog[0].variants[0], price: 44.99, size: '4XL' }] }],
+  });
+  assert.equal(quote.items[0].price, 44.99); assert.equal(quote.subtotal, 89.98); assert.equal(quote.total, 98.97);
+});
 test("missing, negative, or fractional shipping costs never become a payable quote", async () => {
   for (const rates of [{}, { standard: -1 }, { standard: 1.5 }]) {
     await assert.rejects(

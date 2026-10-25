@@ -26,6 +26,8 @@ export default function Navbar() {
     return items.reduce((n, i) => n + i.qty, 0);
   }, [hasHydrated, items]);
 
+  if (pathname?.startsWith('/admin')) return null;
+
   return (
     <>
       <header className="sticky top-0 z-40 border-b border-[#f7f1df]/10 bg-[#0f0f0c]/88 backdrop-blur-xl">

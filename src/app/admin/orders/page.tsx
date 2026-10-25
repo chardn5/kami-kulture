@@ -4,15 +4,16 @@ import { Prisma } from '@prisma/client';
 import Link from 'next/link';
 import { requireAdminPageAccess } from '@/lib/adminPageAuth';
 import { getOrderShippingSnapshot, getPrintifyReadiness } from '@/lib/printifyFulfillment';
-import { getOrderStatusMeta } from '@/lib/orderStatus';
+import { getOrderStatusMeta, ORDER_STATUS_OPTIONS } from '@/lib/orderStatus';
 import OrderStatusControl from './OrderStatusControl';
 import PrintifySubmitControl from './PrintifySubmitControl';
 import PrintifySyncAllButton from './PrintifySyncAllButton';
 import LocalDateTime, { LocalTimeZoneNote } from './LocalDateTime';
 
-function sortHref(base: { q: string }, key: string) {
+function sortHref(base: { q: string; status: string }, key: string) {
   const qs = new URLSearchParams();
   if (base.q) qs.set('q', base.q);
+  if (base.status) qs.set('status', base.status);
   qs.set('sort', key);
   return `?${qs.toString()}`;
 }
@@ -49,6 +50,8 @@ export default async function AdminOrders({
   const sortRaw = sp.sort;
 
   const q = (Array.isArray(qRaw) ? qRaw[0] : qRaw) ?? '';
+  const status = typeof sp.status === 'string' && ['PENDING_PAYMENT', ...ORDER_STATUS_OPTIONS].includes(sp.status) ? sp.status : '';
+  const page = Math.min(100000, Math.max(1, Number.parseInt(String(sp.page ?? '1'), 10) || 1));
   const sort = ((Array.isArray(sortRaw) ? sortRaw[0] : sortRaw) ?? 'createdAt_desc').toLowerCase();
   const paypalMode = (process.env.PAYPAL_ENV || process.env.NEXT_PUBLIC_PAYPAL_ENV || 'sandbox').toLowerCase();
   const paypalIsLive = paypalMode === 'live' || paypalMode === 'production';
@@ -103,11 +106,13 @@ export default async function AdminOrders({
       }
     : {};
 
-  where.status = { not: 'PENDING_PAYMENT' };
+  where.status = status || { not: 'PENDING_PAYMENT' };
+  const totalCount = await prisma.order.count({ where });
   const orders = await prisma.order.findMany({
     where,
     orderBy,
-    take: 200,
+    take: 25,
+    skip: (page - 1) * 25,
     include: {
       items: {
         select: {
@@ -147,7 +152,7 @@ export default async function AdminOrders({
         })).map((variant) => variant.sku)
       : []
   );
-  const baseQS = { q };
+  const baseQS = { q, status };
   const exportQS = new URLSearchParams();
   if (q) exportQS.set('q', q);
   exportQS.set('sort', sort);
@@ -159,10 +164,6 @@ export default async function AdminOrders({
         <div>
           <p className="text-sm font-black uppercase text-[#d6ff57]">Admin</p>
           <h1 className="mt-1 text-3xl font-black">Orders</h1>
-          <p className="mt-2 max-w-2xl text-sm text-[#f7f1df]/58">
-            Search, review fulfillment status, and export recent order data without fighting a
-            cramped table.
-          </p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <p className={`w-fit rounded-md px-2.5 py-1 text-xs font-black uppercase ${paypalIsLive ? 'bg-[#d6ff57] text-black' : 'bg-[#ff4f5f]/14 text-[#ff4f5f]'}`}>
               PayPal {paypalIsLive ? 'live' : 'sandbox'}
@@ -181,12 +182,6 @@ export default async function AdminOrders({
             Export CSV
           </a>
           <PrintifySyncAllButton />
-          <Link
-            href="/admin/sign-out?next=/"
-            className="kk-focus inline-flex h-10 items-center rounded-md border border-[#f7f1df]/18 px-3 text-sm font-semibold hover:bg-[#f7f1df]/8"
-          >
-            Sign out
-          </Link>
         </div>
       </div>
 
@@ -205,14 +200,16 @@ export default async function AdminOrders({
       </section>
 
       <section className="mt-6 rounded-lg border border-[#f7f1df]/12 bg-[#171711] p-4">
-        <form className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
+        <form className="grid gap-3 lg:grid-cols-[1fr_auto_auto] lg:items-center">
           <input
             name="q"
             defaultValue={q}
             placeholder="Search id, email, title, SKU, customer name, city..."
             autoComplete="off"
             className="h-11 w-full rounded-md border border-[#f7f1df]/18 bg-[#0f0f0c] px-3 text-[#f7f1df] placeholder:text-[#f7f1df]/42 caret-[#f7f1df]"
+            aria-label="Search orders"
           />
+          <select name="status" defaultValue={status} aria-label="Order status" className="h-11 min-w-0 rounded-md border border-white/20 bg-[#0f0f0c] text-sm"><option value="">All placed orders</option>{['PENDING_PAYMENT', ...ORDER_STATUS_OPTIONS].map(value => <option value={value} key={value}>{getOrderStatusMeta(value).label}</option>)}</select>
           <button
             className="kk-focus inline-flex h-11 items-center justify-center rounded-md bg-[#f7f1df] px-4 text-sm font-black text-black hover:bg-[#d6ff57]"
             type="submit"
@@ -302,8 +299,8 @@ export default async function AdminOrders({
                     {order.id}
                   </Link>
                 </div>
-                <div className="grid gap-3 lg:min-w-[23rem]">
-                  <OrderStatusControl orderId={order.id} currentStatus={order.status} />
+                <div className="grid min-w-0 gap-3 lg:min-w-[23rem]">
+                  {order.status !== 'PENDING_PAYMENT' ? <OrderStatusControl orderId={order.id} currentStatus={order.status} /> : <p className="text-sm text-white/60">Payment not captured</p>}
                   <PrintifySubmitControl
                     orderId={order.id}
                     currentStatus={order.status}
@@ -437,6 +434,7 @@ export default async function AdminOrders({
           </div>
         ) : null}
       </section>
+      <nav aria-label="Order pages" className="mt-6 flex flex-wrap items-center justify-between gap-3 text-sm"><p className="text-white/55">{totalCount} matching orders · Page {page} of {Math.max(1, Math.ceil(totalCount / 25))}</p><div className="flex gap-4">{page > 1 ? <Link className="kk-focus text-[#35d7f2]" href={`?${new URLSearchParams({ q, status, sort, page: String(page - 1) })}`}>Previous</Link> : null}{page * 25 < totalCount ? <Link className="kk-focus text-[#35d7f2]" href={`?${new URLSearchParams({ q, status, sort, page: String(page + 1) })}`}>Next</Link> : null}</div></nav>
     </main>
   );
 }

@@ -44,8 +44,8 @@ export function calculateOrderPricing(subtotal: number, currency = 'USD'): Order
 
 export function estimatePaymentFee(total: number, currency = 'USD') {
   const currencyKey = currency.toUpperCase();
-  const percent = envNumber('PAYPAL_FEE_PERCENT', 3.49);
-  const fixed = envNumber(`PAYPAL_FEE_FIXED_${currencyKey}`, envNumber('PAYPAL_FEE_FIXED_USD', 0.49));
+  const percent = envNumber('PAYPAL_FEE_PERCENT', 4.4);
+  const fixed = envNumber(`PAYPAL_FEE_FIXED_${currencyKey}`, envNumber('PAYPAL_FEE_FIXED_USD', 0.30));
   return roundMoney((Math.max(0, total) * percent) / 100 + fixed);
 }
 

@@ -44,6 +44,8 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: 'Order not found' }, { status: 404 });
   }
 
+  if (existing.status === 'PENDING_PAYMENT') return NextResponse.json({ error: 'Payment must be confirmed by PayPal before changing fulfillment status.' }, { status: 409 });
+
   const shouldMarkFulfilled = (status === 'SHIPPED' || status === 'DELIVERED') && !existing.fulfilledAt;
 
   const updated = await prisma.order.update({

@@ -5,6 +5,7 @@ import {
 } from "@/data/products";
 import { cache } from "react";
 import { MANAGED_DESIGN_TAG, isApprovedDesign } from "@/lib/designMetadata";
+import { retailPriceCents } from "@/lib/retailPricing";
 
 export type CatalogVariant = {
   size?: string;
@@ -95,7 +96,7 @@ function mapStaticProduct(
           .join("-"),
         variantId: dbVariant?.variantId,
         printifyProductId: dbVariant ? product.printifyId : undefined,
-        price: product.price,
+        price: retailPriceCents(size) / 100,
         isAvailable: Boolean(
           dbProduct?.visible && dbVariant?.isEnabled && dbVariant?.isAvailable,
         ),

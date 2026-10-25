@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { isSameOriginRequest } from '@/lib/requestOrigin';
 
 export const runtime = 'edge';
 
@@ -13,12 +14,13 @@ function newRealm() {
   return `Admin Area v${Math.random().toString(36).slice(2, 8)}`;
 }
 
-export async function GET(req: NextRequest) {
+async function signOut(req: NextRequest) {
   const url = new URL(req.url);
-  const next = url.searchParams.get('next') || '/';
+  const requested = url.searchParams.get('next');
+  const next = requested === '/' ? '/' : '/admin/sign-in';
   const secure = shouldUseSecureCookies(req);
 
-  const res = NextResponse.redirect(new URL(next, url.origin));
+  const res = NextResponse.redirect(new URL(next, req.headers.get('origin') || url.origin), 303);
 
   // clear UI session
   res.cookies.set('admin_ok', '', { path: '/', maxAge: 0, secure });
@@ -30,4 +32,14 @@ export async function GET(req: NextRequest) {
   });
 
   return res;
+}
+
+export async function POST(req: NextRequest) {
+  if (!isSameOriginRequest(req)) return new NextResponse('Invalid origin', { status: 403 });
+  return signOut(req);
+}
+
+// GET requests can be prefetched by Next.js and must never destroy a session.
+export async function GET(req: NextRequest) {
+  return NextResponse.redirect(new URL('/admin/sign-in', req.url));
 }

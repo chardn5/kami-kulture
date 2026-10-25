@@ -116,6 +116,7 @@ export function statusLabel(status: string | null | undefined) {
 }
 
 export function getOrderStatusMeta(status: string | null | undefined): OrderStatusMeta {
+  if (status === 'PENDING_PAYMENT') return { label: 'Awaiting payment', customerDescription: 'Payment has not been confirmed.', adminDescription: 'Checkout started. No captured payment.', phase: 0, badgeClass: 'bg-white/10 text-white/70' };
   if (status && isOrderStatus(status)) return ORDER_STATUS_META[status];
   return {
     label: statusLabel(status),

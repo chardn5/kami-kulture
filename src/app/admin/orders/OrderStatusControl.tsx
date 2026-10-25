@@ -68,7 +68,7 @@ export default function OrderStatusControl({ orderId, currentStatus }: Props) {
   }
 
   return (
-    <form onSubmit={updateStatus} className="grid gap-2 rounded-md border border-[#f7f1df]/10 bg-black/18 p-3">
+    <form onSubmit={updateStatus} className="grid min-w-0 grid-cols-1 gap-2 rounded-md border border-[#f7f1df]/10 bg-black/18 p-3">
       <label className="text-xs font-black uppercase text-[#f7f1df]/44" htmlFor={`status-${orderId}`}>
         Admin status
       </label>

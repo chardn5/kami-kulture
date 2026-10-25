@@ -63,6 +63,14 @@ model Order {
   payerEmail String?
   payerName  String?
   captureId  String?
+  paypalOrderId String? @unique
+  paidAt DateTime?
+  receiptSentAt DateTime?
+  adminNotificationSentAt DateTime?
+  paymentEffectsCompletedAt DateTime?
+  paymentProcessingUntil DateTime?
+  paymentProcessingToken String?
+  paymentLastError String?
 
   productTitle String?
   productSlug  String?
@@ -127,6 +135,23 @@ model Order {
   @@index([captureId])
   @@index([printifyStatus])
   @@index([trackingNumber])
+}
+
+model PaymentEvent {
+  id String @id
+  type String
+  environment String
+  paypalOrderId String?
+  orderId String?
+  status String @default("RECEIVED")
+  attempts Int @default(0)
+  lastError String?
+  createdAt DateTime @default(now())
+  processedAt DateTime?
+
+  @@index([createdAt])
+  @@index([status])
+  @@index([orderId])
 }
 
 /// ===== Printify-synced catalog =====

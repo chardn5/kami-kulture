@@ -114,6 +114,7 @@ export async function POST(req: NextRequest) {
       `create-${quote.id}`,
     );
     if (!order.id) throw new Error("PAYPAL_REQUEST_FAILED");
+    await prisma.order.update({ where: { id: quote.id }, data: { paypalOrderId: order.id } });
     return NextResponse.json({ ok: true, id: order.id });
   } catch (error) {
     console.error(

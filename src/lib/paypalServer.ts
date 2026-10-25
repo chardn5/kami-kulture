@@ -56,5 +56,6 @@ export async function paypalRequest<T = PayPalPayment>(
     console.error("[paypal] request failed", path, response.status);
     throw new Error("PAYPAL_REQUEST_FAILED");
   }
+  if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
 }

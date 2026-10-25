@@ -2,6 +2,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { getProduct, getEnvShopId } from '@/lib/printify';
 import { MANAGED_DESIGN_TAG, APPROVED_DESIGN_TAG, designSlug } from '@/lib/designMetadata';
+import { retailPriceCents } from '@/lib/retailPricing';
 
 export async function syncDesignDraft(printifyId: string) {
   const p = await getProduct(getEnvShopId(), printifyId);
@@ -10,8 +11,8 @@ export async function syncDesignDraft(printifyId: string) {
   if (!tags.includes(MANAGED_DESIGN_TAG) || !slug || !tags.includes('kami:garment:comfort-colors-1717')) throw new Error('This is not a managed Kami Kulture design.');
   const variants = p.variants.filter(v => v.is_enabled);
   if (!variants.length || !p.images?.length) throw new Error('The draft needs enabled variants and completed mockups.');
-  const prices = variants.map(v => v.price);
-  if (prices.some(price => !Number.isInteger(price) || price <= 0) || new Set(prices).size !== 1) throw new Error('All enabled variants must have the same valid retail price.');
+  const prices = variants.map(v => retailPriceCents(p.options.find(o => o.type === 'size')?.values.find(value => v.options.includes(value.id))?.title));
+  if (prices.some(price => !Number.isInteger(price) || price <= 0)) throw new Error('All enabled variants must have a valid retail price.');
   const existing = await prisma.product.findUnique({ where: { printifyId }, select: { visible: true, tags: true } });
   const approved = existing?.tags.includes(APPROVED_DESIGN_TAG) ?? false;
   const data = {
@@ -29,7 +30,7 @@ export async function syncDesignDraft(printifyId: string) {
     await tx.productVariant.createMany({ data: variants.map(v => ({ productId: product.id, variantId: v.id,
       sku: v.sku || `${slug}-${v.id}`, title: v.title || `${sizeAndColor(v.options, 'color')} / ${sizeAndColor(v.options, 'size')}`,
       optionIndexes: v.options, color: sizeAndColor(v.options, 'color'), size: sizeAndColor(v.options, 'size'),
-      priceCents: v.price, isEnabled: v.is_enabled, isAvailable: v.is_available, grams: v.grams })) });
+      priceCents: retailPriceCents(sizeAndColor(v.options, 'size')), isEnabled: v.is_enabled, isAvailable: v.is_available, grams: v.grams })) });
     await tx.productImage.createMany({ data: p.images.map((image, position) => ({ productId: product.id, url: image.src, position, variantIds: image.variant_ids ?? [] })) });
     return { id: product.id, slug: product.slug, title: product.title, approved };
   });

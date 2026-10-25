@@ -78,7 +78,7 @@ export default function PDPClient({
       sku: variant.sku,
       title: product.title,
       qty: 1,
-      price: product.price,
+      price: variant.price ?? product.price,
       color,
       size,
       image: images[0],
@@ -144,7 +144,7 @@ export default function PDPClient({
             {product.title}
           </h1>
           <p className="mt-4 text-2xl font-bold">
-            {formatPrice(product.price)}{" "}
+            {formatPrice(variant?.price ?? product.price)}{" "}
             <span className="text-xs font-medium text-[#f7f1df]/50">USD</span>
           </p>
           <p className="mt-4 text-sm leading-7 text-[#f7f1df]/70">

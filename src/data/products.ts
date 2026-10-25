@@ -19,7 +19,7 @@ export const products: StaticProduct[] = [
   {
     slug: "powerover9000",
     title: "Power Level Over 9000",
-    price: 30, // USD
+    price: 34.99, // USD, base size
     images: [
       "/images/products/over9000/Person%201%20(1).png",
       "/images/products/over9000/Front.png",
@@ -39,7 +39,7 @@ export const products: StaticProduct[] = [
   {
     slug: "sorryimlate",
     title: "Sorry I'm late",
-    price: 30, // USD
+    price: 34.99, // USD, base size
     images: [
       "/images/products/sorryimlate/Duo.png",
       "/images/products/sorryimlate/Front.png",

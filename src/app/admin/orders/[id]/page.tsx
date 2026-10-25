@@ -74,7 +74,7 @@ function Panel({
   className?: string;
 }) {
   return (
-    <section className={`rounded-lg border border-[#f7f1df]/12 bg-[#171711] p-5 ${className}`}>
+    <section className={`min-w-0 rounded-lg border border-[#f7f1df]/12 bg-[#171711] p-5 ${className}`}>
       <h2 className="text-lg font-black">{title}</h2>
       <div className="mt-4">{children}</div>
     </section>
@@ -84,7 +84,7 @@ function Panel({
 function JsonPanel({ title, value }: { title: string; value: unknown }) {
   if (!value) return null;
   return (
-    <details className="rounded-lg border border-[#f7f1df]/12 bg-[#171711] p-5">
+    <details className="min-w-0 rounded-lg border border-[#f7f1df]/12 bg-[#171711] p-5">
       <summary className="cursor-pointer text-lg font-black">{title}</summary>
       <pre className="mt-4 max-h-[32rem] overflow-auto rounded-md bg-black/30 p-4 text-xs leading-5 text-[#f7f1df]/72">
         {jsonText(value)}
@@ -166,7 +166,8 @@ export default async function AdminOrderDetail({ params }: PageProps) {
   });
 
   const fulfillmentEvents = [
-    ['Paid', order.createdAt, 'Payment captured in PayPal'],
+    ['Created', order.createdAt, 'Checkout snapshot saved'],
+    ['Paid', order.paidAt, order.captureId ? 'Payment captured in PayPal' : 'Awaiting payment'],
     ['Printify order', order.printifySubmittedAt, order.printifyOrderId ? 'Submitted to Printify' : 'Not submitted yet'],
     ['Shipped', order.shippedAt, order.trackingNumber ? 'Carrier tracking available' : 'Waiting for carrier scan'],
     ['Delivered', order.deliveredAt, 'Marked delivered by fulfillment data'],
@@ -225,7 +226,7 @@ export default async function AdminOrderDetail({ params }: PageProps) {
       </section>
 
       <section className="mt-5 grid gap-5 lg:grid-cols-[1fr_25rem]">
-        <div className="space-y-5">
+        <div className="min-w-0 space-y-5">
           <Panel title="Customer and shipping">
             <div className="grid gap-5 md:grid-cols-2">
               <div className="space-y-4">
@@ -325,8 +326,8 @@ export default async function AdminOrderDetail({ params }: PageProps) {
           </div>
         </div>
 
-        <aside className="space-y-4">
-          <OrderStatusControl orderId={order.id} currentStatus={order.status} />
+        <aside className="min-w-0 space-y-4">
+          {order.status !== 'PENDING_PAYMENT' ? <OrderStatusControl orderId={order.id} currentStatus={order.status} /> : <p className="text-sm text-white/60">Awaiting verified PayPal payment</p>}
           <PrintifySubmitControl
             orderId={order.id}
             currentStatus={order.status}
@@ -341,6 +342,9 @@ export default async function AdminOrderDetail({ params }: PageProps) {
           <Panel title="Provider references">
             <div className="space-y-4">
               <Field label="PayPal capture" value={order.captureId} mono />
+              <Field label="PayPal order" value={order.paypalOrderId} mono />
+              <Field label="Receipt" value={order.receiptSentAt ? <LocalDateTime value={order.receiptSentAt.toISOString()} /> : order.paidAt ? 'Pending' : 'Legacy / not recorded'} />
+              {order.paymentLastError ? <Field label="Payment notification issue" value={order.paymentLastError} /> : null}
               <Field label="Printify order" value={order.printifyOrderId} mono />
               <Field label="Printify status" value={printifyLabel(order.printifyStatus)} />
               <Field
