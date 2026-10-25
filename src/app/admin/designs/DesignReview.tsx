@@ -18,6 +18,8 @@ export default function DesignReview({ designs }: { designs: Design[] }) {
   const [selected, setSelected] = useState(designs[0]?.id ?? '');
   const [color, setColor] = useState('');
   const [imageIndex, setImageIndex] = useState(0);
+  const [loadedImage, setLoadedImage] = useState('');
+  const [failedImage, setFailedImage] = useState('');
   const [approval, setApproval] = useState<Record<string, boolean>>({});
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
@@ -25,7 +27,9 @@ export default function DesignReview({ designs }: { designs: Design[] }) {
   if (!design) return <p className="py-12 text-white/65">No designs awaiting review.</p>;
   const colors = Array.from(new Set(design.variants.map(v => v.color)));
   const activeColor = colors.includes(color) ? color : colors[0];
-  const variants = design.variants.filter(v => v.color === activeColor);
+  const sizeOrder = ['S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL'];
+  const variants = design.variants.filter(v => v.color === activeColor)
+    .sort((a, b) => sizeOrder.indexOf(a.size) - sizeOrder.indexOf(b.size));
   const ids = new Set(variants.map(v => v.id));
   const images = design.images.filter(i => !i.variantIds.length || i.variantIds.some(id => ids.has(id)));
   const image = images[imageIndex % Math.max(1, images.length)];
@@ -58,8 +62,10 @@ export default function DesignReview({ designs }: { designs: Design[] }) {
       <p role="status" aria-live="polite" className="mb-4 min-h-5 text-sm text-[#d6ff57]">{message}</p>
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1.3fr)_minmax(240px,1fr)]">
         <div>
-          <div className="relative aspect-[4/5] overflow-hidden bg-white">
-            {image ? <Image unoptimized src={image.url} alt={`${design.title} on ${activeColor}, mockup ${imageIndex + 1}`} fill sizes="(min-width: 1024px) 50vw, 100vw" className="object-contain" /> : <p className="p-8 text-black">Mockups pending</p>}
+          <div className="relative aspect-square overflow-hidden bg-white">
+            {image ? <Image unoptimized src={image.url} alt={`${design.title} on ${activeColor}, mockup ${imageIndex + 1}`} onLoad={() => setLoadedImage(image.url)} onError={() => setFailedImage(image.url)} fill sizes="(min-width: 1024px) 50vw, 100vw" className="object-contain" /> : <p className="p-8 text-black">Mockups pending</p>}
+            {image && loadedImage !== image.url && failedImage !== image.url && <div role="status" aria-label="Loading mockup" className="absolute inset-0 flex items-center justify-center text-black/50"><RefreshCw size={22} className="animate-spin" /></div>}
+            {image && failedImage === image.url && <p role="alert" className="absolute inset-0 flex items-center justify-center bg-white p-6 text-sm text-black">This mockup could not be loaded.</p>}
           </div>
           <div className="mt-3 flex items-center justify-between gap-3">
             <button type="button" title="Previous mockup" aria-label="Previous mockup" disabled={images.length < 2} className="kk-focus flex h-10 w-10 items-center justify-center rounded-md border border-white/20 disabled:opacity-40" onClick={() => setImageIndex((imageIndex + images.length - 1) % images.length)}><ChevronLeft size={18} /></button>

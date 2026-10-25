@@ -9,7 +9,7 @@ export const runtime = 'nodejs';
 async function fetchAllProducts(shopId: number) {
   const all: PrintifyProduct[] = [];
   let page = 1;
-  const limit = 100; // Printify allows up to 100
+  const limit = 50;
 
   // Loop pages until we run out
   // Note: Printify returns { data, current_page, last_page } but sometimes last_page can be undefined on small catalogs.
