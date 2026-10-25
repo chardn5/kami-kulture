@@ -1,0 +1,177 @@
+{
+  "ramen-and-dreams": {
+    "uploadId": "6addaeff026dd004342bc8cc",
+    "artworkHash": "10d881548e77c66bd978093471b79fe56600f74f354e33aebc048ae5ed13ff71",
+    "status": "draft-created",
+    "slug": "ramen-and-dreams",
+    "title": "Ramen & Dreams",
+    "variants": 14,
+    "colors": [
+      "Ivory",
+      "Graphite"
+    ],
+    "artworkPixels": "1024x1536",
+    "printWidthInches": 6.5,
+    "effectiveDpi": 158,
+    "retailPrice": 30,
+    "productId": "6addaf0152f824ed160231a7",
+    "createdAt": "2026-10-25T07:25:57.346Z"
+  },
+  "time-skip-arc": {
+    "uploadId": "6addaf06d8d9a5dbabfb80a2",
+    "artworkHash": "eaeddb60efff408bbe0c2a6af02e48ef85a62208a04011623589b388662c6ec3",
+    "status": "draft-created",
+    "slug": "time-skip-arc",
+    "title": "Time Skip Arc",
+    "variants": 13,
+    "colors": [
+      "Graphite",
+      "China Blue"
+    ],
+    "artworkPixels": "1024x1536",
+    "printWidthInches": 6.5,
+    "effectiveDpi": 158,
+    "retailPrice": 30,
+    "productId": "6addaf080059fe8df00354e0",
+    "createdAt": "2026-10-25T07:26:05.519Z"
+  },
+  "filler-episode": {
+    "uploadId": "6addaf0e2be9a4b37c6e58a5",
+    "artworkHash": "9cdf700651d249d82694fa29adf31ed514e545af89d4372008c1632a1dedab60",
+    "status": "draft-created",
+    "slug": "filler-episode",
+    "title": "Filler Episode",
+    "variants": 14,
+    "colors": [
+      "Ivory",
+      "Graphite"
+    ],
+    "artworkPixels": "1024x1536",
+    "printWidthInches": 6.5,
+    "effectiveDpi": 158,
+    "retailPrice": 30,
+    "productId": "6addaf1052f824ed160231aa",
+    "createdAt": "2026-10-25T07:26:12.355Z"
+  },
+  "plot-armor-activated": {
+    "uploadId": "6addaf159d3f96ab18bd713b",
+    "artworkHash": "2da016c29b06b39cebda91b01c69cd376576f8532bce506c52f18528d7ed8633",
+    "status": "draft-created",
+    "slug": "plot-armor-activated",
+    "title": "Plot Armor Activated",
+    "variants": 13,
+    "colors": [
+      "Graphite",
+      "China Blue"
+    ],
+    "artworkPixels": "1024x1536",
+    "printWidthInches": 6.5,
+    "effectiveDpi": 158,
+    "retailPrice": 30,
+    "productId": "6addaf1752f824ed160231ad",
+    "createdAt": "2026-10-25T07:26:19.510Z"
+  },
+  "sleep-eat-anime": {
+    "uploadId": "6addaf1d9b4a381a7b69f034",
+    "artworkHash": "15ae147e39994363b4d495eecb96011b79f90c8f51d3c148f2b98313896ccf21",
+    "status": "draft-created",
+    "slug": "sleep-eat-anime",
+    "title": "Sleep. Eat. Anime.",
+    "variants": 7,
+    "colors": [
+      "Ivory"
+    ],
+    "artworkPixels": "1024x1536",
+    "printWidthInches": 6.5,
+    "effectiveDpi": 158,
+    "retailPrice": 30,
+    "productId": "6addaf1fdf161dbbf40bf52a",
+    "createdAt": "2026-10-25T07:26:26.596Z"
+  },
+  "side-character-main-energy": {
+    "uploadId": "6addaf23db53337de1fc22d3",
+    "artworkHash": "f543bdaca52306f2bc8c50cae0276a6e642e8a95ac53eb66137edf1e99980b62",
+    "status": "draft-created",
+    "slug": "side-character-main-energy",
+    "title": "Side Character, Main Energy",
+    "variants": 7,
+    "colors": [
+      "Ivory"
+    ],
+    "artworkPixels": "1024x1536",
+    "printWidthInches": 6.5,
+    "effectiveDpi": 158,
+    "retailPrice": 30,
+    "productId": "6addaf252310e9e7780b12eb",
+    "createdAt": "2026-10-25T07:26:34.377Z"
+  },
+  "anime-love-language": {
+    "uploadId": "6addaf2b8e74410e5dd1afa5",
+    "artworkHash": "ac0fd1b4103cbea7a8131537604ccaf9a4baee22bb8be309c0aeac207295a0c3",
+    "status": "draft-created",
+    "slug": "anime-love-language",
+    "title": "Anime Is My Love Language",
+    "variants": 7,
+    "colors": [
+      "Ivory"
+    ],
+    "artworkPixels": "1024x1536",
+    "printWidthInches": 6.5,
+    "effectiveDpi": 158,
+    "retailPrice": 30,
+    "productId": "6addaf2f2310e9e7780b12ef",
+    "createdAt": "2026-10-25T07:26:42.758Z"
+  },
+  "strength-through-struggle": {
+    "uploadId": "6addaf33c0937984cde5fa7e",
+    "artworkHash": "45858a7a0b1afdede5959160ecd687df643ec5a0271ee5c66fdf8cbbc112caf7",
+    "status": "draft-created",
+    "slug": "strength-through-struggle",
+    "title": "Strength Through Struggle",
+    "variants": 7,
+    "colors": [
+      "Ivory"
+    ],
+    "artworkPixels": "1024x1536",
+    "printWidthInches": 6.5,
+    "effectiveDpi": 158,
+    "retailPrice": 30,
+    "productId": "6addaf350059fe8df00354ef",
+    "createdAt": "2026-10-25T07:26:49.698Z"
+  },
+  "unstoppable-spirit": {
+    "uploadId": "6addaf3b674d45433d072145",
+    "artworkHash": "0df658d9d1cacc9672940211ce500247f528a1bd092b57e436662e26228fbe1a",
+    "status": "draft-created",
+    "slug": "unstoppable-spirit",
+    "title": "Unstoppable Spirit",
+    "variants": 7,
+    "colors": [
+      "Ivory"
+    ],
+    "artworkPixels": "1024x1536",
+    "printWidthInches": 6.5,
+    "effectiveDpi": 158,
+    "retailPrice": 30,
+    "productId": "6addaf3d8dc27bc931056808",
+    "createdAt": "2026-10-25T07:26:56.896Z"
+  },
+  "rise-after-every-defeat": {
+    "uploadId": "6addaf426aafb44152988ffe",
+    "artworkHash": "79c2b952f61b4d48323b1f5b42346dd53a9b5c938ad99c91c9f99732e2226154",
+    "status": "draft-created",
+    "slug": "rise-after-every-defeat",
+    "title": "Rise After Every Defeat",
+    "variants": 14,
+    "colors": [
+      "Graphite",
+      "Ivory"
+    ],
+    "artworkPixels": "1024x1536",
+    "printWidthInches": 6.5,
+    "effectiveDpi": 158,
+    "retailPrice": 30,
+    "productId": "6addaf44949c444d840f611a",
+    "createdAt": "2026-10-25T07:27:06.491Z"
+  }
+}

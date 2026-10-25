@@ -1,0 +1,79 @@
+{
+  "templateProductId": "689e27a7e99e06b0d50247c8",
+  "garmentKey": "comfort-colors-1717",
+  "retailPriceCents": 3000,
+  "frontWidthInches": 6.5,
+  "minimumDpi": 150,
+  "designs": [
+    {
+      "slug": "ramen-and-dreams",
+      "title": "Ramen & Dreams",
+      "description": "Powered by comfort food and big ambitions. A colorful ramen bowl and bold lettering on a relaxed, garment-dyed Comfort Colors tee.",
+      "artwork": "Kami Kulture Photos/Designs/Print-ready/ramen-and-dreams.png",
+      "colors": ["Ivory", "Graphite"]
+    },
+    {
+      "slug": "time-skip-arc",
+      "title": "Time Skip Arc",
+      "description": "Currently working on the next version of you. White training graphics and bold time-skip lettering on a relaxed, garment-dyed Comfort Colors tee.",
+      "artwork": "Kami Kulture Photos/Designs/Print-ready/time-skip-arc.png",
+      "colors": ["Graphite", "China Blue"]
+    },
+    {
+      "slug": "filler-episode",
+      "title": "Filler Episode",
+      "description": "Even the best stories need a rest day. A sleepy character inside a retro television on a relaxed, garment-dyed Comfort Colors tee.",
+      "artwork": "Kami Kulture Photos/Designs/Print-ready/filler-episode.png",
+      "colors": ["Ivory", "Graphite"]
+    },
+    {
+      "slug": "plot-armor-activated",
+      "title": "Plot Armor Activated",
+      "description": "Built for your comeback arc. A lightning-bolt shield, orange energy, and cream lettering on a relaxed, garment-dyed Comfort Colors tee.",
+      "artwork": "Kami Kulture Photos/Designs/Print-ready/plot-armor-activated.png",
+      "colors": ["Graphite", "China Blue"]
+    },
+    {
+      "slug": "sleep-eat-anime",
+      "title": "Sleep. Eat. Anime.",
+      "description": "Your daily rotation, illustrated. Black icons, playful arrows, and an anime portrait on an Ivory Comfort Colors tee with a relaxed unisex fit.",
+      "artwork": "Kami Kulture Photos/Designs/Print-ready/sleep-eat-anime.png",
+      "colors": ["Ivory"]
+    },
+    {
+      "slug": "side-character-main-energy",
+      "title": "Side Character, Main Energy",
+      "description": "Side character in the streets. Main character in your head. Black statement lettering and a lavender-accented portrait on an Ivory Comfort Colors tee.",
+      "artwork": "Kami Kulture Photos/Designs/Print-ready/side-character-main-energy.png",
+      "colors": ["Ivory"]
+    },
+    {
+      "slug": "anime-love-language",
+      "title": "Anime Is My Love Language",
+      "description": "A heartfelt confession for your daily rotation. White lettering inside a black heart with sparkle details on an Ivory Comfort Colors tee.",
+      "artwork": "Kami Kulture Photos/Designs/Print-ready/anime-love-language.png",
+      "colors": ["Ivory"]
+    },
+    {
+      "slug": "strength-through-struggle",
+      "title": "Strength Through Struggle",
+      "description": "Progress, one rep at a time. A bold black lifting silhouette and motivational lettering on an Ivory Comfort Colors tee with a relaxed unisex fit.",
+      "artwork": "Kami Kulture Photos/Designs/Print-ready/strength-through-struggle.png",
+      "colors": ["Ivory"]
+    },
+    {
+      "slug": "unstoppable-spirit",
+      "title": "Unstoppable Spirit",
+      "description": "Keep your spirit moving. Expressive black brush lettering over an orange and gold watercolor splash on an Ivory Comfort Colors tee.",
+      "artwork": "Kami Kulture Photos/Designs/Print-ready/unstoppable-spirit.png",
+      "colors": ["Ivory"]
+    },
+    {
+      "slug": "rise-after-every-defeat",
+      "title": "Rise After Every Defeat",
+      "description": "Every setback has a sunrise. Blue mountains, an orange sun, and cream statement lettering on a relaxed, garment-dyed Comfort Colors tee.",
+      "artwork": "Kami Kulture Photos/Designs/Print-ready/rise-after-every-defeat.png",
+      "colors": ["Graphite", "Ivory"]
+    }
+  ]
+}

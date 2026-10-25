@@ -1,5 +1,5 @@
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
-import { resolve, dirname } from 'node:path';
+import { resolve, dirname, basename } from 'node:path';
 import { createHash } from 'node:crypto';
 import { parseEnv } from 'node:util';
 
@@ -9,8 +9,13 @@ for (const name of ['.env.local', '.env']) {
   for (const [key, value] of Object.entries(values)) if (process.env[key] === undefined) process.env[key] = value;
 }
 const apply = process.argv.includes('--apply');
-const manifest = JSON.parse(await readFile(resolve(root, 'designs/first-drop.json'), 'utf8'));
-const journalPath = resolve(root, 'designs/first-drop-results.json');
+const manifestFlag = process.argv.indexOf('--manifest');
+if (manifestFlag !== -1 && (!process.argv[manifestFlag + 1] || process.argv[manifestFlag + 1].startsWith('--'))) throw new Error('--manifest requires a JSON path.');
+const manifestPath = resolve(root, manifestFlag === -1 ? 'designs/first-drop.json' : process.argv[manifestFlag + 1]);
+const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+const journalPath = resolve(dirname(manifestPath), `${basename(manifestPath, '.json')}-results.json`);
+if (!Array.isArray(manifest.designs) || !manifest.designs.length || manifest.designs.length > 10) throw new Error('Each batch must contain 1 to 10 designs.');
+if (new Set(manifest.designs.map(d => d.slug)).size !== manifest.designs.length) throw new Error('Design slugs must be unique within a batch.');
 const journal = JSON.parse(await readFile(journalPath, 'utf8').catch(() => '{}'));
 const token = process.env.PRINTIFY_API_TOKEN;
 const shop = process.env.PRINTIFY_SHOP_ID;
@@ -111,5 +116,5 @@ if (process.argv.includes('--sync-store')) {
   if (!r.ok) throw new Error(`Store import failed: HTTP ${r.status}`);
   const result = await r.json();
   if (!result.ok) throw new Error('Some mockups are not ready. Retry --apply --sync-store after Printify finishes rendering.');
-  console.log(JSON.stringify({ storeImported: result.results.length, reviewUrl: 'https://www.kamikulture.com/admin/designs', published: false }));
+  console.log(JSON.stringify({ storeImported: result.results.length, reviewUrl: 'https://www.kamikulture.com/admin/designs', publishingPerformed: false }));
 }

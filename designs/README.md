@@ -12,6 +12,17 @@ node scripts/create-design-drafts.mjs
 node scripts/create-design-drafts.mjs --apply --sync-store
 ```
 
+Additional drops use their own manifest and retry journal:
+
+```sh
+node scripts/create-design-drafts.mjs --manifest designs/second-drop.json
+node scripts/create-design-drafts.mjs --manifest designs/second-drop.json --apply --sync-store
+```
+
+Each batch supports up to 10 unique designs. Importing or rerunning a batch preserves any previous website
+approval; it never publishes new products automatically. The second-drop artwork preparation record is in
+`second-drop-artwork.json`. It contains the original filenames, edit prompts, and final project asset paths.
+
 The first command validates the manifest without writing. The second uploads artwork, creates Printify drafts,
 and imports their mockups to the website admin. It does not publish a new design. Review every color, front,
 back logo, placement, sizes, and price at https://www.kamikulture.com/admin/designs before clicking Approve & publish.
