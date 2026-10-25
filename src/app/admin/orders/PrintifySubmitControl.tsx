@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
+import LocalDateTime from './LocalDateTime';
 
 type Props = {
   orderId: string;
@@ -20,18 +21,6 @@ function formatPrintifyStatus(value?: string | null) {
   return value
     .replace(/[-_]+/g, ' ')
     .replace(/\b\w/g, (char) => char.toUpperCase());
-}
-
-function formatDate(value?: string | null) {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(date);
 }
 
 export default function PrintifySubmitControl({
@@ -182,7 +171,7 @@ export default function PrintifySubmitControl({
       </div>
 
       {printifySubmittedAt ? (
-        <p className="text-xs font-semibold text-[#f7f1df]/48">Created in Printify {formatDate(printifySubmittedAt)}</p>
+        <p className="text-xs font-semibold text-[#f7f1df]/48">Created in Printify <LocalDateTime value={printifySubmittedAt} /></p>
       ) : null}
 
       {readinessIssues.length ? (
