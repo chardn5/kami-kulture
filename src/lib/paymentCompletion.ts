@@ -5,6 +5,7 @@ import { captureAndReloadPayment, paypalEnvironment, paypalRequest } from '@/lib
 import { verifyCompletedPayment } from '@/lib/checkoutSecurity';
 import { sendOrderReceipt, notifyAdminNewOrder } from '@/lib/email';
 import { getOrderShippingSnapshot, isPrintifyAutoSubmitEnabled, submitPrintifyFulfillment } from '@/lib/printifyFulfillment';
+import { hasPaymentTestItem } from '@/lib/paymentTest';
 
 export async function completePayPalOrder(paypalOrderId: string, allowCapture = true) {
   let payment = await paypalRequest(`/v2/checkout/orders/${paypalOrderId}`);
@@ -47,7 +48,7 @@ export async function processPaymentEffects(orderId: string) {
   try {
     const order = await prisma.order.findUniqueOrThrow({ where: { id: orderId }, include: { items: true } });
     // Never retry an ambiguous Printify create automatically; a human must reconcile it.
-    if (isPrintifyAutoSubmitEnabled() && order.status === 'PAID' && !order.printifyOrderId && !order.printifyLastError) {
+    if (!hasPaymentTestItem(order.items) && isPrintifyAutoSubmitEnabled() && order.status === 'PAID' && !order.printifyOrderId && !order.printifyLastError) {
       await prisma.order.update({ where: { id: orderId }, data: { printifyLastError: 'Submission started; confirm in Printify before retrying if interrupted.' } });
       try {
         const result = await submitPrintifyFulfillment({ orderId, shipping: getOrderShippingSnapshot(order),

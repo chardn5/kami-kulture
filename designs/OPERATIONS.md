@@ -24,7 +24,7 @@ The apply command first saves a price-only rollback snapshot under ignored `.ver
 ## PayPal webhooks
 
 Endpoint: `https://www.kamikulture.com/api/paypal/webhook`.
-The current registration is SANDBOX, using the same app credentials as checkout. `PAYPAL_WEBHOOK_ID` must match that registration and environment.
+Production uses LIVE credentials and a separate live registration. Local development and preview remain sandbox. `PAYPAL_WEBHOOK_ID` must match the app and environment.
 The endpoint verifies signatures using PayPal's verification API before processing or recording an event.
 
 Subscriptions:
@@ -38,6 +38,12 @@ Interrupted or ambiguous automatic Printify submissions are not automatically re
 
 `scripts/configure-paypal-webhook.ts --apply` registers/updates the sandbox subscription without deleting other webhooks.
 Live payments require separate live credentials AND a matching live webhook registration/ID. Do not simply change `PAYPAL_ENV` alone.
+
+### Controlled $1 Live Verification
+
+`/payment-test` is unlisted and excluded from indexing. It is available only while `PAYMENT_TEST_ENABLED=true`. The server fixes the item at one unit, USD 1.00 total, with no shipping or tax. It cannot be mixed with shirts or submitted to Printify, even if automatic fulfillment is later enabled. Orders use a `KK-TEST-` prefix and a clearly labeled test-only item. The normal cart is not changed.
+
+Use a separate buyer account, not the receiving merchant account. This is a real charge, not a sandbox transaction, and refunds are manual in PayPal. After the controlled payment, confirm the capture, signed live webhook, receipt, and admin notification, then set `PAYMENT_TEST_ENABLED=false` and redeploy to close the test page.
 Before live launch, test a genuine sandbox approval, webhook delivery, duplicate delivery, receipt, order/address mapping, and then a controlled live purchase/refund after explicit approval.
 
 Tax collection has not been changed by this release. Supplier tax, merchant registration/filing obligations, and customer sales-tax collection are distinct.

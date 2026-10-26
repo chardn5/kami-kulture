@@ -11,6 +11,7 @@ type PayPalButtonsOptions = {
   style?: Record<string, unknown>;
   createOrder: (data: unknown, actions: { order: PayPalOrderActions }) => Promise<string> | string;
   onApprove: (data: { orderID: string }, actions: { order: PayPalOrderActions }) => Promise<void> | void;
+  onCancel?: () => void;
   onError?: (err: unknown) => void;
 };
 

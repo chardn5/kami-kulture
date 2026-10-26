@@ -9,6 +9,7 @@ import {
 } from '@/lib/printify';
 import { prisma } from '@/lib/prisma';
 import { products as staticProducts, type StaticProduct } from '@/data/products';
+import { hasPaymentTestItem } from '@/lib/paymentTest';
 
 export type PrintifyFulfillmentLine = {
   id?: string;
@@ -166,6 +167,7 @@ export function getPrintifyReadiness(params: {
   shipping: ShippingSnapshot;
   resolvableSkus?: Set<string>;
 }): PrintifyReadiness {
+  if (hasPaymentTestItem(params.lines)) return { ok: false, issues: ['Payment verification only. Never send this order to Printify.'] };
   const issues: string[] = [];
 
   if (!params.lines.length) {
@@ -202,6 +204,7 @@ export function getPrintifyReadiness(params: {
 }
 
 export async function resolvePrintifyLineItems(lines: PrintifyFulfillmentLine[]): Promise<PrintifyOrderLineItem[]> {
+  if (hasPaymentTestItem(lines)) throw new Error('PAYMENT_TEST_NO_FULFILLMENT');
   const items: PrintifyOrderLineItem[] = [];
 
   for (const line of lines) {

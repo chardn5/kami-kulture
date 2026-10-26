@@ -12,6 +12,7 @@ import {
   type PrintifyFulfillmentLine,
 } from '@/lib/printifyFulfillment';
 import { PRINTIFY_SYNC_ORDER_SELECT, refreshOrderFromPrintify } from '@/lib/printifyOrderSync';
+import { hasPaymentTestItem } from '@/lib/paymentTest';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -83,6 +84,10 @@ export async function POST(
 
   if (!order) {
     return NextResponse.json({ ok: false, error: 'Order not found' }, { status: 404 });
+  }
+
+  if (hasPaymentTestItem(order.items)) {
+    return NextResponse.json({ ok: false, error: 'Payment verification only. This order cannot be sent to Printify.' }, { status: 409 });
   }
 
   if (order.printifyOrderId) {

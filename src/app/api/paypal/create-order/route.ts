@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { readQuote, checkoutError } from "@/lib/checkout";
 import { paypalRequest } from "@/lib/paypalServer";
 import { rateLimit } from "@/lib/rateLimit";
+import { hasPaymentTestItem } from '@/lib/paymentTest';
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -18,6 +19,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const quote = readQuote(body.quoteToken);
     const c = quote.customer;
+    const paymentTest = hasPaymentTestItem(quote.items);
     // Save the signed snapshot before opening PayPal so capture never trusts browser prices.
     await prisma.order.upsert({
       where: { id: quote.id },
@@ -51,8 +53,8 @@ export async function POST(req: NextRequest) {
             size: i.size,
             color: i.color,
             image: i.image,
-            printifyProductId: i.printifyProductId,
-            printifyVariantId: i.printifyVariantId,
+            printifyProductId: i.printifyProductId || undefined,
+            printifyVariantId: i.printifyVariantId || undefined,
           })),
         },
       },
@@ -66,10 +68,10 @@ export async function POST(req: NextRequest) {
           {
             custom_id: quote.id,
             items: quote.items.map((i) => ({
-              name: `${i.title} - ${i.color} / ${i.size}`,
+              name: paymentTest ? i.title : `${i.title} - ${i.color} / ${i.size}`,
               sku: i.sku,
               quantity: String(i.qty),
-              category: "PHYSICAL_GOODS",
+              category: paymentTest ? "DIGITAL_GOODS" : "PHYSICAL_GOODS",
               unit_amount: {
                 currency_code: quote.currency,
                 value: i.price.toFixed(2),
@@ -93,7 +95,7 @@ export async function POST(req: NextRequest) {
                 },
               },
             },
-            shipping: {
+            ...(!paymentTest ? { shipping: {
               name: { full_name: `${c.firstName} ${c.lastName}` },
               address: {
                 address_line_1: c.address1,
@@ -103,11 +105,11 @@ export async function POST(req: NextRequest) {
                 postal_code: c.postalCode,
                 country_code: c.country,
               },
-            },
+            } } : {}),
           },
         ],
         application_context: {
-          shipping_preference: "SET_PROVIDED_ADDRESS",
+          shipping_preference: paymentTest ? "NO_SHIPPING" : "SET_PROVIDED_ADDRESS",
           user_action: "PAY_NOW",
         },
       },

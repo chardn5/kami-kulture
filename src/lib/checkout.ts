@@ -8,6 +8,7 @@ import {
 } from "./checkoutSchema";
 import { checkoutSigningSecret, paypalEnvironment } from "./paypalServer";
 import { signCheckout, verifyCheckout } from "./checkoutSecurity";
+import { hasPaymentTestItem, PAYMENT_TEST_SKU, PAYMENT_TEST_TITLE, paymentTestContactSchema } from './paymentTest';
 
 export type VerifiedLine = {
   sku: string;
@@ -51,8 +52,22 @@ export async function buildCheckoutQuote(
   input: { cart?: unknown; customer?: unknown },
   deps: QuoteDependencies = quoteDependencies,
 ): Promise<CheckoutQuote> {
-  const customer = checkoutCustomerSchema.parse(input.customer);
   const requested = cartRequestSchema.parse(input.cart);
+  if (hasPaymentTestItem(requested)) {
+    if (process.env.PAYMENT_TEST_ENABLED !== 'true') throw new Error('PAYMENT_TEST_DISABLED');
+    if (requested.length !== 1 || requested[0].qty !== 1) throw new Error('PAYMENT_TEST_CART');
+    const contact = paymentTestContactSchema.parse(input.customer);
+    return {
+      id: `KK-TEST-${randomBytes(12).toString('hex').toUpperCase()}`,
+      expiresAt: Date.now() + 15 * 60_000,
+      environment: paypalEnvironment(),
+      customer: { ...contact, address1: '', city: '', state: '', postalCode: '', country: '' },
+      items: [{ sku: PAYMENT_TEST_SKU, title: PAYMENT_TEST_TITLE, qty: 1, price: 1,
+        image: '/logo.png', printifyProductId: '', printifyVariantId: 0 }],
+      currency: 'USD', subtotal: 1, shipping: 0, tax: 0, total: 1, shippingMethod: 1,
+    };
+  }
+  const customer = checkoutCustomerSchema.parse(input.customer);
   const catalog = await deps.getCatalogProducts();
   const merged = new Map<string, number>();
   requested.forEach((line) =>
@@ -145,12 +160,16 @@ export function readQuote(token: string) {
   const quote = verifyCheckout<CheckoutQuote>(token, checkoutSigningSecret());
   if (quote.environment !== paypalEnvironment())
     throw new Error("QUOTE_INVALID");
+  if (hasPaymentTestItem(quote.items) && process.env.PAYMENT_TEST_ENABLED !== 'true')
+    throw new Error('PAYMENT_TEST_DISABLED');
   return quote;
 }
 
 export function checkoutError(error: unknown) {
   const code = error instanceof Error ? error.message : "";
   const messages: Record<string, string> = {
+    PAYMENT_TEST_DISABLED: 'The payment verification item is not available.',
+    PAYMENT_TEST_CART: 'Payment verification must be purchased alone, with quantity one.',
     VARIANT_UNAVAILABLE:
       "One of these sizes or colors is no longer available. Please return to the product page and choose another option.",
     SHIPPING_UNAVAILABLE:
