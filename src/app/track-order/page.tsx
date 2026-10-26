@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Input from '@/components/ui/Input';
 import { getOrderStatusMeta, ORDER_TRACKING_STEPS } from '@/lib/orderStatus';
+import { hasPaymentTestItem, PAYMENT_TEST_DESCRIPTION } from '@/lib/paymentTest';
 
 type LookupItem = {
   title: string;
@@ -126,6 +127,7 @@ function TrackOrderInner() {
   const found = result?.found ? result : null;
   const currency = found?.currency || 'USD';
   const items = found?.items?.length ? found.items : [];
+  const paymentTest = hasPaymentTestItem(items);
   const placedAt = formatDate(found?.createdAt);
   const shippedAt = formatDate(found?.shippedAt ?? found?.fulfilledAt ?? undefined);
   const deliveredAt = formatDate(found?.deliveredAt ?? undefined);
@@ -193,7 +195,7 @@ function TrackOrderInner() {
                   <p className="text-xs font-black uppercase text-[#f7f1df]/48">Current status</p>
                   <h2 className="mt-1 text-2xl font-black">{statusMeta.label}</h2>
                   <p className="mt-1 max-w-md text-sm leading-6 text-[#f7f1df]/64">
-                    {statusMeta.customerDescription}
+                    {paymentTest ? PAYMENT_TEST_DESCRIPTION : statusMeta.customerDescription}
                   </p>
                   {placedAt ? <p className="mt-1 text-sm text-[#f7f1df]/58">Placed {placedAt}</p> : null}
                   {shippedAt ? <p className="mt-1 text-sm text-[#f7f1df]/58">Shipped {shippedAt}</p> : null}
@@ -210,7 +212,7 @@ function TrackOrderInner() {
                 </div>
               </div>
 
-              <div className="mt-5 grid gap-4 sm:grid-cols-4">
+              {!paymentTest && <div className="mt-5 grid gap-4 sm:grid-cols-4">
                 {ORDER_TRACKING_STEPS.map((step, index) => {
                   const isActive = !statusMeta.isProblem && statusMeta.phase >= step.phase;
                   return (
@@ -228,7 +230,7 @@ function TrackOrderInner() {
                     </div>
                   );
                 })}
-              </div>
+              </div>}
 
               {(found.trackingNumber || found.trackingUrl) ? (
                 <div className="mt-5 rounded-lg border border-[#d6ff57]/30 bg-[#d6ff57]/8 p-4">

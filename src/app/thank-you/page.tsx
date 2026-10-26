@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Input from '@/components/ui/Input';
 import { getOrderStatusMeta } from '@/lib/orderStatus';
+import { hasPaymentTestItem, PAYMENT_TEST_DESCRIPTION } from '@/lib/paymentTest';
 
 type LookupItem = {
   title: string;
@@ -134,6 +135,7 @@ function ThankYouInner() {
 
   const verified = result && 'found' in result && result.found ? result : null;
   const items = verified?.items?.length ? verified.items : [];
+  const paymentTest = hasPaymentTestItem(items);
   const currency = verified?.currency || 'USD';
   const placedAt = formatDate(verified?.createdAt);
   const shippedAt = formatDate(verified?.shippedAt ?? verified?.fulfilledAt ?? undefined);
@@ -206,7 +208,7 @@ function ThankYouInner() {
                 <p className="py-6 text-sm text-[#f7f1df]/58">Your order is paid and saved.</p>
               )}
               <p className="border-t border-[#f7f1df]/10 py-4 text-sm leading-6 text-[#f7f1df]/64">
-                {statusMeta.customerDescription}
+                {paymentTest ? PAYMENT_TEST_DESCRIPTION : statusMeta.customerDescription}
               </p>
               {verified.printifyStatus ? (
                 <p className="pb-4 text-sm leading-6 text-[#f7f1df]/58">
@@ -290,7 +292,9 @@ function ThankYouInner() {
             {[
               ['Payment received', 'Your PayPal payment was captured and the order was saved.'],
               ['Receipt sent', 'A confirmation email with the tracking link was sent to checkout email.'],
-              ['Production queue', 'The order is ready for fulfillment review and Printify processing.'],
+              paymentTest
+                ? ['No fulfillment', PAYMENT_TEST_DESCRIPTION]
+                : ['Production queue', 'The order is ready for fulfillment review and Printify processing.'],
             ].map(([title, body], index) => (
               <li key={title} className="grid grid-cols-[2rem_1fr] gap-3">
                 <span className="flex h-8 w-8 items-center justify-center rounded-md bg-[#f7f1df] text-sm font-black text-black">

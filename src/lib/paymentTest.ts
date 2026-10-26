@@ -8,6 +8,8 @@ export const paymentTestContactSchema = z.object({
   lastName: z.string().trim().min(1).max(100),
 });
 
-export function hasPaymentTestItem(lines: ReadonlyArray<{ sku: string }>) {
+export const PAYMENT_TEST_DESCRIPTION = 'Payment verification only. Nothing will be produced or shipped, and this order will never be sent to Printify.';
+
+export function hasPaymentTestItem(lines: ReadonlyArray<{ sku?: string | null }>) {
   return lines.some(line => line.sku === PAYMENT_TEST_SKU);
 }
