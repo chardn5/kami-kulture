@@ -1,5 +1,20 @@
 import type { PayPalPayment } from "./checkoutSecurity";
 
+type PaymentRequest = (path: string, method?: string, payload?: unknown, requestId?: string) => Promise<PayPalPayment>;
+
+export async function captureAndReloadPayment(
+  id: string,
+  payment: PayPalPayment,
+  allowCapture: boolean,
+  request: PaymentRequest = paypalRequest,
+) {
+  if (payment.status === 'COMPLETED' || !allowCapture) return payment;
+  try { await request(`/v2/checkout/orders/${id}/capture`, 'POST', {}, `capture-${id}`); }
+  catch { /* A timeout may still have captured funds. Reconcile with GET, never recapture here. */ }
+  // Capture responses can be minimal and omit custom_id. Validate only a fresh full order.
+  return request(`/v2/checkout/orders/${id}`);
+}
+
 export function paypalEnvironment() {
   return ["live", "production"].includes(process.env.PAYPAL_ENV ?? "")
     ? "live"

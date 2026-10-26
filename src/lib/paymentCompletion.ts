@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
-import { paypalEnvironment, paypalRequest } from '@/lib/paypalServer';
+import { captureAndReloadPayment, paypalEnvironment, paypalRequest } from '@/lib/paypalServer';
 import { verifyCompletedPayment } from '@/lib/checkoutSecurity';
 import { sendOrderReceipt, notifyAdminNewOrder } from '@/lib/email';
 import { getOrderShippingSnapshot, isPrintifyAutoSubmitEnabled, submitPrintifyFulfillment } from '@/lib/printifyFulfillment';
@@ -20,10 +20,7 @@ export async function completePayPalOrder(paypalOrderId: string, allowCapture = 
   if (payment.id !== paypalOrderId || payment.purchase_units?.length !== 1 ||
     unit.amount?.currency_code !== pending.currency || !Number.isFinite(Number(unit.amount?.value)) ||
     Math.round(Number(unit.amount?.value) * 100) !== Math.round(total * 100)) throw new Error('PAYMENT_AMOUNT_MISMATCH');
-  if (payment.status !== 'COMPLETED' && allowCapture && pending.status === 'PENDING_PAYMENT') {
-    try { payment = await paypalRequest(`/v2/checkout/orders/${paypalOrderId}/capture`, 'POST', {}, `capture-${paypalOrderId}`); }
-    catch { payment = await paypalRequest(`/v2/checkout/orders/${paypalOrderId}`); }
-  }
+  payment = await captureAndReloadPayment(paypalOrderId, payment, allowCapture && pending.status === 'PENDING_PAYMENT');
   const captureId = verifyCompletedPayment(payment, { id: pending.id, currency: pending.currency, total });
   if (pending.captureId && pending.captureId !== captureId) throw new Error('CAPTURE_MISMATCH');
   // Payment persistence is independent of email and fulfillment, which can be retried safely.
