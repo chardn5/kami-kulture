@@ -15,15 +15,13 @@ export async function POST(req: NextRequest) {
   const parsed = schema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ confirmed: false }, { status: 400, headers });
   try {
-    const order = await prisma.order.findFirst({
-      where: { paypalOrderId: parsed.data.paypalOrderId, OR: [
-        { buyerEmail: { equals: parsed.data.email, mode: 'insensitive' } },
-        { shipEmail: { equals: parsed.data.email, mode: 'insensitive' } },
-      ] },
-      select: { id: true, status: true, captureId: true, paidAt: true, raw: true },
+    const order = await prisma.order.findUnique({
+      where: { paypalOrderId: parsed.data.paypalOrderId },
+      select: { id: true, status: true, captureId: true, paidAt: true, raw: true, buyerEmail: true, shipEmail: true },
     });
     const raw = order?.raw as { checkout?: { environment?: string } } | null;
-    if (!order || raw?.checkout?.environment !== paypalEnvironment())
+    const emailMatches = [order?.buyerEmail, order?.shipEmail].some(email => email?.trim().toLowerCase() === parsed.data.email.toLowerCase());
+    if (!order || !emailMatches || raw?.checkout?.environment !== paypalEnvironment())
       return NextResponse.json({ confirmed: false }, { status: 404, headers });
     const confirmed = Boolean(order.captureId && order.paidAt && order.status !== 'PENDING_PAYMENT');
     return NextResponse.json({ confirmed, ...(confirmed ? { orderId: order.id } : {}) }, { headers });
