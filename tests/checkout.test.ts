@@ -1,4 +1,5 @@
 import test from "node:test";
+import { createHash } from 'node:crypto';
 import assert from "node:assert/strict";
 import {
   signCheckout,
@@ -261,5 +262,38 @@ test("missing, negative, or fractional shipping costs never become a payable quo
       ),
       /SHIPPING_UNAVAILABLE/,
     );
+  }
+});
+
+test('personal checkout removes only markup, keeps shipping, and rejects an already claimed offer', async () => {
+  const previous = process.env.PERSONAL_ORDER_OFFER;
+  process.env.PERSONAL_ORDER_OFFER = JSON.stringify({
+    id: '11111111-1111-4111-8111-111111111111',
+    codeHash: createHash('sha256').update('PRIVATE-TEST').digest('hex'),
+    email: customer.email, sku: 'tee-ivory-s', expiresAt: new Date(Date.now() + 60_000).toISOString(),
+    environment: process.env.PAYPAL_ENV === 'live' || process.env.PAYPAL_ENV === 'production' ? 'live' : 'sandbox',
+  });
+  try {
+    const input = { customer, cart: [{ sku: 'tee-ivory-s', qty: 1 }], discountCode: 'PRIVATE-TEST' };
+    const dependencies = {
+      ...deps, findPersonalOfferClaim: async () => null,
+      getCatalogProducts: async () => [{ ...catalog[0], price: 34.99 }],
+      getProduct: async () => ({ ...printify, variants: [{ ...printify.variants[0], cost: 1849 }] }),
+    };
+    const quote = await buildCheckoutQuote(input, dependencies);
+    assert.equal(quote.items[0].price, 18.49);
+    assert.equal(quote.subtotal, 18.49);
+    assert.equal(quote.shipping, 8.99);
+    assert.equal(quote.total, 27.48);
+    assert.equal(quote.personalOffer?.discount, 16.50);
+    assert.equal(quote.personalOffer?.retailSubtotal, 34.99);
+    assert.ok(quote.expiresAt <= Date.now() + 60_000);
+    const normal = await buildCheckoutQuote({ ...input, discountCode: '' }, dependencies);
+    assert.equal(normal.subtotal, 34.99);
+    await assert.rejects(buildCheckoutQuote(input, { ...dependencies, findPersonalOfferClaim: async () => ({ id: 'already-used' }) }), /PERSONAL_OFFER_USED/);
+    await assert.rejects(buildCheckoutQuote(input, { ...dependencies, getProduct: deps.getProduct }), /PERSONAL_OFFER_COST/);
+  } finally {
+    if (previous === undefined) delete process.env.PERSONAL_ORDER_OFFER;
+    else process.env.PERSONAL_ORDER_OFFER = previous;
   }
 });

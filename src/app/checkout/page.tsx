@@ -15,6 +15,7 @@ type Quote = {
   token: string;
   expiresAt: number;
   pricing: { subtotal: number; shipping: number; tax: number; total: number };
+  personalOffer?: { retailSubtotal: number; discount: number };
   items: Array<{
     sku: string;
     title: string;
@@ -50,11 +51,14 @@ export default function CheckoutPage() {
   const [busy, setBusy] = useState(false);
   const [retry, setRetry] = useState(0);
   const [sdkReady, setSdkReady] = useState(false);
+  const [discountInput, setDiscountInput] = useState('');
+  const [discountCode, setDiscountCode] = useState('');
   const walletRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const key = JSON.stringify({
     cart: items.map((i) => ({ sku: i.sku, qty: i.qty })),
     customer,
+    ...(discountCode ? { discountCode } : {}),
   });
   const quote = quoteState?.key === key ? quoteState.quote : null;
   const latest = useRef<Quote | null>(null);
@@ -294,11 +298,20 @@ export default function CheckoutPage() {
               </li>
             ))}
           </ul>
+          <form className="mt-5 grid gap-2" onSubmit={event => { event.preventDefault(); setDiscountCode(discountInput.trim().toUpperCase()); setRetry(n => n + 1); }}>
+            <label htmlFor="discount-code" className="text-xs font-bold uppercase text-[#f7f1df]/60">Discount code</label>
+            <div className="flex gap-2">
+              <input id="discount-code" value={discountInput} onChange={event => setDiscountInput(event.target.value)} maxLength={80} autoComplete="off" disabled={busy} className="h-11 min-w-0 flex-1 rounded border border-white/20 bg-transparent px-3 text-sm" />
+              <button type="submit" disabled={busy || loading || !customer} className="kk-focus rounded border border-white/20 px-4 text-sm font-bold disabled:opacity-40">Apply</button>
+              {discountCode && <button type="button" disabled={busy} onClick={() => { setDiscountCode(''); setDiscountInput(''); }} className="kk-focus px-2 text-xs underline">Remove</button>}
+            </div>
+          </form>
           <dl className="mt-4 space-y-3 border-t border-white/15 pt-5 text-sm">
             <div className="flex justify-between">
               <dt>Items</dt>
-              <dd>{formatPrice(subtotal)}</dd>
+              <dd>{formatPrice(quote?.personalOffer?.retailSubtotal ?? subtotal)}</dd>
             </div>
+            {quote?.personalOffer && <div className="flex justify-between gap-4 text-[#d6ff57]"><dt>Personal order · markup waived</dt><dd>-{formatPrice(quote.personalOffer.discount)}</dd></div>}
             <div className="flex justify-between gap-4">
               <dt>Standard shipping</dt>
               <dd>

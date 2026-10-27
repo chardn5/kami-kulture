@@ -6,6 +6,7 @@ import { verifyCompletedPayment } from '@/lib/checkoutSecurity';
 import { sendOrderReceipt, notifyAdminNewOrder } from '@/lib/email';
 import { getOrderShippingSnapshot, isPrintifyAutoSubmitEnabled, submitPrintifyFulfillment } from '@/lib/printifyFulfillment';
 import { hasPaymentTestItem } from '@/lib/paymentTest';
+import { claimPersonalOffer } from '@/lib/personalOffer';
 
 export async function completePayPalOrder(paypalOrderId: string, allowCapture = true) {
   let payment = await paypalRequest(`/v2/checkout/orders/${paypalOrderId}`);
@@ -21,6 +22,16 @@ export async function completePayPalOrder(paypalOrderId: string, allowCapture = 
   if (payment.id !== paypalOrderId || payment.purchase_units?.length !== 1 ||
     unit.amount?.currency_code !== pending.currency || !Number.isFinite(Number(unit.amount?.value)) ||
     Math.round(Number(unit.amount?.value) * 100) !== Math.round(total * 100)) throw new Error('PAYMENT_AMOUNT_MISMATCH');
+  const offer = checkout.personalOffer;
+  if (offer && typeof offer === 'object' && !Array.isArray(offer) && typeof offer.id === 'string') {
+    if (payment.status !== 'APPROVED' && payment.status !== 'COMPLETED') throw new Error('PAYMENT_NOT_COMPLETED');
+    // The unique database key is acquired before capture, including webhook-driven captures.
+    // Never expire this claim automatically: a timed-out capture may still have charged funds.
+    await claimPersonalOffer(pending.id, offer.id, (id, personalOfferClaim) => prisma.order.updateMany({
+      where: { id, OR: [{ personalOfferClaim: null }, { personalOfferClaim }] },
+      data: { personalOfferClaim },
+    }));
+  }
   payment = await captureAndReloadPayment(paypalOrderId, payment, allowCapture && pending.status === 'PENDING_PAYMENT');
   const captureId = verifyCompletedPayment(payment, { id: pending.id, currency: pending.currency, total });
   if (pending.captureId && pending.captureId !== captureId) throw new Error('CAPTURE_MISMATCH');

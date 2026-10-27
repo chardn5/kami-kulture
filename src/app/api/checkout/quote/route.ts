@@ -24,6 +24,7 @@ export async function POST(req: NextRequest) {
           tax: quote.tax,
           total: quote.total,
         },
+        ...(quote.personalOffer ? { personalOffer: { retailSubtotal: quote.personalOffer.retailSubtotal, discount: quote.personalOffer.discount } } : {}),
       },
       { headers: { "Cache-Control": "no-store" } },
     );

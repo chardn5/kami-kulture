@@ -9,6 +9,8 @@ import {
 import { checkoutSigningSecret, paypalEnvironment } from "./paypalServer";
 import { signCheckout, verifyCheckout } from "./checkoutSecurity";
 import { hasPaymentTestItem, PAYMENT_TEST_SKU, PAYMENT_TEST_TITLE, paymentTestContactSchema } from './paymentTest';
+import { personalOfferForCheckout, personalOfferPrice, type PersonalOfferSnapshot } from './personalOffer';
+import { prisma } from './prisma';
 
 export type VerifiedLine = {
   sku: string;
@@ -33,6 +35,7 @@ export type CheckoutQuote = {
   tax: number;
   total: number;
   shippingMethod: number;
+  personalOffer?: PersonalOfferSnapshot;
 };
 
 type QuoteDependencies = {
@@ -40,6 +43,7 @@ type QuoteDependencies = {
   getProduct: typeof getProduct;
   calculateShipping: typeof calculateShipping;
   getEnvShopId: typeof getEnvShopId;
+  findPersonalOfferClaim?: (id: string) => Promise<{ id: string } | null>;
 };
 const quoteDependencies: QuoteDependencies = {
   getCatalogProducts,
@@ -49,7 +53,7 @@ const quoteDependencies: QuoteDependencies = {
 };
 
 export async function buildCheckoutQuote(
-  input: { cart?: unknown; customer?: unknown },
+  input: { cart?: unknown; customer?: unknown; discountCode?: unknown },
   deps: QuoteDependencies = quoteDependencies,
 ): Promise<CheckoutQuote> {
   const requested = cartRequestSchema.parse(input.cart);
@@ -68,6 +72,13 @@ export async function buildCheckoutQuote(
     };
   }
   const customer = checkoutCustomerSchema.parse(input.customer);
+  const offer = personalOfferForCheckout(input.discountCode, customer.email, requested, paypalEnvironment());
+  if (offer) {
+    const claimed = deps.findPersonalOfferClaim
+      ? await deps.findPersonalOfferClaim(offer.id)
+      : await prisma.order.findFirst({ where: { personalOfferClaim: offer.id }, select: { id: true } });
+    if (claimed) throw new Error('PERSONAL_OFFER_USED');
+  }
   const catalog = await deps.getCatalogProducts();
   const merged = new Map<string, number>();
   requested.forEach((line) =>
@@ -101,6 +112,7 @@ export async function buildCheckoutQuote(
       deps.getProduct(shop, id),
     ),
   );
+  const retailSubtotal = items.reduce((sum, line) => sum + Math.round(line.price * 100) * line.qty, 0) / 100;
   for (const line of items) {
     const product = products.find((p) => p.id === line.printifyProductId);
     const variant = product?.variants.find(
@@ -108,6 +120,7 @@ export async function buildCheckoutQuote(
     );
     if (!variant?.is_enabled || !variant.is_available)
       throw new Error("VARIANT_UNAVAILABLE");
+    if (offer) line.price = personalOfferPrice(variant.cost, line.price);
   }
   const rates = await deps.calculateShipping(shop, {
     line_items: items.map((i) => ({
@@ -140,7 +153,7 @@ export async function buildCheckoutQuote(
   );
   return {
     id: `KK-${new Date().toISOString().slice(2, 10).replaceAll("-", "")}-${randomBytes(8).toString("hex").toUpperCase()}`,
-    expiresAt: Date.now() + 15 * 60_000,
+    expiresAt: Math.min(Date.now() + 15 * 60_000, offer ? Date.parse(offer.expiresAt) : Infinity),
     environment: paypalEnvironment(),
     customer,
     items,
@@ -150,6 +163,7 @@ export async function buildCheckoutQuote(
     tax: 0,
     total: (subtotalCents + rates.standard) / 100,
     shippingMethod: 1,
+    ...(offer ? { personalOffer: { id: offer.id, retailSubtotal, discount: Math.round((retailSubtotal - subtotalCents / 100) * 100) / 100 } } : {}),
   };
 }
 
@@ -168,6 +182,12 @@ export function readQuote(token: string) {
 export function checkoutError(error: unknown) {
   const code = error instanceof Error ? error.message : "";
   const messages: Record<string, string> = {
+    PERSONAL_OFFER_INVALID: 'This personal order code is not valid.',
+    PERSONAL_OFFER_EXPIRED: 'This personal order code has expired.',
+    PERSONAL_OFFER_EMAIL: 'Use the checkout email assigned to this personal order code.',
+    PERSONAL_OFFER_ITEM: 'This code applies only to one Training Arc Mode shirt in Ivory, size XL. Remove other items first.',
+    PERSONAL_OFFER_COST: 'Printify production cost could not be confirmed. No discount has been applied.',
+    PERSONAL_OFFER_USED: 'This personal order offer is already used or processing. Contact support before paying again.',
     PAYMENT_TEST_DISABLED: 'The payment verification item is not available.',
     PAYMENT_TEST_CART: 'Payment verification must be purchased alone, with quantity one.',
     VARIANT_UNAVAILABLE:

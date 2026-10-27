@@ -18,6 +18,10 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const quote = readQuote(body.quoteToken);
+    if (quote.personalOffer) {
+      const claimed = await prisma.order.findFirst({ where: { personalOfferClaim: quote.personalOffer.id }, select: { id: true } });
+      if (claimed && claimed.id !== quote.id) throw new Error('PERSONAL_OFFER_USED');
+    }
     const c = quote.customer;
     const paymentTest = hasPaymentTestItem(quote.items);
     // Save the signed snapshot before opening PayPal so capture never trusts browser prices.

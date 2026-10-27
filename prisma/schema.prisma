@@ -64,6 +64,7 @@ model Order {
   payerName  String?
   captureId  String?
   paypalOrderId String? @unique
+  personalOfferClaim String? @unique
   paidAt DateTime?
   receiptSentAt DateTime?
   adminNotificationSentAt DateTime?

@@ -74,6 +74,7 @@ export type PrintifyVariant = {
   sku: string;
   title: string; // e.g., "Black / L"
   price: number; // in cents
+  cost?: number; // Fulfillment cost in cents, distinct from the store's retail price.
   is_enabled: boolean;
   is_available: boolean;
   options: number[]; // indexes into product.options[*].values
