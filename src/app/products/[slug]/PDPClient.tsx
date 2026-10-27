@@ -367,11 +367,11 @@ export default function PDPClient({
                 <div className="relative aspect-square w-28 shrink-0 overflow-hidden rounded bg-white/5">
                   <Image
                     src={thumbnail}
-                    unoptimized={thumbnail.startsWith('https://images-api.printify.com/')}
+                    unoptimized
                     alt={p.title}
                     fill
                     sizes="112px"
-                    className="object-cover"
+                    className="object-contain"
                   />
                 </div>
                 <div>

@@ -5,24 +5,22 @@ function stableHash(value: string) {
 }
 
 export function productThumbnail(slug: string, images: readonly string[]) {
-  const models = new Map<string, Array<{ src: string; rank: number }>>();
+  const shirts: Array<{ src: string; rank: number }> = [];
   for (const src of new Set(images)) {
     let label: string;
-    try { label = new URL(src).searchParams.get('camera_label') ?? ''; }
+    try {
+      const url = new URL(src, 'https://kamikulture.com');
+      label = url.searchParams.get('camera_label')
+        ?? decodeURIComponent(url.pathname.split('/').at(-1) ?? '').replace(/\.[^.]+$/, '').toLowerCase();
+    }
     catch { continue; }
-    // Only whole-shirt model views: never a blank back, sleeve detail, or size chart.
-    const match = /^person-(\d+)(?:-(front|context)(?:-\d+)?)?$/.exec(label);
-    if (!match) continue;
-    const key = match[1];
-    const candidates = models.get(key) ?? [];
-    candidates.push({ src, rank: match[2] === 'context' ? 1 : 0 });
-    models.set(key, candidates);
+    // Prefer a full front view; model photos remain in the untouched gallery.
+    if (/^front(?:-\d+)?$/.test(label)) shirts.push({ src, rank: label === 'front' ? 0 : 1 });
+    else if (/^folded(?:-\d+)?$/.test(label)) shirts.push({ src, rank: 2 });
   }
-  const keys = [...models.keys()].sort();
-  if (!keys.length) return images[0] || '/logo.png';
-  // A slug seed keeps SSR, sorting, filtering, and repeat visits visually consistent.
-  const key = keys[stableHash(slug) % keys.length];
-  const candidates = models.get(key)!.sort((a, b) => a.rank - b.rank || a.src.localeCompare(b.src));
-  const preferred = candidates.filter(candidate => candidate.rank === candidates[0].rank);
+  if (!shirts.length) return images[0] || '/logo.png';
+  shirts.sort((a, b) => a.rank - b.rank || a.src.localeCompare(b.src));
+  const preferred = shirts.filter(candidate => candidate.rank === shirts[0].rank);
+  // Keep the displayed shirt color stable across sorting, filtering, and reloads.
   return preferred[stableHash(`${slug}:color`) % preferred.length].src;
 }

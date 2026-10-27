@@ -6,24 +6,23 @@ const image = (label: string, color = 'black') => `https://images-api.printify.c
 const models = ['person-1-front', 'person-2', 'person-3-front', 'person-4-front', 'person-5-context'];
 const images = ['front', 'back', 'folded', 'size-chart', 'person-1-back', 'person-3-left-sleeve', ...models].map(label => image(label));
 
-test('thumbnail selection varies models across designs without changing on sorting or reload', () => {
-  const selected = Array.from({ length: 40 }, (_, i) => productThumbnail(`design-${i}`, images));
-  assert.equal(new Set(selected).size, models.length);
-  for (let i = 0; i < selected.length; i++) {
-    assert.equal(selected[i], productThumbnail(`design-${i}`, images));
-    assert.equal(selected[i], productThumbnail(`design-${i}`, [...images].reverse()));
-    assert.ok(models.some(label => selected[i] === image(label)));
+test('primary thumbnails show the shirt front, never models, backs, sleeves, or charts', () => {
+  for (let i = 0; i < 40; i++) {
+    assert.equal(productThumbnail(`design-${i}`, images), image('front'));
+    assert.equal(productThumbnail(`design-${i}`, [...images].reverse()), image('front'));
   }
 });
 
-test('model groups receive equal weight regardless of extra colors or poses', () => {
-  const expanded = [...images, image('person-1-front', 'ivory'), image('person-1-context'), image('person-1-context-2')];
+test('shirt colors vary consistently without model photos affecting the selection', () => {
+  const expanded = [...images, image('front', 'ivory'), image('front-2'), image('person-1-context')];
+  const selected = new Set<string>();
   for (let i = 0; i < 40; i++) {
-    const before = new URL(productThumbnail(`design-${i}`, images)).searchParams.get('camera_label')!;
-    const after = new URL(productThumbnail(`design-${i}`, expanded)).searchParams.get('camera_label')!;
-    assert.equal(before.split('-')[1], after.split('-')[1]);
-    assert.ok(!after.includes('context') || after.startsWith('person-5-'));
+    const src = productThumbnail(`design-${i}`, expanded);
+    assert.equal(new URL(src).searchParams.get('camera_label'), 'front');
+    assert.equal(src, productThumbnail(`design-${i}`, [...expanded].reverse()));
+    selected.add(src);
   }
+  assert.equal(selected.size, 2);
 });
 
 test('thumbnail selection preserves gallery order, stays within the product, and handles missing models', () => {
@@ -33,5 +32,8 @@ test('thumbnail selection preserves gallery order, stays within the product, and
   assert.deepEqual(images, original);
   assert.equal(productThumbnail('legacy', ['/curated-model.png', '/back.png']), '/curated-model.png');
   assert.equal(productThumbnail('flat', [image('front'), image('back')]), image('front'));
+  assert.equal(productThumbnail('legacy-shirt', ['/Person%201.png', '/Front.png', '/Back.png']), '/Front.png');
+  assert.equal(productThumbnail('alternate', [image('person-1-front'), image('front-2')]), image('front-2'));
+  assert.equal(productThumbnail('folded-only', [image('back'), image('folded')]), image('folded'));
   assert.equal(productThumbnail('missing', []), '/logo.png');
 });

@@ -24,14 +24,14 @@ export default function ProductCard({ product }: { product: Product }) {
       href={`/products/${product.slug}`}
       className="kk-focus group block overflow-hidden rounded-lg border border-white/10 bg-[#171711] transition hover:border-[#35d7f2]/60"
     >
-      <div className="relative aspect-[4/5] overflow-hidden bg-[#e7e4de]">
+      <div className="relative aspect-square overflow-hidden bg-white">
         <Image
           src={thumbnail}
-          unoptimized={thumbnail.startsWith('https://images-api.printify.com/')}
+          unoptimized
           alt={product.title}
           fill
           sizes="(min-width:1024px) 45vw, (min-width:640px) 50vw, 100vw"
-          className="object-cover transition duration-300 group-hover:scale-[1.025]"
+          className="object-contain transition duration-300 group-hover:scale-[1.025]"
         />
         {unavailable && (
           <span className="absolute left-3 top-3 rounded bg-black/80 px-3 py-1.5 text-xs font-semibold text-white">
