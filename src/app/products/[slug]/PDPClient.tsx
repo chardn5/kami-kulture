@@ -103,6 +103,7 @@ export default function PDPClient({
             {images[mainIndex] && (
               <Image
                 src={images[mainIndex]}
+                unoptimized={images[mainIndex].startsWith('https://images-api.printify.com/')}
                 alt={`${product.title} in ${color}, view ${mainIndex + 1}`}
                 fill
                 priority
@@ -129,6 +130,7 @@ export default function PDPClient({
                 >
                   <Image
                     src={src}
+                    unoptimized={src.startsWith('https://images-api.printify.com/')}
                     alt=""
                     fill
                     sizes="90px"
@@ -354,7 +356,9 @@ export default function PDPClient({
         <section className="mt-16 border-t border-white/15 pt-8">
           <p className="kk-eyebrow">One more for the rotation</p>
           <div className="mt-5 grid gap-6 sm:grid-cols-2">
-            {recs.map((p) => (
+            {recs.map((p) => {
+              const thumbnail = productThumbnail(p.slug, p.images);
+              return (
               <Link
                 key={p.slug}
                 href={`/products/${p.slug}`}
@@ -362,7 +366,8 @@ export default function PDPClient({
               >
                 <div className="relative aspect-square w-28 shrink-0 overflow-hidden rounded bg-white/5">
                   <Image
-                    src={productThumbnail(p.slug, p.images)}
+                    src={thumbnail}
+                    unoptimized={thumbnail.startsWith('https://images-api.printify.com/')}
                     alt={p.title}
                     fill
                     sizes="112px"
@@ -379,7 +384,8 @@ export default function PDPClient({
                   </span>
                 </div>
               </Link>
-            ))}
+              );
+            })}
           </div>
         </section>
       )}

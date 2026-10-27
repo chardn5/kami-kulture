@@ -16,6 +16,7 @@ type Product = {
 };
 
 export default function ProductCard({ product }: { product: Product }) {
+  const thumbnail = productThumbnail(product.slug, product.images);
   const unavailable =
     product.variants && !product.variants.some((v) => v.isAvailable);
   return (
@@ -25,7 +26,8 @@ export default function ProductCard({ product }: { product: Product }) {
     >
       <div className="relative aspect-[4/5] overflow-hidden bg-[#e7e4de]">
         <Image
-          src={productThumbnail(product.slug, product.images)}
+          src={thumbnail}
+          unoptimized={thumbnail.startsWith('https://images-api.printify.com/')}
           alt={product.title}
           fill
           sizes="(min-width:1024px) 45vw, (min-width:640px) 50vw, 100vw"

@@ -271,6 +271,7 @@ export default function CheckoutPage() {
                   {i.image && (
                     <Image
                       src={i.image}
+                      unoptimized={i.image.startsWith('https://images-api.printify.com/')}
                       alt={i.title}
                       fill
                       sizes="80px"
