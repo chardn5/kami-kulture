@@ -7,6 +7,7 @@ import { ArrowLeft, AlertCircle, RefreshCw, ShieldCheck } from "lucide-react";
 import { useCart, useHydrateCart } from "@/lib/cartStore";
 import { formatPrice } from "@/lib/format";
 import { loadPayPalSDK } from "@/lib/paypalClient";
+import { parsePendingPayment, recoverCheckoutPayment, PENDING_PAYMENT_KEY, CONFIRMED_PAYMENT_KEY, type PendingCheckoutPayment } from '@/lib/checkoutRecovery';
 import CheckoutForm, {
   type NormalizedCheckout,
 } from "@/components/CheckoutForm";
@@ -40,7 +41,6 @@ export default function CheckoutPage() {
   const items = useCart((s) => s.items);
   const hasItems = items.length > 0;
   const hydrated = useCart((s) => s.hasHydrated);
-  const clear = useCart((s) => s.clear);
   const [customer, setCustomer] = useState<NormalizedCheckout | null>(null);
   const [quoteState, setQuote] = useState<{ key: string; quote: Quote } | null>(
     null,
@@ -53,6 +53,43 @@ export default function CheckoutPage() {
   const [sdkReady, setSdkReady] = useState(false);
   const [discountInput, setDiscountInput] = useState('');
   const [discountCode, setDiscountCode] = useState('');
+  const [paymentPending, setPaymentPending] = useState(false);
+  const pendingPayment = useRef<PendingCheckoutPayment | null>(null);
+  const recoveryRunning = useRef(false);
+  const leavingCheckout = useRef(false);
+  const approvalStarted = useRef(false);
+  const finishPayment = useRef<(orderId: string, email: string) => void>(() => {});
+  finishPayment.current = (orderId, email) => {
+    if (leavingCheckout.current) return;
+    leavingCheckout.current = true;
+    try {
+      sessionStorage.setItem(CONFIRMED_PAYMENT_KEY, orderId);
+    } catch {}
+    // Navigate before clearing the cart: an empty cart unmounts the PayPal button
+    // while its approval callback is still running. The receipt page clears it.
+    window.location.assign(`/thank-you?${new URLSearchParams({ orderID: orderId, email })}`);
+  };
+  const checkPayment = useRef<() => Promise<void>>(async () => {});
+  checkPayment.current = async () => {
+    const pending = pendingPayment.current;
+    if (!pending || recoveryRunning.current || leavingCheckout.current) return;
+    recoveryRunning.current = true;
+    setPaymentPending(true);
+    setBusy(true);
+    setPaymentError('');
+    try {
+      const orderId = await recoverCheckoutPayment(pending);
+      if (orderId) finishPayment.current(orderId, pending.email);
+      else setPaymentError('Payment confirmation is taking longer than expected. Do not pay again. Check your payment status below or contact support.');
+    } finally { recoveryRunning.current = false; setBusy(false); }
+  };
+  useEffect(() => {
+    try {
+      const saved = parsePendingPayment(sessionStorage.getItem(PENDING_PAYMENT_KEY));
+      if (saved) { pendingPayment.current = saved; void checkPayment.current(); }
+      else sessionStorage.removeItem(PENDING_PAYMENT_KEY);
+    } catch {}
+  }, []);
   const walletRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const key = JSON.stringify({
@@ -121,6 +158,7 @@ export default function CheckoutPage() {
         const paypal = await loadPayPalSDK();
         if (cancelled || !walletRef.current || !cardRef.current) return;
         const createOrder = async () => {
+          if (pendingPayment.current) throw new Error('Check your existing payment before starting another checkout.');
           setPaymentError("");
           const current = latest.current;
           if (!current || current.expiresAt <= Date.now())
@@ -134,34 +172,33 @@ export default function CheckoutPage() {
           const result = await response.json();
           if (!response.ok || !result.id)
             throw new Error(result.error || "Payment could not be started.");
+          const pending = { paypalOrderId: result.id, email: customerEmail.current, createdAt: Date.now() };
+          pendingPayment.current = pending;
+          try { sessionStorage.setItem(PENDING_PAYMENT_KEY, JSON.stringify(pending)); } catch {}
           setBusy(true);
           return result.id;
         };
         const onApprove = async (data: { orderID: string }) => {
+          approvalStarted.current = true;
           setBusy(true);
+          setPaymentPending(true);
+          pendingPayment.current = { paypalOrderId: data.orderID, email: pendingPayment.current?.email ?? customerEmail.current, createdAt: Date.now() };
+          try { sessionStorage.setItem(PENDING_PAYMENT_KEY, JSON.stringify(pendingPayment.current)); } catch {}
           try {
             const response = await fetch("/api/orders/capture", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ paypalOrderId: data.orderID }),
+              signal: AbortSignal.timeout(20000),
             });
             const result = await response.json();
             if (!response.ok || !result.ok)
               throw new Error(
                 result.error || "Payment could not be confirmed.",
               );
-            const email = customerEmail.current;
-            clear();
-            window.location.assign(
-              `/thank-you?${new URLSearchParams({ orderID: result.orderId, ...(email ? { email } : {}) })}`,
-            );
-          } catch (err) {
-            setPaymentError(
-              err instanceof Error
-                ? err.message
-                : "Please contact support before paying again.",
-            );
-            setBusy(false);
+            finishPayment.current(result.orderId, pendingPayment.current.email);
+          } catch {
+            await checkPayment.current();
           }
         };
         const options = {
@@ -171,11 +208,20 @@ export default function CheckoutPage() {
             _: unknown,
             actions: { resolve: () => void; reject: () => void },
           ) =>
-            latest.current && latest.current.expiresAt > Date.now()
+            !pendingPayment.current && latest.current && latest.current.expiresAt > Date.now()
               ? actions.resolve()
               : actions.reject(),
-          onCancel: () => setBusy(false),
+          onCancel: () => {
+            if (approvalStarted.current) { void checkPayment.current(); return; }
+            if (recoveryRunning.current) return;
+            pendingPayment.current = null;
+            try { sessionStorage.removeItem(PENDING_PAYMENT_KEY); } catch {}
+            setPaymentPending(false);
+            setBusy(false);
+          },
           onError: (err: unknown) => {
+            if (leavingCheckout.current) return;
+            if (pendingPayment.current) { void checkPayment.current(); return; }
             setBusy(false);
             setPaymentError(
               err instanceof Error
@@ -214,7 +260,7 @@ export default function CheckoutPage() {
         } catch {}
       });
     };
-  }, [hydrated, hasItems, clear]);
+  }, [hydrated, hasItems]);
   const customerEmail = useRef("");
   customerEmail.current = customer?.email ?? customerEmail.current;
 
@@ -355,8 +401,8 @@ export default function CheckoutPage() {
             </p>
           )}
           <div
-            className={`mt-6 space-y-2 ${!quote || busy ? "pointer-events-none opacity-40" : ""}`}
-            inert={!quote || busy}
+            className={`mt-6 space-y-2 ${!quote || busy || paymentPending ? "pointer-events-none opacity-40" : ""}`}
+            inert={!quote || busy || paymentPending}
           >
             <div ref={walletRef} style={{ colorScheme: "light" }} />
             <div ref={cardRef} style={{ colorScheme: "light" }} />
@@ -380,6 +426,7 @@ export default function CheckoutPage() {
               {paymentError}
             </p>
           )}
+          {paymentPending && !busy && <button type="button" onClick={() => void checkPayment.current()} className="kk-focus mt-3 inline-flex items-center gap-2 border border-white/30 rounded px-4 py-3 text-sm font-bold"><RefreshCw size={16} /> Check payment status</button>}
           <p className="mt-4 flex items-center gap-2 text-xs text-[#f7f1df]/60">
             <ShieldCheck size={15} />{" "}
             {IS_SANDBOX

@@ -6,6 +6,8 @@ import Link from 'next/link';
 import Input from '@/components/ui/Input';
 import { getOrderStatusMeta } from '@/lib/orderStatus';
 import { hasPaymentTestItem, PAYMENT_TEST_DESCRIPTION } from '@/lib/paymentTest';
+import { useCart } from '@/lib/cartStore';
+import { CONFIRMED_PAYMENT_KEY, PENDING_PAYMENT_KEY } from '@/lib/checkoutRecovery';
 
 type LookupItem = {
   title: string;
@@ -69,7 +71,18 @@ function ThankYouInner() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<LookupResult>(null);
   const [lookupAttempted, setLookupAttempted] = useState(false);
+  const [lookupError, setLookupError] = useState('');
   const [copied, setCopied] = useState(false);
+  const clearCart = useCart(s => s.clear);
+  useEffect(() => {
+    if (!result || !('found' in result) || !result.found) return;
+    try {
+      if (sessionStorage.getItem(CONFIRMED_PAYMENT_KEY) !== orderIdParam) return;
+      sessionStorage.removeItem(CONFIRMED_PAYMENT_KEY);
+      sessionStorage.removeItem(PENDING_PAYMENT_KEY);
+      clearCart();
+    } catch {}
+  }, [result, orderIdParam, clearCart]);
 
   const trackHref = useMemo(() => {
     const qs = new URLSearchParams();
@@ -90,15 +103,18 @@ function ThankYouInner() {
     (async () => {
       try {
         setLoading(true);
+        setLookupError('');
         const res = await fetch('/api/orders/lookup', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ orderID: orderIdParam, email }),
         });
+        if (!res.ok) throw new Error('Receipt unavailable');
         const json = (await res.json()) as LookupResult;
         setResult(json);
       } catch {
         setResult(null);
+        setLookupError('Your receipt could not load. Check it again below; do not make another payment.');
       } finally {
         setLoading(false);
         setLookupAttempted(true);
@@ -112,14 +128,18 @@ function ThankYouInner() {
 
     try {
       setLoading(true);
+      setLookupError('');
       const res = await fetch('/api/orders/lookup', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ orderID: orderIdParam, email }),
       });
+      if (!res.ok) throw new Error('Receipt unavailable');
       const json = (await res.json()) as LookupResult;
       setResult(json);
       if (typeof window !== 'undefined') sessionStorage.setItem('kk_email', email);
+    } catch {
+      setLookupError('Your receipt could not load. Check it again below; do not make another payment.');
     } finally {
       setLoading(false);
       setLookupAttempted(true);
@@ -265,7 +285,8 @@ function ThankYouInner() {
             </p>
           )}
 
-          {!loading && (!lookupAttempted || (result && 'found' in result && !result.found)) ? (
+          {lookupError && <p role="alert" className="py-3 text-sm text-[#ff4f5f]">{lookupError}</p>}
+          {!loading && (!lookupAttempted || lookupError || (result && 'found' in result && !result.found)) ? (
             <form onSubmit={handleManualLookup} className="mt-2 grid gap-3 border-t border-[#f7f1df]/10 pt-4 sm:grid-cols-[1fr_auto] sm:items-end">
               <Input
                 type="email"
