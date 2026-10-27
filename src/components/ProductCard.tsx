@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { formatPrice } from "@/lib/format";
+import { productThumbnail } from '@/lib/productThumbnail';
 
 type Product = {
   slug: string;
@@ -24,7 +25,7 @@ export default function ProductCard({ product }: { product: Product }) {
     >
       <div className="relative aspect-[4/5] overflow-hidden bg-[#e7e4de]">
         <Image
-          src={product.images[0] || "/placeholder.png"}
+          src={productThumbnail(product.slug, product.images)}
           alt={product.title}
           fill
           sizes="(min-width:1024px) 45vw, (min-width:640px) 50vw, 100vw"

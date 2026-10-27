@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { formatPrice } from "@/lib/format";
+import { productThumbnail } from '@/lib/productThumbnail';
 import { useCart } from "@/lib/cartStore";
 import type { CatalogProduct } from "@/lib/catalog";
 import { getGarment } from "@/data/garments";
@@ -361,7 +362,7 @@ export default function PDPClient({
               >
                 <div className="relative aspect-square w-28 shrink-0 overflow-hidden rounded bg-white/5">
                   <Image
-                    src={p.images[0]}
+                    src={productThumbnail(p.slug, p.images)}
                     alt={p.title}
                     fill
                     sizes="112px"
